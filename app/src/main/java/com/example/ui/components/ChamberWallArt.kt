@@ -107,6 +107,8 @@ internal fun ChamberWallBackdrop(
       }
     }
 
+  val scratchPath = remember { Path() }
+
   Box(modifier = modifier.fillMaxSize()) {
     Image(
       painter = painterResource(id = R.drawable.img_wall_phase1),
@@ -166,17 +168,16 @@ internal fun ChamberWallBackdrop(
           state.phase == 3 -> 10.dp.toPx() + breath * 3.dp.toPx()
           else -> 0f
         }
+      val warpStroke = Stroke(width = 1.1f)
 
       var x = tileStep
       while (x < size.width) {
         if (warpStrength > 0f) {
           val pull = ((valveCenter.x - x) / size.width) * warpStrength * 2.2f
-          val path =
-            Path().apply {
-              moveTo(x, 0f)
-              quadraticTo(x + pull, valveCenter.y, x, size.height)
-            }
-          drawPath(path, tileLineColor, style = Stroke(width = 1.1f))
+          scratchPath.rewind()
+          scratchPath.moveTo(x, 0f)
+          scratchPath.quadraticTo(x + pull, valveCenter.y, x, size.height)
+          drawPath(scratchPath, tileLineColor, style = warpStroke)
         } else {
           drawLine(tileLineColor, Offset(x, 0f), Offset(x, size.height), strokeWidth = 1f)
         }
@@ -186,12 +187,10 @@ internal fun ChamberWallBackdrop(
       while (y < size.height) {
         if (warpStrength > 0f) {
           val pull = ((valveCenter.y - y) / size.height) * warpStrength * 1.8f
-          val path =
-            Path().apply {
-              moveTo(0f, y)
-              quadraticTo(valveCenter.x, y + pull, size.width, y)
-            }
-          drawPath(path, tileLineColor, style = Stroke(width = 1.1f))
+          scratchPath.rewind()
+          scratchPath.moveTo(0f, y)
+          scratchPath.quadraticTo(valveCenter.x, y + pull, size.width, y)
+          drawPath(scratchPath, tileLineColor, style = warpStroke)
         } else {
           drawLine(tileLineColor, Offset(0f, y), Offset(size.width, y), strokeWidth = 1f)
         }
@@ -243,51 +242,51 @@ internal fun ChamberWallBackdrop(
 
       if (state.phase >= 3) {
         val cornerColor = colorScheme.tertiary.copy(alpha = 0.26f + breath * 0.08f)
+        val pocketOutline = colorScheme.outline.copy(alpha = 0.65f)
+        val pocketStroke = Stroke(1.2.dp.toPx())
         val pocketSize = 46.dp.toPx()
-        val leftPocket =
-          Path().apply {
-            moveTo(0f, size.height * 0.36f)
-            quadraticTo(pocketSize * 0.85f, size.height * 0.44f, 0f, size.height * 0.56f)
-            close()
-          }
-        val rightPocket =
-          Path().apply {
-            moveTo(size.width, size.height * 0.42f)
-            quadraticTo(
-              size.width - pocketSize * 0.85f,
-              size.height * 0.50f,
-              size.width,
-              size.height * 0.64f,
-            )
-            close()
-          }
-        drawPath(leftPocket, cornerColor)
-        drawPath(rightPocket, cornerColor)
-        drawPath(leftPocket, colorScheme.outline.copy(alpha = 0.65f), style = Stroke(1.2.dp.toPx()))
-        drawPath(rightPocket, colorScheme.outline.copy(alpha = 0.65f), style = Stroke(1.2.dp.toPx()))
+
+        scratchPath.rewind()
+        scratchPath.moveTo(0f, size.height * 0.36f)
+        scratchPath.quadraticTo(pocketSize * 0.85f, size.height * 0.44f, 0f, size.height * 0.56f)
+        scratchPath.close()
+        drawPath(scratchPath, cornerColor)
+        drawPath(scratchPath, pocketOutline, style = pocketStroke)
+
+        scratchPath.rewind()
+        scratchPath.moveTo(size.width, size.height * 0.42f)
+        scratchPath.quadraticTo(
+          size.width - pocketSize * 0.85f,
+          size.height * 0.50f,
+          size.width,
+          size.height * 0.64f,
+        )
+        scratchPath.close()
+        drawPath(scratchPath, cornerColor)
+        drawPath(scratchPath, pocketOutline, style = pocketStroke)
       }
 
       if (state.phase >= 4) {
         val ribColor = colorScheme.onSurfaceVariant.copy(alpha = 0.34f + breath * 0.10f)
         val ribShadow = colorScheme.background.copy(alpha = 0.78f)
+        val shadowStroke = Stroke(width = 6.dp.toPx(), cap = StrokeCap.Round)
+        val boneStroke = Stroke(width = 2.6.dp.toPx(), cap = StrokeCap.Round)
         for (r in 0..3) {
           val baseY = size.height * (0.22f + r * 0.20f)
           val reach =
             size.width * (0.20f + (if (r == 1 || r == 2) 0.07f else 0f) + breath * 0.02f)
-          val leftRib =
-            Path().apply {
-              moveTo(0f, baseY - 12.dp.toPx())
-              quadraticTo(reach, baseY, 0f, baseY + 12.dp.toPx())
-            }
-          val rightRib =
-            Path().apply {
-              moveTo(size.width, baseY - 12.dp.toPx())
-              quadraticTo(size.width - reach, baseY, size.width, baseY + 12.dp.toPx())
-            }
-          drawPath(leftRib, ribShadow, style = Stroke(width = 6.dp.toPx(), cap = StrokeCap.Round))
-          drawPath(leftRib, ribColor, style = Stroke(width = 2.6.dp.toPx(), cap = StrokeCap.Round))
-          drawPath(rightRib, ribShadow, style = Stroke(width = 6.dp.toPx(), cap = StrokeCap.Round))
-          drawPath(rightRib, ribColor, style = Stroke(width = 2.6.dp.toPx(), cap = StrokeCap.Round))
+
+          scratchPath.rewind()
+          scratchPath.moveTo(0f, baseY - 12.dp.toPx())
+          scratchPath.quadraticTo(reach, baseY, 0f, baseY + 12.dp.toPx())
+          drawPath(scratchPath, ribShadow, style = shadowStroke)
+          drawPath(scratchPath, ribColor, style = boneStroke)
+
+          scratchPath.rewind()
+          scratchPath.moveTo(size.width, baseY - 12.dp.toPx())
+          scratchPath.quadraticTo(size.width - reach, baseY, size.width, baseY + 12.dp.toPx())
+          drawPath(scratchPath, ribShadow, style = shadowStroke)
+          drawPath(scratchPath, ribColor, style = boneStroke)
         }
       }
 
@@ -325,6 +324,8 @@ internal fun ChamberWallBackdrop(
           } else {
             colorScheme.outline.copy(alpha = 0.56f)
           }
+        val fissureStroke =
+          Stroke(width = (1.3f + state.phase * 0.45f).dp.toPx(), cap = StrokeCap.Round)
         for (i in 0 until fissureCount) {
           val angle = (i * (2.0 * PI / fissureCount)) + (breath - 0.5) * 0.08
           val reach = size.minDimension * (0.36f + state.phase * 0.11f + breath * 0.03f)
@@ -338,19 +339,22 @@ internal fun ChamberWallBackdrop(
               valveCenter.x + cos(angle).toFloat() * reach,
               valveCenter.y + sin(angle).toFloat() * reach,
             )
-          val path =
-            Path().apply {
-              moveTo(valveCenter.x, valveCenter.y)
-              quadraticTo(mid.x, mid.y, end.x, end.y)
-            }
-          drawPath(
-            path = path,
-            color = veinColor,
-            style = Stroke(width = (1.3f + state.phase * 0.45f).dp.toPx(), cap = StrokeCap.Round),
-          )
+          scratchPath.rewind()
+          scratchPath.moveTo(valveCenter.x, valveCenter.y)
+          scratchPath.quadraticTo(mid.x, mid.y, end.x, end.y)
+          drawPath(path = scratchPath, color = veinColor, style = fissureStroke)
         }
       }
 
+      drawExcisionChamberMutations(
+        state = state,
+        breath = breath,
+        primaryColor = colorScheme.primary,
+        tertiaryColor = colorScheme.tertiary,
+        outlineColor = colorScheme.outline,
+        backgroundColor = colorScheme.background,
+        scratchPath = scratchPath,
+      )
     }
   }
 }

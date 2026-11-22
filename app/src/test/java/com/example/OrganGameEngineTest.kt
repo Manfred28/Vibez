@@ -7,15 +7,26 @@ import com.example.data.DialogueTrigger
 import com.example.data.EscalationCurve
 import com.example.data.PhaseMetadata
 import com.example.game.ActiveWallAnomaly
+import com.example.game.Arc2Balance
+import com.example.game.Arc2InvestigatorEngine
+import com.example.game.CaseDeduction
 import com.example.game.CreatureType
+import com.example.game.CultDossierLine
+import com.example.game.DredgedRelic
+import com.example.game.ExcisionMilestone
+import com.example.game.GameArc
+import com.example.game.InvestigatorContact
 import com.example.game.OrganBalance
+import com.example.game.OrganDevEngine
 import com.example.game.OrganGameEngine
 import com.example.game.OrganGameState
+import com.example.game.ScarNodeId
 import com.example.game.SpecimenJar
 import com.example.game.WallAnomalyType
 import com.example.ui.OrganViewModel
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -24,7 +35,7 @@ class OrganGameEngineTest {
 
   private fun sampleCatalog(): DialogueCatalog =
     DialogueCatalog(
-      schemaVersion = 2,
+      schemaVersion = 3,
       phases =
         listOf(
           PhaseMetadata(0, "The Counting Room", "latent"),
@@ -32,6 +43,8 @@ class OrganGameEngineTest {
           PhaseMetadata(2, "Apparatus & Flesh", "heavy"),
           PhaseMetadata(3, "Collapse of Meaning", "dread"),
           PhaseMetadata(4, "The Endless Hollow", "overwhelming"),
+          PhaseMetadata(5, "The Inquiry", "haunted"),
+          PhaseMetadata(6, "The Convergence", "threshold"),
         ),
       entries =
         listOf(
@@ -90,6 +103,15 @@ class OrganGameEngineTest {
             lines = listOf("Graft complete."),
           ),
           DialogueEntry(
+            id = "dlg_rib",
+            phase = 4,
+            mood = "grotesque",
+            trigger = DialogueTrigger("anomaly_interacted", 1L, target = "chitin_rib"),
+            once = true,
+            speaker = "Marrow Seam",
+            lines = listOf("Rib pried open."),
+          ),
+          DialogueEntry(
             id = "dlg_excision",
             phase = 0,
             mood = "hopeless",
@@ -106,6 +128,78 @@ class OrganGameEngineTest {
             once = true,
             speaker = "Caretaker Margin",
             lines = listOf("Cycle 1 handwriting echo."),
+          ),
+          DialogueEntry(
+            id = "dlg_scar_first",
+            phase = 0,
+            mood = "grotesque",
+            trigger = DialogueTrigger("scar_node_unlocked", 1L),
+            once = true,
+            speaker = "Surgical Note",
+            lines = listOf("First incision sutured."),
+          ),
+          DialogueEntry(
+            id = "dlg_relic",
+            phase = 2,
+            mood = "existential",
+            trigger = DialogueTrigger("relic_dredged", 1L),
+            once = true,
+            speaker = "Drain",
+            lines = listOf("Wristband dredged."),
+          ),
+          DialogueEntry(
+            id = "dlg_echo",
+            phase = 3,
+            mood = "uncanny",
+            trigger = DialogueTrigger("echo_routed", 1L),
+            once = true,
+            speaker = "Aperture",
+            lines = listOf("Resonance returned."),
+          ),
+          DialogueEntry(
+            id = "dlg_bloom",
+            phase = 4,
+            mood = "grotesque",
+            trigger = DialogueTrigger("marrow_bloom", 1L),
+            once = true,
+            speaker = "Clamp",
+            lines = listOf("Marrow bloom erupted."),
+          ),
+          DialogueEntry(
+            id = "dlg_dossier_1",
+            phase = 4,
+            mood = "existential",
+            trigger = DialogueTrigger("dossier_line_unredacted", 1L),
+            once = true,
+            speaker = "Dossier",
+            lines = listOf("Line 1 unsealed."),
+          ),
+          DialogueEntry(
+            id = "dlg_arc2_entry",
+            phase = 5,
+            mood = "depressive",
+            trigger = DialogueTrigger("arc_entered", 1L, target = "arc_2"),
+            once = true,
+            speaker = "Desk",
+            lines = listOf("Entered Arc 2."),
+          ),
+          DialogueEntry(
+            id = "dlg_arc2_file_zero",
+            phase = 5,
+            mood = "existential",
+            trigger = DialogueTrigger("case_chapter_completed", 4L),
+            once = true,
+            speaker = "File #00",
+            lines = listOf("It is your own signature."),
+          ),
+          DialogueEntry(
+            id = "dlg_arc3_entry",
+            phase = 6,
+            mood = "hopeless",
+            trigger = DialogueTrigger("arc_entered", 1L, target = "arc_3"),
+            once = true,
+            speaker = "Threshold",
+            lines = listOf("Entered Arc 3."),
           ),
         ),
     )
@@ -247,6 +341,43 @@ class OrganGameEngineTest {
     val prodded = OrganGameEngine.interactAnomaly(p3WithNodule, 101L, catalog)
     assertEquals(16_500.0 + OrganBalance.NODULE_BASE_ICHOR_REWARD, prodded.ichor, 0.001)
     assertEquals(OrganBalance.NODULE_BASE_STILLNESS_REWARD, prodded.stillness, 0.001)
+
+    // Phase 4 Split Chitin Rib grants scaled Ichor + Stillness + 6s Eye Gaze without breaking Stillness
+    val p4WithRib =
+      OrganGameEngine.initialState(catalog).copy(
+        ichor = 90_000.0,
+        cycleLifetimeIchor = 90_000.0,
+        phase = 4,
+        isStillnessActive = true,
+        ownedJars = setOf(SpecimenJar.ALMOST_A_NAME),
+        activeAnomalies = listOf(ActiveWallAnomaly(102L, WallAnomalyType.CHITIN_RIB, 0.8f, 0.3f)),
+      )
+    val pried = OrganGameEngine.interactAnomaly(p4WithRib, 102L, catalog)
+    assertEquals(
+      90_000.0 + OrganBalance.RIB_BASE_ICHOR_REWARD * OrganBalance.ALMOST_A_NAME_MULTIPLIER,
+      pried.ichor,
+      0.001,
+    )
+    assertEquals(
+      OrganBalance.RIB_BASE_STILLNESS_REWARD * OrganBalance.ALMOST_A_NAME_MULTIPLIER,
+      pried.stillness,
+      0.001,
+    )
+    assertEquals(OrganBalance.RIB_GAZE_DURATION_SEC, pried.gazeRemainingSeconds, 0.001)
+    assertTrue("Prying a Chitin Rib must preserve active Stillness", pried.isStillnessActive)
+    assertEquals("dlg_rib", pried.activeDialogue?.id)
+
+    // Verify Chitin Rib can spawn organically in Phase 4 when other anomalies are already on screen
+    var p4Spawner =
+      OrganGameEngine.initialState(catalog).copy(
+        ichor = 90_000.0,
+        cycleLifetimeIchor = 90_000.0,
+        phase = 4,
+        nextAnomalyId = 4L,
+        secondsUntilNextAnomaly = 0.5,
+      )
+    p4Spawner = OrganGameEngine.tick(p4Spawner, 1.0, catalog)
+    assertEquals(WallAnomalyType.CHITIN_RIB, p4Spawner.activeAnomalies.first().type)
   }
 
   @Test
@@ -325,11 +456,14 @@ class OrganGameEngineTest {
         anomalyInteractions = mapOf(WallAnomalyType.PALE_TOOTH to 3),
       )
     assertTrue(ready.canExcise)
-    assertEquals(1L, ready.pendingScarTissue)
+    // Excision I first clear yields 1 base + 2 M1 milestone bonus = 3 Scar Tissue
+    assertEquals(3L, ready.pendingScarTissue)
 
     val postReset = OrganGameEngine.performExcision(ready, catalog)
     assertEquals(1, postReset.cycle)
-    assertEquals(1L, postReset.scarTissue)
+    assertEquals(1, postReset.highestExcisionMilestone)
+    assertEquals(3L, postReset.scarTissue)
+    assertEquals(3L, postReset.availableScarTissue)
     assertEquals(0L, postReset.ichorDisplay)
     assertEquals(0L, postReset.stillnessDisplay)
     assertEquals(0, postReset.phase)
@@ -337,19 +471,20 @@ class OrganGameEngineTest {
     assertEquals(0, postReset.graftedTendrils)
     assertTrue(postReset.ownedJars.isEmpty())
     assertTrue(postReset.anomalyInteractions.isEmpty())
-    assertEquals(1.75, postReset.scarMultiplier, 0.001)
-    assertEquals(1.25, postReset.scarStillnessMultiplier, 0.001)
-    assertEquals(1.75, postReset.manualTapYield, 0.001)
+    // scarMultiplier = 1.0 + 1*0.25 + 3*0.15 = 1.70; scarStillnessMultiplier = 1.0 + 1*0.20 + 3*0.10 = 1.50
+    assertEquals(1.70, postReset.scarMultiplier, 0.001)
+    assertEquals(1.50, postReset.scarStillnessMultiplier, 0.001)
+    assertEquals(1.70, postReset.manualTapYield, 0.001)
     assertEquals("dlg_excision", postReset.activeDialogue?.id)
 
-    // Verify prestige passive Stillness multiplier applies to Weeping Lamps & Swollen Nodules
+    // Verify prestige passive Stillness multiplier applies to Weeping Lamps
     val cycle1LampIdle =
       postReset.copy(
         creatures = mapOf(CreatureType.WEEPING_LAMP to 1),
         isStillnessActive = true,
       )
     assertEquals(
-      OrganBalance.LAMP_STILLNESS_PER_SEC * 1.25,
+      OrganBalance.LAMP_STILLNESS_PER_SEC * 1.50,
       cycle1LampIdle.stillnessPerSecond,
       0.0001,
     )
@@ -486,8 +621,8 @@ class OrganGameEngineTest {
         scarTissue = 2L,
       )
 
-    val scarIchorMult = 1.0 + 2 * OrganBalance.SCAR_TISSUE_BONUS_PER_UNIT // 2.5x
-    val scarStillMult = 1.0 + 2 * OrganBalance.SCAR_STILLNESS_BONUS_PER_UNIT // 1.5x
+    val scarIchorMult = 1.0 + 2 * OrganBalance.SCAR_RESONANCE_PER_UNIT // 1.30x
+    val scarStillMult = 1.0 + 2 * OrganBalance.SCAR_STILLNESS_RESONANCE_PER_UNIT // 1.20x
     val gazeMult = OrganBalance.GAZE_PASSIVE_MULTIPLIER // 1.6x
 
     val expectedSutureEach =
@@ -523,5 +658,231 @@ class OrganGameEngineTest {
         state.totalCreatureIchorPerSec(CreatureType.WEEPING_LAMP)
     assertEquals(state.ichorPerSecond, summedIchor, 0.0001)
     assertEquals(state.stillnessPerSecond, 2 * expectedLampStillnessEach, 0.0001)
+  }
+
+  @Test
+  fun scarSkillTree_enforcesPrerequisitesAppliesAllBranchPowersAndCompressesRepeatRuns() {
+    val catalog = sampleCatalog()
+    var state =
+      OrganGameEngine.initialState(catalog).copy(
+        highestExcisionMilestone = 1,
+        scarTissue = 25L,
+        availableScarTissue = 25L,
+      )
+
+    // Prerequisite check: Tier 1 cannot be sutured before FIRST_INCISION root
+    assertFalse(state.canUnlockNode(ScarNodeId.CALLOUSED_PALM))
+    assertTrue(state.canUnlockNode(ScarNodeId.FIRST_INCISION))
+
+    state = OrganGameEngine.unlockScarNode(state, ScarNodeId.FIRST_INCISION, catalog)
+    assertEquals(24L, state.availableScarTissue)
+    assertEquals("dlg_scar_first", state.activeDialogue?.id)
+
+    // Unlock Suture + Stillness + Marrow Tier 1-2 nodes
+    state = OrganGameEngine.unlockScarNode(state, ScarNodeId.CALLOUSED_PALM, catalog)
+    state = OrganGameEngine.unlockScarNode(state, ScarNodeId.SHORTER_SILENCE, catalog)
+    state = OrganGameEngine.unlockScarNode(state, ScarNodeId.WAX_SEALED_MEMORY, catalog)
+    state = OrganGameEngine.unlockScarNode(state, ScarNodeId.SOFTENED_MORTAR, catalog)
+    state = OrganGameEngine.unlockScarNode(state, ScarNodeId.AUTO_TENDRIL_SUTURE, catalog)
+    assertEquals(7L, state.availableScarTissue)
+
+    // Verify Shorter Silence reduces Stillness delay to 1.5s
+    assertEquals(1.5, state.stillnessIdleDelaySec, 0.001)
+
+    // Verify Wax-Sealed Memory preserves jars and Calloused Palm seeds creatures across Excision reset
+    val preReset =
+      state.copy(
+        ichor = 220_000.0,
+        cycleLifetimeIchor = 220_000.0,
+        phase = 4,
+        ownedJars = setOf(SpecimenJar.YESTERDAYS_DUST, SpecimenJar.UNSPENT_BREATH),
+      )
+    val postReset = OrganGameEngine.performExcision(preReset, catalog)
+    assertEquals(3, postReset.creatureCount(CreatureType.SUTURE_HAND))
+    assertEquals(1, postReset.creatureCount(CreatureType.LEECH_CLERK))
+    assertEquals(setOf(SpecimenJar.YESTERDAYS_DUST, SpecimenJar.UNSPENT_BREATH), postReset.ownedJars)
+
+    // Verify Deep Weeping drips 40% Stillness even while actively tapping
+    val deepWeepingState =
+      postReset.copy(
+        unlockedScarNodes = postReset.unlockedScarNodes + ScarNodeId.DEEP_WEEPING,
+        creatures = mapOf(CreatureType.WEEPING_LAMP to 1),
+        isStillnessActive = false,
+      )
+    assertTrue("Deep Weeping must generate Stillness even while not idle", deepWeepingState.stillnessPerSecond > 0.0)
+
+    // Verify Auto-Tendril Suture automatically grafts when 4+ Hands & 4+ Leeches exist in Phase 3+
+    val autoGraftReady =
+      postReset.copy(
+        cycleLifetimeIchor = 20_000.0,
+        phase = 3,
+        creatures = mapOf(CreatureType.SUTURE_HAND to 4, CreatureType.LEECH_CLERK to 4),
+      )
+    val afterAutoGraft = OrganGameEngine.tick(autoGraftReady, 1.0, catalog)
+    assertEquals(1, afterAutoGraft.graftedTendrils)
+
+    // Verify an upgraded Cycle 2 repeat harvest compresses cleanly from ~15 min down under 7 min
+    var sim = postReset
+    var sec = 0
+    while (!sim.canExcise && sec < 480) {
+      if (sec % 2 == 0) sim = OrganGameEngine.pressValve(sim, catalog)
+      if (sim.activeAnomalies.isNotEmpty()) {
+        sim = OrganGameEngine.interactAnomaly(sim, sim.activeAnomalies.first().id, catalog)
+      }
+      val lampCost = sim.creatureCost(CreatureType.WEEPING_LAMP)
+      val leechCost = sim.creatureCost(CreatureType.LEECH_CLERK)
+      when {
+        sim.cycleLifetimeIchorDisplay >= CreatureType.WEEPING_LAMP.unlockIchorThreshold &&
+          sim.ichor >= lampCost -> sim = OrganGameEngine.buyCreature(sim, CreatureType.WEEPING_LAMP, catalog)
+        sim.cycleLifetimeIchorDisplay >= CreatureType.LEECH_CLERK.unlockIchorThreshold &&
+          sim.ichor >= leechCost -> sim = OrganGameEngine.buyCreature(sim, CreatureType.LEECH_CLERK, catalog)
+      }
+      sim = OrganGameEngine.tick(sim, 1.0, catalog)
+      sec += 1
+    }
+    assertTrue("Upgraded Cycle 2 repeat run should reach Excision in <= 7 min (actual ${sec}s)", sim.canExcise && sec <= 420)
+  }
+
+  @Test
+  fun excisionsTwoThroughSix_unlockSumpDrainEchoClampChoirLungThroatDossierAndBreachToArc2() {
+    val catalog = sampleCatalog()
+
+    // Excision II: Sump-Siphon + Floor Drain Grate Seal -> 100% -> Dredge Relic
+    var s = OrganDevEngine.setHighestMilestone(OrganGameEngine.initialState(catalog), 2, catalog)
+    s = OrganDevEngine.assignArc1Resources(s, ichor = 500_000.0, stillness = 100.0, catalog = catalog)
+    s = OrganGameEngine.buyCreature(s, CreatureType.SUMP_SIPHON, catalog)
+    assertEquals(1, s.creatureCount(CreatureType.SUMP_SIPHON))
+
+    s = OrganGameEngine.toggleDrainSeal(s, catalog)
+    assertTrue(s.drainSealed)
+    s = OrganGameEngine.tick(s, 20.0, catalog)
+    assertTrue(s.canDredgeSump)
+    s = OrganGameEngine.dredgeSump(s, catalog)
+    assertTrue(DredgedRelic.PATIENT_WRISTBAND in s.dredgedRelics)
+    assertEquals(0.0, s.drainPressure, 0.001)
+    assertEquals("dlg_relic", s.activeDialogue?.id)
+
+    // Excision III: Neighbor Aperture Echo Diversion -> 12s burst
+    s = OrganDevEngine.setHighestMilestone(s, 3, catalog)
+    s = OrganGameEngine.setEchoDiversion(s, 50, catalog)
+    assertEquals(50, s.echoDiversionPercent)
+    val ichorBeforeEcho = s.ichor
+    s = OrganGameEngine.tick(s, 13.0, catalog)
+    assertTrue(s.echoPulsesTriggered >= 1)
+    assertTrue(s.ichor > ichorBeforeEcho)
+    assertEquals("dlg_echo", s.activeDialogue?.id)
+
+    // Excision IV: Valve Clamp locks manual press for 20s then triggers Marrow Bloom + Choir-Lung
+    s = OrganDevEngine.setHighestMilestone(s, 4, catalog)
+    s = OrganGameEngine.activateValveClamp(s, catalog)
+    assertTrue(s.isValveClamped)
+    val beforeBlocked = s.ichor
+    assertEquals(beforeBlocked, OrganGameEngine.pressValve(s, catalog).ichor, 0.001)
+    s = OrganGameEngine.tick(s, 21.0, catalog)
+    assertEquals(1, s.marrowBloomCount)
+    assertTrue(s.marrowBloomRemainingSeconds > 0.0)
+    assertTrue(s.activeAnomalies.size >= 2)
+    assertEquals("dlg_bloom", s.activeDialogue?.id)
+
+    s =
+      s.copy(
+        creatures = s.creatures + (CreatureType.WEEPING_LAMP to 3),
+        graftedTendrils = 2,
+      )
+    assertTrue(s.canAffordChoirLung)
+    s = OrganGameEngine.performChoirLungGraft(s, catalog)
+    assertEquals(1, s.choirLungs)
+    assertEquals(1, s.creatureCount(CreatureType.WEEPING_LAMP))
+    assertEquals(1, s.graftedTendrils)
+
+    // Excision V: Ossified Throat unseals Redacted Cult Dossier lines permanently
+    s = OrganDevEngine.setHighestMilestone(s, 5, catalog)
+    s = s.copy(creatures = s.creatures + (CreatureType.SUMP_SIPHON to 3))
+    assertTrue(s.canOfferToThroat(CultDossierLine.LINE_1_HYDRO_WARD))
+    s = OrganGameEngine.offerToThroat(s, CultDossierLine.LINE_1_HYDRO_WARD, catalog)
+    assertTrue(CultDossierLine.LINE_1_HYDRO_WARD in s.unredactedDossierLines)
+    assertEquals(CultDossierLine.LINE_1_HYDRO_WARD.ichorMultiplier, s.dossierIchorMultiplier, 0.001)
+    assertEquals("dlg_dossier_1", s.activeDialogue?.id)
+
+    // Excision VI: Breach Ritual enters Arc 2 ("The Inquiry")
+    s = OrganDevEngine.setHighestMilestone(s, 6, catalog)
+    assertTrue(s.canBreachToArc2)
+    val arc2 = OrganGameEngine.performBreachToArc2(s, catalog)
+    assertEquals(GameArc.ARC_2_INVESTIGATION, arc2.activeArc)
+    assertEquals("dlg_arc2_entry", arc2.activeDialogue?.id)
+    assertEquals(6, ExcisionMilestone.entries.size)
+  }
+
+  @Test
+  fun arc2InvestigatorEngine_drivesInspectSilenceContactsDeductionsAnomaliesFileZeroAndArc3() {
+    val catalog = sampleCatalog()
+    var state = OrganDevEngine.setActiveArc(OrganGameEngine.initialState(catalog), GameArc.ARC_2_INVESTIGATION, catalog)
+    assertEquals(GameArc.ARC_2_INVESTIGATION, state.activeArc)
+
+    state = Arc2InvestigatorEngine.inspectCaseFile(state, catalog)
+    assertEquals(1L, state.arc2.leadsDisplay)
+
+    // Late-Night Silence engages after 2.5s idle and creeps Complicity
+    val complicityBefore = state.arc2.complicity
+    state = Arc2InvestigatorEngine.tick(state, Arc2Balance.SILENCE_IDLE_DELAY_SEC + 1.0, catalog)
+    assertTrue(state.arc2.isSilenceActive)
+    assertTrue(state.arc2.complicity > complicityBefore)
+
+    // Boost resources, recruit Contact, pin Deduction, spawn & click Desk Anomaly
+    state = OrganDevEngine.assignArc2Resources(state, leads = 250_000.0, silence = 500.0, catalog = catalog)
+    state = Arc2InvestigatorEngine.recruitContact(state, InvestigatorContact.NIGHT_ARCHIVIST, catalog)
+    assertEquals(1, state.arc2.contactCount(InvestigatorContact.NIGHT_ARCHIVIST))
+    assertTrue(state.arc2.leadsPerSecond > 0.0)
+
+    state = Arc2InvestigatorEngine.pinDeduction(state, CaseDeduction.HYDRO_WARD_INVOICES, catalog)
+    assertTrue(CaseDeduction.HYDRO_WARD_INVOICES in state.arc2.ownedDeductions)
+
+    state = OrganDevEngine.spawnDeskAnomaly(state)
+    assertEquals(1, state.arc2.activeDeskAnomalies.size)
+    val anomalyId = state.arc2.activeDeskAnomalies.first().id
+    state = Arc2InvestigatorEngine.interactDeskAnomaly(state, anomalyId, catalog)
+    assertTrue(state.arc2.activeDeskAnomalies.isEmpty())
+
+    // Connect Chapters 1..4 to reveal File #00 twist
+    for (ch in 1..4) {
+      assertTrue(state.arc2.canConnectNextChapter)
+      state = Arc2InvestigatorEngine.connectNextChapter(state, catalog)
+      assertEquals(ch, state.arc2.completedChapters)
+    }
+    assertTrue(state.arc2.fileZeroRevealed)
+    assertEquals(1.0f, state.arc2.complicity, 0.001f)
+    assertEquals("dlg_arc2_file_zero", state.activeDialogue?.id)
+
+    // Cross into Arc 3 open convergence threshold
+    val arc3 = Arc2InvestigatorEngine.enterArc3Convergence(state, catalog)
+    assertEquals(GameArc.ARC_3_CONVERGENCE, arc3.activeArc)
+    assertEquals("dlg_arc3_entry", arc3.activeDialogue?.id)
+  }
+
+  @Test
+  fun devEngine_mutatesMilestonesResourcesScarNodesAnomaliesAndResetsCleanly() {
+    val catalog = sampleCatalog()
+    var state = OrganGameEngine.initialState(catalog)
+    state = OrganDevEngine.setHighestMilestone(state, 5, catalog)
+    state = OrganDevEngine.assignArc1Resources(state, ichor = 123_456.0, stillness = 89.0, availableScar = 14L, catalog = catalog)
+    state = OrganDevEngine.setAllScarNodes(state, unlockAll = true, catalog = catalog)
+    state = OrganDevEngine.assignArc2Resources(state, leads = 4_200.0, silence = 75.0, completedChapters = 2, catalog = catalog)
+    state = OrganDevEngine.spawnWallAnomaly(state)
+
+    assertEquals(5, state.highestExcisionMilestone)
+    assertEquals(123_456L, state.ichorDisplay)
+    assertEquals(89L, state.stillnessDisplay)
+    assertEquals(14L, state.availableScarTissue)
+    assertEquals(ScarNodeId.entries.size, state.unlockedScarNodes.size)
+    assertEquals(4_200L, state.arc2.leadsDisplay)
+    assertEquals(2, state.arc2.completedChapters)
+    assertTrue(state.activeAnomalies.isNotEmpty())
+
+    // Dev reset wipes everything back to clean Phase 0 Arc 1
+    val reset = OrganDevEngine.resetAll(catalog)
+    assertEquals(GameArc.ARC_1_CHAMBER, reset.activeArc)
+    assertEquals(0, reset.highestExcisionMilestone)
+    assertTrue(reset.unlockedScarNodes.isEmpty())
+    assertNotNull(reset)
   }
 }

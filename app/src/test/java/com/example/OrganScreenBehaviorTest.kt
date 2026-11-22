@@ -19,11 +19,13 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.test.core.app.ApplicationProvider
 import com.example.data.AssetDialogueRepository
+import com.example.game.ActiveWallAnomaly
 import com.example.game.CreatureType
 import com.example.game.OrganBalance
 import com.example.game.OrganGameEngine
 import com.example.game.OrganGameState
 import com.example.game.SpecimenJar
+import com.example.game.WallAnomalyType
 import com.example.ui.OrganRoute
 import com.example.ui.OrganScreen
 import com.example.ui.OrganViewModel
@@ -338,10 +340,10 @@ class OrganScreenBehaviorTest {
       .assertIsDisplayed()
       .assertTextEquals(excisionFragment.lines.joinToString("\n"))
 
-    // Reaching 75 Ichor in Cycle 1 unlocks the new prestige-bound handwriting fragment
+    // Reaching 75 Ichor in Cycle 1 unlocks the new prestige-bound handwriting fragment (45 * 1.70 = 76.5 >= 75)
     val scarHandwritingFragment =
       catalog.entries.first { it.id == "dlg_cycle_1_scar_handwriting" }
-    repeat(44) { viewModel.pressValve() }
+    repeat(45) { viewModel.pressValve() }
     composeTestRule.waitForIdle()
 
     composeTestRule
@@ -352,5 +354,150 @@ class OrganScreenBehaviorTest {
       .onNodeWithTag("dialogue_body")
       .assertIsDisplayed()
       .assertTextEquals(scarHandwritingFragment.lines.joinToString("\n"))
+  }
+
+  @Test
+  fun phaseFourChitinRibAnomaly_rendersPryActionGrantsBurstGazeAndTriggersMarrowSeamFragment() {
+    val context = ApplicationProvider.getApplicationContext<Context>()
+    val catalog = AssetDialogueRepository(context).loadCatalog()
+    val ribFragment = catalog.entries.first { it.id == "dlg_p4_chitin_rib" }
+
+    var state by
+      mutableStateOf(
+        OrganGameEngine.initialState(catalog).copy(
+          ichor = 90_000.0,
+          cycleLifetimeIchor = 90_000.0,
+          stillness = 10.0,
+          phase = 4,
+          phaseName = catalog.phaseName(4),
+          activeAnomalies = listOf(ActiveWallAnomaly(77L, WallAnomalyType.CHITIN_RIB, 0.82f, 0.28f)),
+        )
+      )
+
+    composeTestRule.setContent {
+      BleakTheme(phase = state.phase) {
+        OrganScreen(
+          state = state,
+          onPressValve = { state = OrganGameEngine.pressValve(state, catalog) },
+          onBuyCreature = { type -> state = OrganGameEngine.buyCreature(state, type, catalog) },
+          onBottleJar = { jar -> state = OrganGameEngine.bottleJar(state, jar, catalog) },
+          onPerformGraft = { state = OrganGameEngine.performGraft(state, catalog) },
+          onInteractAnomaly = { id -> state = OrganGameEngine.interactAnomaly(state, id, catalog) },
+          onPerformExcision = { state = OrganGameEngine.performExcision(state, catalog) },
+        )
+      }
+    }
+    composeTestRule.waitForIdle()
+
+    composeTestRule
+      .onNodeWithTag("anomaly_chitin_rib_77")
+      .assertIsDisplayed()
+      .assertContentDescriptionEquals("Pry cracked calcified rib parting the chamber wall")
+      .performClick()
+    composeTestRule.waitForIdle()
+
+    composeTestRule.onNodeWithTag("anomaly_chitin_rib_77").assertDoesNotExist()
+    composeTestRule
+      .onNodeWithTag("gaze_active_badge")
+      .assertIsDisplayed()
+      .assertTextEquals("EYE GAZE: PASSIVE ×1.6 (6s)")
+    composeTestRule
+      .onNodeWithTag("dialogue_speaker")
+      .assertIsDisplayed()
+      .assertTextEquals("// ${ribFragment.speaker.uppercase()}")
+    composeTestRule
+      .onNodeWithTag("dialogue_body")
+      .assertIsDisplayed()
+      .assertTextEquals(ribFragment.lines.joinToString("\n"))
+  }
+
+  @Test
+  fun clinicalDevConsole_unlocksMilestonesAssignsScarSuturesTreeNodeAndShowsChamberRites() {
+    val viewModel = createViewModel()
+    composeTestRule.setContent { OrganRoute(viewModel = viewModel) }
+    composeTestRule.waitForIdle()
+
+    // Open Clinical Dev Console from header pill
+    composeTestRule.onNodeWithTag("open_dev_tools_button").assertIsDisplayed().performClick()
+    composeTestRule.waitForIdle()
+    composeTestRule.onNodeWithTag("dev_tools_dialog").assertIsDisplayed()
+
+    // Unlock Milestone 5 & grant +50 Scar Tissue, then close modal
+    composeTestRule.onNodeWithTag("dev_milestone_5").performScrollTo().performClick()
+    composeTestRule.waitForIdle()
+    composeTestRule.onNodeWithTag("dev_add_50_scar").performScrollTo().performClick()
+    composeTestRule.waitForIdle()
+    composeTestRule.onNodeWithTag("dev_close_button").performClick()
+    composeTestRule.waitForIdle()
+
+    assertEquals(5, viewModel.uiState.value.highestExcisionMilestone)
+    assertEquals(50L, viewModel.uiState.value.availableScarTissue)
+
+    // Switch to SCARS tab and suture the root FIRST_INCISION node
+    composeTestRule.onNodeWithTag("deck_tab_scar_tree").performScrollTo().performClick()
+    composeTestRule.waitForIdle()
+    composeTestRule.onNodeWithTag("scar_tree_panel").performScrollTo().assertIsDisplayed()
+    composeTestRule.onNodeWithTag("suture_selected_node_button").performScrollTo().performClick()
+    composeTestRule.waitForIdle()
+
+    assertEquals(49L, viewModel.uiState.value.availableScarTissue)
+    assertTrue(viewModel.uiState.value.unlockedScarNodes.isNotEmpty())
+
+    // Switch to RITES tab and verify Excision II-V chamber rites sections all render
+    composeTestRule.onNodeWithTag("deck_tab_chamber_rites").performScrollTo().performClick()
+    composeTestRule.waitForIdle()
+    composeTestRule.onNodeWithTag("rite_drain_section").performScrollTo().assertIsDisplayed()
+    composeTestRule.onNodeWithTag("rite_echo_section").performScrollTo().assertIsDisplayed()
+    composeTestRule.onNodeWithTag("rite_clamp_section").performScrollTo().assertIsDisplayed()
+    composeTestRule.onNodeWithTag("rite_throat_section").performScrollTo().assertIsDisplayed()
+  }
+
+  @Test
+  fun arc2InvestigatorDeskAndFileZeroTwist_flowsThroughInspectBoardRevealAndArc3Threshold() {
+    val context = ApplicationProvider.getApplicationContext<Context>()
+    val catalog = AssetDialogueRepository(context).loadCatalog()
+    val fileZeroFragment = catalog.entries.first { it.id == "dlg_arc2_ch4_file_zero" }
+    val viewModel = createViewModel()
+
+    composeTestRule.setContent { OrganRoute(viewModel = viewModel) }
+    composeTestRule.waitForIdle()
+
+    // Jump directly to Arc 2 and boost Leads/Silence via Clinical Dev Console
+    composeTestRule.onNodeWithTag("open_dev_tools_button").performClick()
+    composeTestRule.waitForIdle()
+    composeTestRule.onNodeWithTag("dev_arc_2").performScrollTo().performClick()
+    composeTestRule.waitForIdle()
+    composeTestRule.onNodeWithTag("dev_boost_arc2_button").performScrollTo().performClick()
+    composeTestRule.waitForIdle()
+    composeTestRule.onNodeWithTag("dev_close_button").performClick()
+    composeTestRule.waitForIdle()
+
+    // Verify Haunted Investigator Desk renders and Stamp Case File increments Leads
+    composeTestRule.onNodeWithTag("investigator_screen").assertIsDisplayed()
+    composeTestRule.onNodeWithTag("arc2_phase_header").assertIsDisplayed()
+    val leadsBefore = viewModel.uiState.value.arc2.leadsDisplay
+    composeTestRule.onNodeWithTag("inspect_case_button").performScrollTo().performClick()
+    composeTestRule.waitForIdle()
+    assertTrue(viewModel.uiState.value.arc2.leadsDisplay > leadsBefore)
+
+    // Switch to BOARD tab and connect Chapters 1..4 to trigger File #00 twist
+    composeTestRule.onNodeWithTag("arc2_tab_evidence_board").performScrollTo().performClick()
+    composeTestRule.waitForIdle()
+    for (ch in 1..4) {
+      composeTestRule.onNodeWithTag("chapter_connect_$ch").performScrollTo().performClick()
+      composeTestRule.waitForIdle()
+    }
+
+    assertTrue(viewModel.uiState.value.arc2.fileZeroRevealed)
+    composeTestRule.onNodeWithTag("file_zero_reveal_card").performScrollTo().assertIsDisplayed()
+    composeTestRule
+      .onNodeWithTag("dialogue_body")
+      .assertIsDisplayed()
+      .assertTextEquals(fileZeroFragment.lines.joinToString("\n"))
+
+    // Enter Arc 3 open convergence threshold
+    composeTestRule.onNodeWithTag("enter_arc3_button").performScrollTo().performClick()
+    composeTestRule.waitForIdle()
+    composeTestRule.onNodeWithTag("arc3_screen").assertIsDisplayed()
   }
 }

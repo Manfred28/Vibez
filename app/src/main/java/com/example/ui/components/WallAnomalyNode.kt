@@ -49,6 +49,7 @@ internal fun WallAnomalyNode(
       WallAnomalyType.PALE_TOOTH -> stringResource(R.string.anomaly_tooth_label)
       WallAnomalyType.GLASS_EYE -> stringResource(R.string.anomaly_eye_label)
       WallAnomalyType.SWOLLEN_NODULE -> stringResource(R.string.anomaly_nodule_label)
+      WallAnomalyType.CHITIN_RIB -> stringResource(R.string.anomaly_rib_label)
     }
 
   val cd =
@@ -56,6 +57,7 @@ internal fun WallAnomalyNode(
       WallAnomalyType.PALE_TOOTH -> stringResource(R.string.anomaly_tooth_cd)
       WallAnomalyType.GLASS_EYE -> stringResource(R.string.anomaly_eye_cd)
       WallAnomalyType.SWOLLEN_NODULE -> stringResource(R.string.anomaly_nodule_cd)
+      WallAnomalyType.CHITIN_RIB -> stringResource(R.string.anomaly_rib_cd)
     }
 
   val accentColor =
@@ -63,6 +65,7 @@ internal fun WallAnomalyNode(
       WallAnomalyType.PALE_TOOTH -> colorScheme.onBackground
       WallAnomalyType.GLASS_EYE -> colorScheme.primary
       WallAnomalyType.SWOLLEN_NODULE -> colorScheme.tertiary
+      WallAnomalyType.CHITIN_RIB -> colorScheme.tertiary
     }
 
   Surface(
@@ -196,6 +199,57 @@ internal fun WallAnomalyNode(
               radius = radius * 0.42f,
               center = Offset(cx - 2.dp.toPx(), cy - 1.5.dp.toPx()),
             )
+          }
+          WallAnomalyType.CHITIN_RIB -> {
+            val spread = (1.0f + breath * 1.6f).dp.toPx()
+            // Raw arterial fissure cavity parted open by the calcified ribs
+            drawOval(
+              color = colorScheme.tertiaryContainer.copy(alpha = 0.96f),
+              topLeft = Offset(cx - 6.5.dp.toPx(), cy - 11.dp.toPx()),
+              size = Size(13.dp.toPx(), 22.dp.toPx()),
+            )
+            drawLine(
+              color = colorScheme.tertiary.copy(alpha = 0.72f + breath * 0.22f),
+              start = Offset(cx, cy - 8.5.dp.toPx()),
+              end = Offset(cx, cy + 8.5.dp.toPx()),
+              strokeWidth = (2.2f + breath * 0.9f).dp.toPx(),
+              cap = StrokeCap.Round,
+            )
+
+            // Twin curved bleached-bone rib prongs arching inward and prying the masonry apart
+            for (side in intArrayOf(-1, 1)) {
+              val s = side.toFloat()
+              val ribPath =
+                Path().apply {
+                  moveTo(cx + s * (11.5.dp.toPx()), cy - 8.5.dp.toPx())
+                  cubicTo(
+                    cx + s * (3.0.dp.toPx() + spread),
+                    cy - 5.dp.toPx(),
+                    cx + s * (2.2.dp.toPx() + spread),
+                    cy + 5.dp.toPx(),
+                    cx + s * (10.5.dp.toPx()),
+                    cy + 9.dp.toPx(),
+                  )
+                }
+              drawPath(
+                path = ribPath,
+                color = colorScheme.background.copy(alpha = 0.94f),
+                style = Stroke(width = 5.4.dp.toPx(), cap = StrokeCap.Round),
+              )
+              drawPath(
+                path = ribPath,
+                color = colorScheme.onBackground.copy(alpha = 0.92f),
+                style = Stroke(width = 3.0.dp.toPx(), cap = StrokeCap.Round),
+              )
+              // Hairline calcified fracture across the curved bone
+              drawLine(
+                color = colorScheme.tertiary.copy(alpha = 0.85f),
+                start = Offset(cx + s * (4.8.dp.toPx() + spread * 0.6f), cy - 1.dp.toPx()),
+                end = Offset(cx + s * (7.2.dp.toPx() + spread * 0.6f), cy + 1.4.dp.toPx()),
+                strokeWidth = 1.dp.toPx(),
+                cap = StrokeCap.Round,
+              )
+            }
           }
         }
       }

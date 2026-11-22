@@ -6,20 +6,31 @@
     <meta name="theme-color" content="#0A0B0B" />
     <meta
       name="description"
-      content="The Tending of the Unnamed Organ — a surreal, grotesque incremental chamber playable in the browser and on Android."
+      content="The Tending of the Unnamed Organ — a surreal, grotesque multi-arc incremental chamber playable in the browser and on Android."
     />
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta name="app-build" content="2.2" />
     <title>Tap Counter // The Counting Room</title>
     <link rel="icon" type="image/png" href="./assets/icon.png" />
-    <link rel="stylesheet" href="./styles.css" />
+    <link rel="stylesheet" href="./styles.css?v=2.2" />
   </head>
-  <body data-phase="0">
+  <body data-phase="0" data-arc="arc_1">
     <main class="app-shell">
       <header class="landing-bar">
         <div class="landing-identity">
           <img class="landing-icon" src="./assets/icon.png" alt="Chamber valve seal" />
-          <h1 class="landing-title">THE COUNTING ROOM // WEB TERMINAL</h1>
+          <h1 id="landing-title" class="landing-title">THE COUNTING ROOM // WEB TERMINAL</h1>
         </div>
         <div class="landing-actions">
+          <button
+            id="open-dev-btn"
+            type="button"
+            class="mini-btn mini-btn--dev"
+            aria-label="Open clinical developer testing console"
+          >
+            [DEV]
+          </button>
           <button
             id="wipe-save-btn"
             type="button"
@@ -31,74 +42,173 @@
         </div>
       </header>
 
-      <section class="telemetry-header" aria-label="Phase telemetry">
-        <div class="telemetry-row">
-          <span id="phase-header" class="phase-label">PHASE 00 // THE COUNTING ROOM</span>
-          <span id="phase-badge" class="phase-badge">P0</span>
-        </div>
-        <div id="cycle-status" class="cycle-status" hidden></div>
-        <div id="scar-passive-status" class="scar-passive-status" hidden></div>
-        <div class="progress-track" aria-hidden="true">
-          <div id="phase-progress-fill" class="progress-fill"></div>
-        </div>
-        <div id="threshold-status" class="threshold-status">NEXT FRACTURE: 0 / 75</div>
-      </section>
+      <!-- ==================== ARC 1: THE COUNTING ROOM ==================== -->
+      <div id="arc1-shell" class="arc-shell">
+        <section class="telemetry-header" aria-label="Phase telemetry">
+          <div class="telemetry-row">
+            <span id="phase-header" class="phase-label">PHASE 00 // THE COUNTING ROOM</span>
+            <span id="phase-badge" class="phase-badge">P0</span>
+          </div>
+          <div id="cycle-status" class="cycle-status" hidden></div>
+          <div id="scar-passive-status" class="scar-passive-status" hidden></div>
+          <div class="progress-track" aria-hidden="true">
+            <div id="phase-progress-fill" class="progress-fill"></div>
+          </div>
+          <div id="threshold-status" class="threshold-status">NEXT FRACTURE: 0 / 75</div>
+        </section>
 
-      <section class="chamber-card" aria-label="Chamber wall and valve">
-        <canvas id="chamber-backdrop-canvas" class="chamber-backdrop-canvas" aria-hidden="true"></canvas>
+        <section class="chamber-card" aria-label="Chamber wall and valve">
+          <canvas id="chamber-backdrop-canvas" class="chamber-backdrop-canvas" aria-hidden="true"></canvas>
 
-        <div class="chamber-foreground">
-          <div class="counter-block">
-            <div class="ichor-top-row">
-              <span class="ichor-label">ICHOR</span>
-              <span id="ichor-rate" class="ichor-rate" hidden></span>
-            </div>
-
-            <div class="counter-glass-wrap">
-              <div id="counter-glass-plate" class="counter-glass-plate">
-                <span id="counter-value" class="counter-value" aria-live="polite">0</span>
+          <div class="chamber-foreground">
+            <div class="counter-block">
+              <div class="ichor-top-row">
+                <span class="ichor-label">ICHOR</span>
+                <span id="ichor-rate" class="ichor-rate" hidden></span>
               </div>
-              <canvas id="leech-overlay-canvas" class="leech-overlay-canvas" aria-hidden="true"></canvas>
+
+              <div class="counter-glass-wrap">
+                <div id="counter-glass-plate" class="counter-glass-plate">
+                  <span id="counter-value" class="counter-value" aria-live="polite">0</span>
+                </div>
+                <canvas id="leech-overlay-canvas" class="leech-overlay-canvas" aria-hidden="true"></canvas>
+              </div>
+
+              <div class="status-pills-row">
+                <span id="stillness-text" class="status-tag" hidden></span>
+                <span id="stillness-active-badge" class="status-tag status-tag--stillness" hidden>
+                  STILLNESS DRIPPING
+                </span>
+                <span id="gaze-active-badge" class="status-tag status-tag--gaze" hidden></span>
+                <span id="clamp-active-badge" class="status-tag status-tag--danger" hidden></span>
+                <span id="bloom-active-badge" class="status-tag status-tag--danger" hidden></span>
+              </div>
             </div>
 
-            <div class="status-pills-row">
-              <span id="stillness-text" class="status-tag" hidden></span>
-              <span id="stillness-active-badge" class="status-tag status-tag--stillness" hidden>
-                STILLNESS DRIPPING
-              </span>
-              <span id="gaze-active-badge" class="status-tag status-tag--gaze" hidden></span>
+            <div class="valve-arena">
+              <canvas id="valve-hands-canvas" class="valve-hands-canvas" aria-hidden="true"></canvas>
+              <div class="valve-well">
+                <div class="valve-shadow-base" aria-hidden="true"></div>
+                <button
+                  id="valve-button"
+                  type="button"
+                  class="valve-button"
+                  aria-label="Press the recessed wall valve to extract ichor"
+                >
+                  <img class="valve-art-img" src="./assets/img_recessed_valve.jpg" alt="" aria-hidden="true" />
+                  <span class="valve-vignette" aria-hidden="true"></span>
+                  <span id="valve-yield-text" class="valve-yield-text">+1</span>
+                  <span id="valve-sub-label" class="valve-sub-label">VALVE</span>
+                </button>
+              </div>
+              <div id="residue-layer" class="residue-layer" aria-hidden="true"></div>
             </div>
           </div>
 
-          <div class="valve-arena">
-            <canvas id="valve-hands-canvas" class="valve-hands-canvas" aria-hidden="true"></canvas>
-            <div class="valve-well">
-              <div class="valve-shadow-base" aria-hidden="true"></div>
+          <div id="anomaly-layer" class="anomaly-layer"></div>
+        </section>
+
+        <section id="apparatus-deck" class="deck-panel" aria-label="Apparatus deck" hidden>
+          <div id="deck-tabs" class="deck-tabs" role="tablist"></div>
+          <div id="prestige-banner" class="prestige-banner" hidden></div>
+          <div id="deck-content" class="deck-content"></div>
+        </section>
+      </div>
+
+      <!-- ==================== ARC 2: THE INQUIRY (HAUNTED DESK) ==================== -->
+      <div id="arc2-shell" class="arc-shell" hidden>
+        <section class="telemetry-header telemetry-header--arc2" aria-label="Investigation telemetry">
+          <div class="telemetry-row">
+            <span id="arc2-header" class="phase-label">ARC 02 // THE INQUIRY · CASE #14-B</span>
+            <span id="arc2-chapter-badge" class="phase-badge">CH 0/4</span>
+          </div>
+          <div id="arc2-complicity-label" class="cycle-status">COMPLICITY: 5% · SCAR ECHOES: 0</div>
+          <div class="progress-track" aria-hidden="true">
+            <div id="arc2-complicity-fill" class="progress-fill progress-fill--deep"></div>
+          </div>
+          <div id="arc2-chapter-status" class="threshold-status">NEXT CHAPTER: MISSING CARETAKERS</div>
+        </section>
+
+        <section class="chamber-card chamber-card--desk" aria-label="Haunted investigator desk">
+          <canvas id="investigator-desk-canvas" class="chamber-backdrop-canvas" aria-hidden="true"></canvas>
+
+          <div class="chamber-foreground">
+            <div class="counter-block">
+              <div class="ichor-top-row">
+                <span class="ichor-label">LEADS</span>
+                <span id="arc2-leads-rate" class="ichor-rate" hidden></span>
+              </div>
+
+              <div class="counter-glass-plate counter-glass-plate--desk">
+                <span id="arc2-leads-value" class="counter-value" aria-live="polite">0</span>
+              </div>
+
+              <div class="status-pills-row">
+                <span id="arc2-silence-text" class="status-tag">SILENCE: 0</span>
+                <span id="arc2-silence-badge" class="status-tag status-tag--stillness" hidden>
+                  LATE-NIGHT SILENCE
+                </span>
+                <span id="arc2-focus-badge" class="status-tag status-tag--gaze" hidden></span>
+              </div>
+            </div>
+
+            <div class="desk-stamp-arena">
               <button
-                id="valve-button"
+                id="inspect-case-btn"
                 type="button"
-                class="valve-button"
-                aria-label="Press the recessed wall valve to extract ichor"
+                class="desk-stamp-btn"
+                aria-label="Stamp and inspect case file to gather leads"
               >
-                <img class="valve-art-img" src="./assets/img_recessed_valve.jpg" alt="" aria-hidden="true" />
-                <span class="valve-vignette" aria-hidden="true"></span>
-                <span id="valve-yield-text" class="valve-yield-text">+1</span>
-                <span class="valve-sub-label">VALVE</span>
+                <span id="inspect-yield-text" class="desk-stamp-yield">+1</span>
+                <span class="desk-stamp-sub">STAMP CASE FILE</span>
               </button>
+              <div id="arc2-residue-layer" class="residue-layer" aria-hidden="true"></div>
             </div>
-            <div id="residue-layer" class="residue-layer" aria-hidden="true"></div>
           </div>
-        </div>
 
-        <div id="anomaly-layer" class="anomaly-layer"></div>
-      </section>
+          <div id="desk-anomaly-layer" class="anomaly-layer"></div>
+        </section>
 
-      <section id="apparatus-deck" class="deck-panel" aria-label="Apparatus deck" hidden>
-        <div id="deck-tabs" class="deck-tabs" role="tablist"></div>
-        <div id="prestige-banner" class="prestige-banner" hidden></div>
-        <div id="deck-content" class="deck-content"></div>
-      </section>
+        <section id="file-zero-reveal" class="file-zero-card" hidden>
+          <div class="file-zero-kicker">// FILE #00 — SUBJECT INTAKE MATCH</div>
+          <p class="file-zero-body">
+            Distinguishing mark: pale transverse scar across left thumb. Status: Still seated at the
+            recessed valve. The blotter curls back from damp hospital tile.
+          </p>
+          <button id="enter-arc3-btn" type="button" class="excision-btn excision-btn--confirm">
+            STEP THROUGH THE SEAM // ARC 03 THRESHOLD
+          </button>
+        </section>
 
+        <section id="arc2-deck" class="deck-panel" aria-label="Investigator case deck">
+          <div id="arc2-deck-tabs" class="deck-tabs" role="tablist"></div>
+          <div id="arc2-deck-content" class="deck-content"></div>
+        </section>
+      </div>
+
+      <!-- ==================== ARC 3: OPEN CONVERGENCE THRESHOLD ==================== -->
+      <div id="arc3-shell" class="arc-shell" hidden>
+        <section class="arc3-card" aria-label="Arc 3 convergence threshold">
+          <div class="arc3-kicker">ARC 03 // CONVERGENCE THRESHOLD</div>
+          <h2 class="arc3-title">THE ROOM AND THE DESK SHARE ONE SEAM</h2>
+          <p class="arc3-body">
+            File #00 is open. The investigator who traced the Hydro-Ward cult and the attendant
+            tending the recessed valve share the same pale scar across the left thumb. Both ledgers
+            keep counting—what rises next beyond this seam remains unwritten.
+          </p>
+          <div id="arc3-stats" class="arc3-stats"></div>
+          <div class="excision-btn-row">
+            <button id="arc3-back-desk-btn" type="button" class="excision-btn excision-btn--cancel">
+              RETURN TO DESK (ARC 2)
+            </button>
+            <button id="arc3-back-chamber-btn" type="button" class="excision-btn excision-btn--arm">
+              RETURN TO VALVE (ARC 1)
+            </button>
+          </div>
+        </section>
+      </div>
+
+      <!-- ==================== SHARED GROUT / CASE LEDGER ==================== -->
       <section class="ledger-panel" aria-label="Grout transmission ledger">
         <div class="ledger-head">
           <span id="ledger-speaker" class="ledger-speaker">// GROUT LEDGER: SILENT</span>
@@ -116,7 +226,7 @@
       </section>
 
       <footer class="landing-footer">
-        <span>SPACE TO PRESS VALVE · AUTO-SAVES LOCALLY</span>
+        <span>SPACE TO ACT · AUTO-SAVES LOCALLY</span>
         <span>DUAL BUILD: GITHUB PAGES WEB + ANDROID</span>
       </footer>
     </main>
@@ -132,6 +242,109 @@
       </div>
     </div>
 
+    <!-- Clinical Dev Console Modal -->
+    <div id="dev-modal" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="dev-modal-title" hidden>
+      <div class="modal-sheet modal-sheet--dev">
+        <div class="modal-head">
+          <h2 id="dev-modal-title" class="modal-title">// CLINICAL DEV CONSOLE</h2>
+          <button id="close-dev-btn" type="button" class="mini-btn">CLOSE</button>
+        </div>
+        <div class="modal-body dev-body">
+          <div class="dev-section">
+            <div class="dev-section-label">ACTIVE ARC</div>
+            <div class="dev-chip-row">
+              <button type="button" class="dev-chip" data-dev-arc="arc_1">ARC 1 // CHAMBER</button>
+              <button type="button" class="dev-chip" data-dev-arc="arc_2">ARC 2 // DESK</button>
+              <button type="button" class="dev-chip" data-dev-arc="arc_3">ARC 3 // SEAM</button>
+            </div>
+          </div>
+
+          <div class="dev-section">
+            <div class="dev-section-label">EXCISION MILESTONE UNLOCK (M0 – M6)</div>
+            <div class="dev-chip-row">
+              <button type="button" class="dev-chip" data-dev-m="0">M0</button>
+              <button type="button" class="dev-chip" data-dev-m="1">M1</button>
+              <button type="button" class="dev-chip" data-dev-m="2">M2</button>
+              <button type="button" class="dev-chip" data-dev-m="3">M3</button>
+              <button type="button" class="dev-chip" data-dev-m="4">M4</button>
+              <button type="button" class="dev-chip" data-dev-m="5">M5</button>
+              <button type="button" class="dev-chip" data-dev-m="6">M6</button>
+            </div>
+          </div>
+
+          <div class="dev-section">
+            <div class="dev-section-label">SURGICAL SCAR TREE</div>
+            <div class="dev-chip-row">
+              <button id="dev-unlock-scars-btn" type="button" class="dev-chip">UNLOCK ALL 10 NODES</button>
+              <button id="dev-clear-scars-btn" type="button" class="dev-chip">CLEAR SCAR NODES</button>
+            </div>
+          </div>
+
+          <div class="dev-section">
+            <div class="dev-section-label">ARC 1 RESOURCES</div>
+            <div class="dev-input-grid">
+              <label class="dev-field">
+                <span>ICHOR</span>
+                <input id="dev-ichor-input" type="number" min="0" step="1" placeholder="e.g. 250000" />
+              </label>
+              <label class="dev-field">
+                <span>STILLNESS</span>
+                <input id="dev-stillness-input" type="number" min="0" step="1" placeholder="e.g. 250" />
+              </label>
+              <label class="dev-field">
+                <span>SCAR TISSUE</span>
+                <input id="dev-scar-input" type="number" min="0" step="1" placeholder="e.g. 40" />
+              </label>
+            </div>
+            <div class="dev-chip-row">
+              <button id="dev-apply-arc1-btn" type="button" class="dev-chip dev-chip--primary">APPLY ARC 1</button>
+              <button type="button" class="dev-chip" data-dev-ichor="210000">SET 210K</button>
+              <button type="button" class="dev-chip" data-dev-ichor="1200000">SET 1.2M</button>
+              <button type="button" class="dev-chip" data-dev-ichor="8500000">SET 8.5M</button>
+              <button type="button" class="dev-chip" data-dev-ichor="60000000">SET 60M</button>
+              <button type="button" class="dev-chip" data-dev-ichor="450000000">SET 450M</button>
+              <button type="button" class="dev-chip" data-dev-ichor="3500000000">SET 3.5B</button>
+              <button id="dev-preset-stillness-btn" type="button" class="dev-chip">+300 STILL</button>
+              <button id="dev-preset-scar-btn" type="button" class="dev-chip">+40 SCAR</button>
+            </div>
+          </div>
+
+          <div class="dev-section">
+            <div class="dev-section-label">ARC 2 DESK RESOURCES & CHAPTERS</div>
+            <div class="dev-input-grid">
+              <label class="dev-field">
+                <span>LEADS</span>
+                <input id="dev-leads-input" type="number" min="0" step="1" placeholder="e.g. 50000" />
+              </label>
+              <label class="dev-field">
+                <span>SILENCE</span>
+                <input id="dev-silence-input" type="number" min="0" step="1" placeholder="e.g. 150" />
+              </label>
+            </div>
+            <div class="dev-chip-row">
+              <button id="dev-apply-arc2-btn" type="button" class="dev-chip dev-chip--primary">APPLY ARC 2</button>
+              <button type="button" class="dev-chip" data-dev-leads="200000">SET 200K LEADS</button>
+              <button type="button" class="dev-chip" data-dev-ch="0">CH 0</button>
+              <button type="button" class="dev-chip" data-dev-ch="1">CH 1</button>
+              <button type="button" class="dev-chip" data-dev-ch="2">CH 2</button>
+              <button type="button" class="dev-chip" data-dev-ch="3">CH 3</button>
+              <button type="button" class="dev-chip" data-dev-ch="4">CH 4 (FILE #00)</button>
+            </div>
+          </div>
+
+          <div class="dev-section">
+            <div class="dev-section-label">SIMULATION & ANOMALIES</div>
+            <div class="dev-chip-row">
+              <button id="dev-spawn-wall-btn" type="button" class="dev-chip">SPAWN WALL ANOMALY</button>
+              <button id="dev-spawn-desk-btn" type="button" class="dev-chip">SPAWN DESK ANOMALY</button>
+              <button id="dev-skip-60s-btn" type="button" class="dev-chip">FAST-FORWARD +60s</button>
+              <button id="dev-wipe-btn" type="button" class="dev-chip dev-chip--danger">HARD RESET</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- Browser Save Reset Confirmation Modal -->
     <div id="reset-modal" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="reset-modal-title" hidden>
       <div class="modal-sheet">
@@ -140,7 +353,8 @@
         </div>
         <div class="modal-body">
           <p class="excision-summary">
-            Clear all locally stored browser Ichor, Organisms, Scar Tissue, and Archive fragments? This cannot be undone.
+            Clear all locally stored browser Ichor, Organisms, Scar Tissue, Surgical Nodes, Arc 2
+            Case Files, and Archive fragments? This cannot be undone.
           </p>
           <div class="excision-btn-row">
             <button id="cancel-reset-btn" type="button" class="excision-btn excision-btn--cancel">HOLD</button>
@@ -150,6 +364,6 @@
       </div>
     </div>
 
-    <script type="module" src="./src/app.js"></script>
+    <script type="module" src="./src/app.js?v=2.2"></script>
   </body>
 </html>

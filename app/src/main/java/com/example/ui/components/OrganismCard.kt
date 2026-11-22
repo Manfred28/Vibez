@@ -28,12 +28,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
@@ -81,18 +77,21 @@ internal fun OrganismSpecimenCard(
       CreatureType.SUTURE_HAND -> stringResource(R.string.creature_suture_code)
       CreatureType.LEECH_CLERK -> stringResource(R.string.creature_leech_code)
       CreatureType.WEEPING_LAMP -> stringResource(R.string.creature_lamp_code)
+      CreatureType.SUMP_SIPHON -> stringResource(R.string.creature_siphon_code)
     }
   val title =
     when (type) {
       CreatureType.SUTURE_HAND -> stringResource(R.string.creature_suture_name)
       CreatureType.LEECH_CLERK -> stringResource(R.string.creature_leech_name)
       CreatureType.WEEPING_LAMP -> stringResource(R.string.creature_lamp_name)
+      CreatureType.SUMP_SIPHON -> stringResource(R.string.creature_siphon_name)
     }
   val desc =
     when (type) {
       CreatureType.SUTURE_HAND -> stringResource(R.string.creature_suture_desc)
       CreatureType.LEECH_CLERK -> stringResource(R.string.creature_leech_desc)
       CreatureType.WEEPING_LAMP -> stringResource(R.string.creature_lamp_desc)
+      CreatureType.SUMP_SIPHON -> stringResource(R.string.creature_siphon_desc)
     }
 
   val isWeeping = type == CreatureType.WEEPING_LAMP && count > 0 && state.isStillnessActive
@@ -102,6 +101,7 @@ internal fun OrganismSpecimenCard(
       count <= 0 -> stringResource(R.string.organism_status_dormant)
       type == CreatureType.SUTURE_HAND -> stringResource(R.string.organism_status_suture_active)
       type == CreatureType.LEECH_CLERK -> stringResource(R.string.organism_status_leech_active)
+      type == CreatureType.SUMP_SIPHON -> stringResource(R.string.organism_status_siphon_active)
       state.isStillnessActive -> stringResource(R.string.organism_status_lamp_weeping)
       else -> stringResource(R.string.organism_status_lamp_idle)
     }
@@ -382,6 +382,17 @@ private fun OrganismSpecimenViewport(
                 .testTag("art_weeping_lamp")
                 .semantics { contentDescription = lampCd },
           )
+        CreatureType.SUMP_SIPHON -> {
+          val siphonCd = stringResource(R.string.art_sump_siphon_cd)
+          SumpSiphonSpecimenPortrait(
+            active = active,
+            modifier =
+              Modifier.fillMaxSize()
+                .alpha(contentAlpha)
+                .testTag("art_sump_siphon")
+                .semantics { contentDescription = siphonCd },
+          )
+        }
       }
 
       // Specimen glass vignette + clinical corner registration reticles
@@ -418,145 +429,5 @@ private fun OrganismSpecimenViewport(
         )
       }
     }
-  }
-}
-
-/** Detailed anatomical glass-vessel portrait for the Weeping Lamp specimen viewport. */
-@Composable
-private fun WeepingLampSpecimenPortrait(
-  isWeeping: Boolean,
-  modifier: Modifier = Modifier,
-) {
-  val colorScheme = MaterialTheme.colorScheme
-
-  Canvas(modifier = modifier) {
-    val cx = size.width * 0.5f
-    val topY = 0f
-    val socketY = size.height * 0.24f
-    val bulbBottomY = size.height * 0.73f
-
-    // Subtle interior damp glow halo
-    drawCircle(
-      brush =
-        Brush.radialGradient(
-          colors =
-            listOf(
-              colorScheme.primary.copy(alpha = if (isWeeping) 0.40f else 0.18f),
-              Color.Transparent,
-            ),
-          center = Offset(cx, size.height * 0.50f),
-          radius = size.minDimension * 0.48f,
-        ),
-      radius = size.minDimension * 0.48f,
-      center = Offset(cx, size.height * 0.50f),
-    )
-
-    // Braided ceiling cord
-    drawLine(
-      color = colorScheme.outline,
-      start = Offset(cx, topY),
-      end = Offset(cx, socketY),
-      strokeWidth = 2.dp.toPx(),
-    )
-
-    // Tarnished brass/chitin socket collar
-    drawRect(
-      color = colorScheme.surfaceVariant,
-      topLeft = Offset(cx - 5.5.dp.toPx(), socketY - 3.dp.toPx()),
-      size = Size(11.dp.toPx(), 6.5.dp.toPx()),
-    )
-    drawRect(
-      color = colorScheme.outline,
-      topLeft = Offset(cx - 5.5.dp.toPx(), socketY - 3.dp.toPx()),
-      size = Size(11.dp.toPx(), 6.5.dp.toPx()),
-      style = Stroke(width = 1.dp.toPx()),
-    )
-
-    // Organic pear/bell glass vessel path
-    val vesselPath =
-      Path().apply {
-        moveTo(cx - 4.5.dp.toPx(), socketY + 3.dp.toPx())
-        cubicTo(
-          cx - 12.dp.toPx(),
-          size.height * 0.42f,
-          cx - 14.dp.toPx(),
-          size.height * 0.66f,
-          cx,
-          bulbBottomY,
-        )
-        cubicTo(
-          cx + 14.dp.toPx(),
-          size.height * 0.66f,
-          cx + 12.dp.toPx(),
-          size.height * 0.42f,
-          cx + 4.5.dp.toPx(),
-          socketY + 3.dp.toPx(),
-        )
-        close()
-      }
-
-    drawPath(
-      path = vesselPath,
-      brush =
-        Brush.radialGradient(
-          colors =
-            listOf(
-              (if (isWeeping) colorScheme.primary else colorScheme.secondary).copy(alpha = 0.68f),
-              colorScheme.surfaceVariant.copy(alpha = 0.92f),
-              colorScheme.background,
-            ),
-          center = Offset(cx - 2.dp.toPx(), size.height * 0.48f),
-          radius = 18.dp.toPx(),
-        ),
-    )
-
-    // Internal fluid meniscus & pulsing vein filament
-    val filamentColor =
-      if (isWeeping) colorScheme.onBackground.copy(alpha = 0.78f)
-      else colorScheme.primary.copy(alpha = 0.62f)
-    drawLine(
-      color = filamentColor,
-      start = Offset(cx, socketY + 4.dp.toPx()),
-      end = Offset(cx, size.height * 0.56f),
-      strokeWidth = 1.1.dp.toPx(),
-      cap = StrokeCap.Round,
-    )
-    drawLine(
-      color = colorScheme.primary.copy(alpha = 0.55f),
-      start = Offset(cx - 7.dp.toPx(), size.height * 0.58f),
-      end = Offset(cx + 7.dp.toPx(), size.height * 0.58f),
-      strokeWidth = 1.dp.toPx(),
-    )
-
-    // Glass rim highlight + outline
-    drawPath(
-      path = vesselPath,
-      color =
-        if (isWeeping) colorScheme.primary.copy(alpha = 0.92f)
-        else colorScheme.outline.copy(alpha = 0.90f),
-      style = Stroke(width = 1.1.dp.toPx()),
-    )
-    drawLine(
-      color = colorScheme.onBackground.copy(alpha = 0.35f),
-      start = Offset(cx - 5.5.dp.toPx(), size.height * 0.40f),
-      end = Offset(cx - 6.5.dp.toPx(), size.height * 0.55f),
-      strokeWidth = 1.3.dp.toPx(),
-      cap = StrokeCap.Round,
-    )
-
-    // Hanging teardrop condensation droplet below the vessel
-    val dropTop = bulbBottomY + 2.dp.toPx()
-    val dropBottom = size.height * 0.90f
-    val dropPath =
-      Path().apply {
-        moveTo(cx, dropTop)
-        quadraticTo(cx - 3.6.dp.toPx(), dropBottom, cx, dropBottom + 1.5.dp.toPx())
-        quadraticTo(cx + 3.6.dp.toPx(), dropBottom, cx, dropTop)
-        close()
-      }
-    drawPath(
-      path = dropPath,
-      color = if (isWeeping) colorScheme.primary else colorScheme.secondary.copy(alpha = 0.85f),
-    )
   }
 }

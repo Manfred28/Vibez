@@ -1,7 +1,7 @@
 {
-  "schemaVersion": 2,
+  "schemaVersion": 3,
   "designReference": "GAME_DESIGN_BIBLE.md",
-  "description": "Patchy, ambiguous, progress-bound narrative fragments for 'The Tending of the Unnamed Organ'. Stored strictly separate from UI and game logic.",
+  "description": "Patchy, ambiguous, progress-bound narrative fragments for 'The Tending of the Unnamed Organ' across Arc 1 (Excisions I-VI), Arc 2 (The Inquiry), and the Arc 3 threshold. Stored strictly separate from UI and game logic.",
   "phases": [
     {
       "id": 0,
@@ -27,6 +27,16 @@
       "id": 4,
       "name": "The Endless Hollow",
       "intensity": "overwhelming"
+    },
+    {
+      "id": 5,
+      "name": "The Inquiry",
+      "intensity": "paranoid"
+    },
+    {
+      "id": 6,
+      "name": "File #00",
+      "intensity": "dissociative"
     }
   ],
   "entries": [
@@ -248,6 +258,37 @@
       ]
     },
     {
+      "id": "dlg_p4_chitin_rib",
+      "phase": 4,
+      "mood": "grotesque",
+      "trigger": {
+        "type": "anomaly_interacted",
+        "target": "chitin_rib",
+        "threshold": 1
+      },
+      "once": true,
+      "speaker": "Marrow Seam",
+      "lines": [
+        "You wedged your fingers between the pale curve and pried until mortar flaked like dry skin.",
+        "Inside the hollow marrow lay a brass room tag stamped with the number of the floor you thought you lived on."
+      ]
+    },
+    {
+      "id": "dlg_p4_mid_hollow",
+      "phase": 4,
+      "mood": "hopeless",
+      "trigger": {
+        "type": "counter_reached",
+        "threshold": 145000
+      },
+      "once": true,
+      "speaker": "Bricked Threshold",
+      "lines": [
+        "The ribs breathe around your shoulders now, warm as a coat you forgot to take off indoors.",
+        "Even if the bricked-over door opened tonight, you could no longer tell which side of the plaster was the hallway."
+      ]
+    },
+    {
       "id": "dlg_p4_excision_ready",
       "phase": 4,
       "mood": "hopeless",
@@ -307,6 +348,389 @@
       "lines": [
         "Found wedged beside the bricked-over door, sealed under the same grey wax you have not melted yet.",
         "Even your stillness settles heavier on the second pass; the room is no longer waiting for you to leave."
+      ]
+    },
+    {
+      "id": "dlg_scar_first_incision",
+      "phase": 0,
+      "mood": "existential",
+      "trigger": {
+        "type": "scar_node_unlocked",
+        "threshold": 1
+      },
+      "once": true,
+      "speaker": "Suture Chart Margin",
+      "lines": [
+        "You stitched the pale ridge tighter instead of letting it close.",
+        "Every permanent cut shortens the distance back to the same cold floor."
+      ]
+    },
+    {
+      "id": "dlg_excision_m2_drain",
+      "phase": 0,
+      "mood": "grotesque",
+      "trigger": {
+        "type": "excision_milestone_reached",
+        "threshold": 2
+      },
+      "once": true,
+      "speaker": "Floor Grate Ledger",
+      "lines": [
+        "Black runoff now pools beneath the iron floor grate instead of draining away.",
+        "Something metallic knocks gently against the underside of the bars whenever the valve stops."
+      ]
+    },
+    {
+      "id": "dlg_sump_siphon_owned",
+      "phase": 2,
+      "mood": "grotesque",
+      "trigger": {
+        "type": "creature_owned",
+        "target": "sump_siphon",
+        "threshold": 1
+      },
+      "once": true,
+      "speaker": "Drainage Manifold",
+      "lines": [
+        "A ribbed leather bladder tethered to the grate, gulping dark silt upward against gravity.",
+        "Its intake valve tastes of rust and bleached hospital linen."
+      ]
+    },
+    {
+      "id": "dlg_first_relic_dredged",
+      "phase": 2,
+      "mood": "uncanny",
+      "trigger": {
+        "type": "relic_dredged",
+        "threshold": 1
+      },
+      "once": true,
+      "speaker": "Sump Recovery Tag",
+      "lines": [
+        "Hooked from the black sump: a waterlogged plastic wristband stamped with the same ward floor as the brass rib tag.",
+        "The clasp is unfastened, yet the band is still shaped to a narrow wrist."
+      ]
+    },
+    {
+      "id": "dlg_excision_m3_seam",
+      "phase": 0,
+      "mood": "surreal",
+      "trigger": {
+        "type": "excision_milestone_reached",
+        "threshold": 3
+      },
+      "once": true,
+      "speaker": "Unbricked Wall Slit",
+      "lines": [
+        "A hairline fissure opened through the north mortar into an identical dim chamber.",
+        "Through the slit you see another recessed valve sweating at the exact height of your own chest."
+      ]
+    },
+    {
+      "id": "dlg_first_echo_routed",
+      "phase": 3,
+      "mood": "existential",
+      "trigger": {
+        "type": "echo_routed",
+        "threshold": 1
+      },
+      "once": true,
+      "speaker": "Adjacent Masonry",
+      "lines": [
+        "You diverted a thin stream through the slit, and a pale tapping answered half a beat before your fingers lifted.",
+        "Either someone else is tending the next room, or the wall has learned to finish your sentences."
+      ]
+    },
+    {
+      "id": "dlg_excision_m4_clamp",
+      "phase": 0,
+      "mood": "heavy",
+      "trigger": {
+        "type": "excision_milestone_reached",
+        "threshold": 4
+      },
+      "once": true,
+      "speaker": "Iron Clamp Order",
+      "lines": [
+        "A rusted collar bolts directly over the valve lip. Holding it shut forces the plaster to swell like a held lung.",
+        "Restraint here is only another way of bruising the masonry open."
+      ]
+    },
+    {
+      "id": "dlg_first_marrow_bloom",
+      "phase": 4,
+      "mood": "grotesque",
+      "trigger": {
+        "type": "marrow_bloom",
+        "threshold": 1
+      },
+      "once": true,
+      "speaker": "Ruptured Grout",
+      "lines": [
+        "Twenty seconds of clamped silence split four seams across the tile at once.",
+        "The whole room exhaled lukewarm static—and for one breath, you thought you smelled rain."
+      ]
+    },
+    {
+      "id": "dlg_choir_lung_owned",
+      "phase": 4,
+      "mood": "depressive",
+      "trigger": {
+        "type": "creature_owned",
+        "target": "choir_lung",
+        "threshold": 1
+      },
+      "once": true,
+      "speaker": "Thoracic Graft Note",
+      "lines": [
+        "Two weeping vessels stitched around a choir-tendril until they share one slow inhale.",
+        "It keeps breathing long after your own shoulders drop."
+      ]
+    },
+    {
+      "id": "dlg_excision_m5_throat",
+      "phase": 0,
+      "mood": "hopeless",
+      "trigger": {
+        "type": "excision_milestone_reached",
+        "threshold": 5
+      },
+      "once": true,
+      "speaker": "Membrane Audit",
+      "lines": [
+        "Pale membrane now creeps over the edge of the apparatus deck, folding itself around a blacked-out institutional dossier.",
+        "It yields nothing to taps—only to feeding it the colonies you built."
+      ]
+    },
+    {
+      "id": "dlg_dossier_line_1",
+      "phase": 4,
+      "mood": "clinical",
+      "trigger": {
+        "type": "dossier_line_unredacted",
+        "threshold": 1
+      },
+      "once": true,
+      "speaker": "Rite of the Quiet Vessel [I]",
+      "lines": [
+        "\"Hydro-Ward Sub-Basement IV was never decommissioned; municipal records were transferred to private custody.\"",
+        "The black ink lifts cleanly once the throat swallows its quota."
+      ]
+    },
+    {
+      "id": "dlg_dossier_line_2",
+      "phase": 4,
+      "mood": "depressive",
+      "trigger": {
+        "type": "dossier_line_unredacted",
+        "threshold": 2
+      },
+      "once": true,
+      "speaker": "Rite of the Quiet Vessel [II]",
+      "lines": [
+        "\"Bottled stillness slows the seepage beneath the mains. Do not permit attendants to retain outside schedules.\"",
+        "Your wax-sealed jars rattle softly on the shelf."
+      ]
+    },
+    {
+      "id": "dlg_dossier_line_3",
+      "phase": 4,
+      "mood": "existential",
+      "trigger": {
+        "type": "dossier_line_unredacted",
+        "threshold": 3
+      },
+      "once": true,
+      "speaker": "Rite of the Quiet Vessel [III]",
+      "lines": [
+        "\"Brick the corridor threshold on Day 14. Leave one recessed valve, one drainage grate, and one replacement ledger.\"",
+        "The date margin is smudged in the exact same way ink bled on your first slip."
+      ]
+    },
+    {
+      "id": "dlg_dossier_line_4",
+      "phase": 4,
+      "mood": "hopeless",
+      "trigger": {
+        "type": "dossier_line_unredacted",
+        "threshold": 4
+      },
+      "once": true,
+      "speaker": "Rite of the Quiet Vessel [IV]",
+      "lines": [
+        "\"When the vessel reaches critical mass, the mortar thins enough for the subject to remember a desk.\"",
+        "One final cut remains—not through flesh, but through the wall itself."
+      ]
+    },
+    {
+      "id": "dlg_excision_m6_breach",
+      "phase": 4,
+      "mood": "surreal",
+      "trigger": {
+        "type": "excision_milestone_reached",
+        "threshold": 6
+      },
+      "once": true,
+      "speaker": "Fracture Threshold",
+      "lines": [
+        "The scalpel catches the iron seam and parts the mortar straight through.",
+        "The damp counter fractures into tungsten glare—and somewhere behind the tile, cold rain strikes office glass."
+      ]
+    },
+    {
+      "id": "dlg_arc2_entry",
+      "phase": 5,
+      "mood": "clinical",
+      "trigger": {
+        "type": "arc_entered",
+        "target": "arc_2",
+        "threshold": 1
+      },
+      "once": true,
+      "speaker": "Case Folder #14-B",
+      "lines": [
+        "Rain streaks the precinct window. Three municipal caretakers vanished from Hydro-Ward IV without signing out.",
+        "Your tungsten desk lamp hums softly over damp manila slips. Stamp the ledger and trace where they went."
+      ]
+    },
+    {
+      "id": "dlg_arc2_envelope",
+      "phase": 5,
+      "mood": "uncanny",
+      "trigger": {
+        "type": "desk_anomaly_interacted",
+        "target": "evidence_envelope",
+        "threshold": 1
+      },
+      "once": true,
+      "speaker": "Evidence Bag #04",
+      "lines": [
+        "You slit the damp envelope open; out rolls a single hollow white molar dusted with grey grout.",
+        "The evidence clerk swore the bag only contained a rusted locker key."
+      ]
+    },
+    {
+      "id": "dlg_arc2_spectacles",
+      "phase": 5,
+      "mood": "surreal",
+      "trigger": {
+        "type": "desk_anomaly_interacted",
+        "target": "fogged_spectacles",
+        "threshold": 1
+      },
+      "once": true,
+      "speaker": "Desk Blotter",
+      "lines": [
+        "You wipe lukewarm condensation off your lenses, and for half a second the leather blotter looks tiled.",
+        "When you blink again, only coffee rings and pale ink remain."
+      ]
+    },
+    {
+      "id": "dlg_arc2_red_string",
+      "phase": 5,
+      "mood": "existential",
+      "trigger": {
+        "type": "desk_anomaly_interacted",
+        "target": "red_string",
+        "threshold": 1
+      },
+      "once": true,
+      "speaker": "Pinboard Thread",
+      "lines": [
+        "The cotton twine feels stiff as dried clot between your thumb and forefinger.",
+        "Every sighting of the cult bends back toward a basement corridor the city insists was demolished."
+      ]
+    },
+    {
+      "id": "dlg_arc2_reel_tape",
+      "phase": 5,
+      "mood": "grotesque",
+      "trigger": {
+        "type": "desk_anomaly_interacted",
+        "target": "reel_tape",
+        "threshold": 1
+      },
+      "once": true,
+      "speaker": "Reel-to-Reel Transcript",
+      "lines": [
+        "Forty minutes of wet rhythmic clicking, a heavy iron valve turning, and a voice whispering tallies under its breath.",
+        "You stop the spool early because the breathing sounds too close to your own throat."
+      ]
+    },
+    {
+      "id": "dlg_arc2_ch1_caretakers",
+      "phase": 5,
+      "mood": "uncanny",
+      "trigger": {
+        "type": "case_chapter_completed",
+        "threshold": 1
+      },
+      "once": true,
+      "speaker": "Chapter I // Missing Caretakers",
+      "lines": [
+        "Every missing attendant filed a final maintenance slip dated Day 14 in bled ink.",
+        "Laid side by side under the lamp, all three signatures share your own sharp rightward slant."
+      ]
+    },
+    {
+      "id": "dlg_arc2_ch2_cult",
+      "phase": 5,
+      "mood": "heavy",
+      "trigger": {
+        "type": "case_chapter_completed",
+        "threshold": 2
+      },
+      "once": true,
+      "speaker": "Chapter II // The Hydro-Ward Cult",
+      "lines": [
+        "Invoices from the order list wax specimen jars, iron valves, and quiet attendants referred to only as Vessels.",
+        "Whenever you sit motionless to read, your desk lamp sweats a single grey drop onto the blotter."
+      ]
+    },
+    {
+      "id": "dlg_arc2_ch3_blueprint",
+      "phase": 5,
+      "mood": "existential",
+      "trigger": {
+        "type": "case_chapter_completed",
+        "threshold": 3
+      },
+      "once": true,
+      "speaker": "Chapter III // Brick-Work Blueprint",
+      "lines": [
+        "The basement survey shows no exterior door at all—only masonry sealed three winters ago around a single damp room.",
+        "In the black reflection of the rain glass, faint pale fingers twitch beside your desk lamp."
+      ]
+    },
+    {
+      "id": "dlg_arc2_ch4_file_zero",
+      "phase": 6,
+      "mood": "hopeless",
+      "trigger": {
+        "type": "case_chapter_completed",
+        "threshold": 4
+      },
+      "once": true,
+      "speaker": "File #00 // Subject Intake",
+      "lines": [
+        "\"Subject #00 — Distinguishing mark: pale transverse scar across the left thumb. Status: Still seated at valve.\"",
+        "Your own badge number is stamped across the intake margin. The blotter curls back, revealing cold wet tile beneath your palms."
+      ]
+    },
+    {
+      "id": "dlg_arc3_convergence",
+      "phase": 6,
+      "mood": "surreal",
+      "trigger": {
+        "type": "arc_entered",
+        "target": "arc_3",
+        "threshold": 1
+      },
+      "once": true,
+      "speaker": "Threshold // Unsealed",
+      "lines": [
+        "The rain-streaked office and the windowless tiled room occupy the same inch of cold air.",
+        "Both ledgers keep counting. Whatever wakes beyond File #00 waits past this seam."
       ]
     }
   ]

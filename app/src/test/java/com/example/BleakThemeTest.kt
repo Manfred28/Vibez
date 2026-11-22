@@ -78,7 +78,7 @@ class BleakThemeTest {
   @Test
   fun bleakAtmosphere_clampsOutOfRangePhasesAndEscalatesIntensityAcrossPhases0To4() {
     assertEquals(0, bleakAtmosphereForPhase(-3).phase)
-    assertEquals(4, bleakAtmosphereForPhase(99).phase)
+    assertEquals(6, bleakAtmosphereForPhase(99).phase)
 
     val atmospheres = (0..4).map { bleakAtmosphereForPhase(it) }
     for (phase in 1..4) {

@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -25,12 +24,16 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.R
 import com.example.game.CreatureType
+import com.example.game.CultDossierLine
 import com.example.game.OrganDeckTab
 import com.example.game.OrganGameState
+import com.example.game.ScarNodeId
 import com.example.game.SpecimenJar
 import com.example.ui.theme.BleakTheme
 import java.text.NumberFormat
@@ -44,6 +47,14 @@ fun ApparatusDeck(
   onBottleJar: (SpecimenJar) -> Unit,
   onPerformGraft: () -> Unit,
   onPerformExcision: () -> Unit,
+  onUnlockScarNode: (ScarNodeId) -> Unit = {},
+  onToggleDrainSeal: () -> Unit = {},
+  onDredgeSump: () -> Unit = {},
+  onSetEchoDiversion: (Int) -> Unit = {},
+  onActivateValveClamp: () -> Unit = {},
+  onPerformChoirLungGraft: () -> Unit = {},
+  onOfferToThroat: (CultDossierLine) -> Unit = {},
+  onPerformBreachToArc2: () -> Unit = {},
   modifier: Modifier = Modifier,
 ) {
   val colorScheme = MaterialTheme.colorScheme
@@ -52,7 +63,9 @@ fun ApparatusDeck(
   val availableTabs = buildList {
     add(OrganDeckTab.APPARATUS)
     if (state.isJarsAndGraftUnlocked) add(OrganDeckTab.JARS_AND_GRAFT)
-    if (state.canExcise) add(OrganDeckTab.EXCISION)
+    if (state.isScarTreeUnlocked) add(OrganDeckTab.SCAR_TREE)
+    if (state.isChamberRitesUnlocked) add(OrganDeckTab.CHAMBER_RITES)
+    if (state.canExcise || state.canBreachToArc2) add(OrganDeckTab.EXCISION)
   }
 
   val activeTab = if (selectedTab in availableTabs) selectedTab else OrganDeckTab.APPARATUS
@@ -64,7 +77,6 @@ fun ApparatusDeck(
     border = BorderStroke(1.dp, atmosphere.hairline),
   ) {
     Column(modifier = Modifier.fillMaxWidth()) {
-      // Stark institutional tab strip
       Row(modifier = Modifier.fillMaxWidth()) {
         availableTabs.forEach { tab ->
           val isSelected = tab == activeTab
@@ -72,6 +84,8 @@ fun ApparatusDeck(
             when (tab) {
               OrganDeckTab.APPARATUS -> stringResource(R.string.tab_organisms)
               OrganDeckTab.JARS_AND_GRAFT -> stringResource(R.string.tab_jars_graft)
+              OrganDeckTab.SCAR_TREE -> stringResource(R.string.tab_scar_tree)
+              OrganDeckTab.CHAMBER_RITES -> stringResource(R.string.tab_rites)
               OrganDeckTab.EXCISION -> stringResource(R.string.tab_excision)
             }
           val isExcisionTab = tab == OrganDeckTab.EXCISION
@@ -91,14 +105,17 @@ fun ApparatusDeck(
           ) {
             Text(
               text = label,
-              style = MaterialTheme.typography.labelMedium,
+              style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.5.sp, letterSpacing = 0.5.sp),
               color =
                 when {
                   isExcisionTab -> colorScheme.tertiary
                   isSelected -> colorScheme.onBackground
                   else -> colorScheme.onSurfaceVariant
                 },
-              modifier = Modifier.padding(horizontal = 10.dp, vertical = 12.dp),
+              maxLines = 1,
+              overflow = TextOverflow.Ellipsis,
+              textAlign = TextAlign.Center,
+              modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 12.dp),
             )
           }
         }
@@ -106,7 +123,7 @@ fun ApparatusDeck(
 
       HorizontalDivider(color = atmosphere.hairline, thickness = 1.dp)
 
-      if (state.scarTissue > 0L) {
+      if (state.scarTissue > 0L || state.highestExcisionMilestone > 0) {
         Surface(
           modifier = Modifier.fillMaxWidth().testTag("prestige_passive_banner"),
           color = colorScheme.tertiaryContainer.copy(alpha = 0.45f),
@@ -139,8 +156,24 @@ fun ApparatusDeck(
               onBottleJar = onBottleJar,
               onPerformGraft = onPerformGraft,
             )
+          OrganDeckTab.SCAR_TREE ->
+            ScarTreePanel(state = state, onUnlockNode = onUnlockScarNode)
+          OrganDeckTab.CHAMBER_RITES ->
+            ChamberRitesPanel(
+              state = state,
+              onToggleDrainSeal = onToggleDrainSeal,
+              onDredgeSump = onDredgeSump,
+              onSetEchoDiversion = onSetEchoDiversion,
+              onActivateValveClamp = onActivateValveClamp,
+              onPerformChoirLungGraft = onPerformChoirLungGraft,
+              onOfferToThroat = onOfferToThroat,
+            )
           OrganDeckTab.EXCISION ->
-            ExcisionRitualPanel(state = state, onPerformExcision = onPerformExcision)
+            ExcisionRitualPanel(
+              state = state,
+              onPerformExcision = onPerformExcision,
+              onPerformBreachToArc2 = onPerformBreachToArc2,
+            )
         }
       }
     }
@@ -152,13 +185,7 @@ private fun OrganismsList(
   state: OrganGameState,
   onBuyCreature: (CreatureType) -> Unit,
 ) {
-  val visibleCreatures =
-    CreatureType.entries.filter { type ->
-      state.cycle > 0 ||
-        state.cycleLifetimeIchorDisplay >= type.unlockIchorThreshold ||
-        state.creatureCount(type) > 0
-    }
-
+  val visibleCreatures = CreatureType.entries.filter { state.isCreatureUnlocked(it) }
   visibleCreatures.forEach { type ->
     OrganismSpecimenCard(
       type = type,
@@ -242,6 +269,7 @@ private fun JarsAndGraftList(
 private fun ExcisionRitualPanel(
   state: OrganGameState,
   onPerformExcision: () -> Unit,
+  onPerformBreachToArc2: () -> Unit,
 ) {
   val colorScheme = MaterialTheme.colorScheme
   val numberFormat = remember { NumberFormat.getIntegerInstance() }
@@ -261,6 +289,29 @@ private fun ExcisionRitualPanel(
       style = MaterialTheme.typography.bodyMedium,
       color = colorScheme.onSurfaceVariant,
     )
+
+    state.nextExcisionMilestone?.let { next ->
+      Text(
+        text =
+          stringResource(
+            R.string.excision_milestone_progress,
+            next.code,
+            numberFormat.format(state.cycleLifetimeIchorDisplay),
+            numberFormat.format(next.massThreshold),
+          ),
+        style = MaterialTheme.typography.labelSmall,
+        color = if (state.canClearNextMilestone) colorScheme.primary else colorScheme.onSurfaceVariant,
+        modifier = Modifier.testTag("excision_milestone_text"),
+      )
+      if (state.canClearNextMilestone) {
+        Text(
+          text = stringResource(R.string.excision_milestone_cleared_banner),
+          style = MaterialTheme.typography.labelSmall,
+          color = colorScheme.primary,
+        )
+      }
+    }
+
     Text(
       text =
         stringResource(
@@ -336,6 +387,39 @@ private fun ExcisionRitualPanel(
         }
       }
     }
+
+    // Excision VI Breach Ritual into Arc 2
+    if (state.canBreachToArc2) {
+      HorizontalDivider(color = BleakTheme.atmosphere.hairline)
+      Text(
+        text = stringResource(R.string.excision_breach_title),
+        style = MaterialTheme.typography.titleMedium,
+        color = colorScheme.primary,
+      )
+      Text(
+        text = stringResource(R.string.excision_breach_desc),
+        style = MaterialTheme.typography.bodySmall,
+        color = colorScheme.onSurfaceVariant,
+      )
+      Surface(
+        modifier =
+          Modifier.fillMaxWidth()
+            .minimumInteractiveComponentSize()
+            .testTag("breach_to_arc2_button")
+            .clickable(role = Role.Button, onClick = onPerformBreachToArc2),
+        shape = MaterialTheme.shapes.extraSmall,
+        color = colorScheme.primaryContainer,
+        border = BorderStroke(1.5.dp, colorScheme.primary),
+      ) {
+        Text(
+          text = stringResource(R.string.excision_breach_action),
+          style = MaterialTheme.typography.labelLarge,
+          color = colorScheme.primary,
+          textAlign = TextAlign.Center,
+          modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 12.dp),
+        )
+      }
+    }
   }
 }
 
@@ -347,7 +431,6 @@ private fun DeckActionRow(
   enabled: Boolean,
   accentAction: Boolean,
   testTag: String,
-  leadingArt: (@Composable () -> Unit)? = null,
   onClick: () -> Unit,
 ) {
   val colorScheme = MaterialTheme.colorScheme
@@ -381,11 +464,6 @@ private fun DeckActionRow(
       horizontalArrangement = Arrangement.SpaceBetween,
       verticalAlignment = Alignment.CenterVertically,
     ) {
-      if (leadingArt != null) {
-        leadingArt()
-        Spacer(modifier = Modifier.width(10.dp))
-      }
-
       Column(modifier = Modifier.weight(1f).padding(end = 10.dp)) {
         Text(
           text = title,

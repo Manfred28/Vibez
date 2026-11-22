@@ -16,7 +16,7 @@ import androidx.compose.ui.unit.dp
 
 /**
  * Escalation-aware atmospheric tokens that intensify the surreal, grotesque, and hopeless mood
- * across Phases 0–4 as defined in `/GAME_DESIGN_BIBLE.md`.
+ * across Phases 0–4 (Arc 1) and Phases 5–6 (Arc 2 Investigator Desk) as defined in `/GAME_DESIGN_BIBLE.md`.
  */
 @Immutable
 data class BleakAtmosphere(
@@ -63,6 +63,38 @@ val BleakColorScheme: ColorScheme =
     onErrorContainer = BleachedBone,
   )
 
+val InvestigatorColorScheme: ColorScheme =
+  darkColorScheme(
+    primary = TungstenAmberAsh,
+    onPrimary = AbyssInk,
+    primaryContainer = TungstenShadow,
+    onPrimaryContainer = ManilaAsh,
+    secondary = PaleLichen,
+    onSecondary = AbyssInk,
+    secondaryContainer = LichenShadow,
+    onSecondaryContainer = BleachedBone,
+    tertiary = DriedClot,
+    onTertiary = BleachedBone,
+    tertiaryContainer = ClotShadow,
+    onTertiaryContainer = BleachedBone,
+    background = RainNightSlate,
+    onBackground = ManilaAsh,
+    surface = DeskBlotterSurface,
+    onSurface = ManilaAsh,
+    surfaceVariant = FolderSlate,
+    onSurfaceVariant = WeatheredAsh,
+    surfaceContainerLowest = RainNightSlate,
+    surfaceContainerLow = DeskBlotterSurface,
+    surfaceContainer = FolderSlate,
+    surfaceContainerHigh = ChitinSurface,
+    outline = PrecinctOutline,
+    outlineVariant = PrecinctLine,
+    error = DreadError,
+    onError = BleachedBone,
+    errorContainer = DreadErrorContainer,
+    onErrorContainer = BleachedBone,
+  )
+
 val BleakShapes =
   Shapes(
     extraSmall = RoundedCornerShape(2.dp),
@@ -74,7 +106,7 @@ val BleakShapes =
 
 /** Resolves the phase-specific atmospheric parameters for escalation phases 0..4. */
 fun bleakAtmosphereForPhase(phase: Int): BleakAtmosphere =
-  when (phase.coerceIn(0, 4)) {
+  when (phase.coerceIn(0, 6)) {
     0 ->
       BleakAtmosphere(
         phase = 0,
@@ -123,7 +155,7 @@ fun bleakAtmosphereForPhase(phase: Int): BleakAtmosphere =
         distortionFactor = 0.75f,
         pulseDurationMs = 3000,
       )
-    else ->
+    4 ->
       BleakAtmosphere(
         phase = 4,
         auraPrimary = BruisedViolet,
@@ -134,6 +166,30 @@ fun bleakAtmosphereForPhase(phase: Int): BleakAtmosphere =
         scanlineAlpha = 0.13f,
         distortionFactor = 1.0f,
         pulseDurationMs = 2400,
+      )
+    5 ->
+      BleakAtmosphere(
+        phase = 5,
+        auraPrimary = TungstenAmberAsh,
+        auraPrimaryAlpha = 0.10f,
+        auraGrotesque = PaleLichen,
+        auraGrotesqueAlpha = 0.05f,
+        hairline = PrecinctLine,
+        scanlineAlpha = 0.05f,
+        distortionFactor = 0.35f,
+        pulseDurationMs = 4600,
+      )
+    else ->
+      BleakAtmosphere(
+        phase = 6,
+        auraPrimary = DriedClot,
+        auraPrimaryAlpha = 0.18f,
+        auraGrotesque = TungstenAmberAsh,
+        auraGrotesqueAlpha = 0.10f,
+        hairline = DriedClot.copy(alpha = 0.48f),
+        scanlineAlpha = 0.11f,
+        distortionFactor = 0.90f,
+        pulseDurationMs = 2800,
       )
   }
 
@@ -146,15 +202,20 @@ object BleakTheme {
 
 /**
  * Core application theme enforcing a dark, desaturated, monospaced surreal/grotesque/hopeless
- * aesthetic aligned with `/GAME_DESIGN_BIBLE.md`. Dynamic system colors are intentionally omitted
- * so bright device wallpapers cannot undermine the existential tone.
+ * aesthetic aligned with `/GAME_DESIGN_BIBLE.md`.
  */
 @Composable
-fun BleakTheme(phase: Int = 0, content: @Composable () -> Unit) {
-  val atmosphere = remember(phase) { bleakAtmosphereForPhase(phase) }
+fun BleakTheme(
+  phase: Int = 0,
+  investigatorMode: Boolean = false,
+  content: @Composable () -> Unit,
+) {
+  val effectivePhase = if (investigatorMode && phase < 5) 5 else phase
+  val atmosphere = remember(effectivePhase) { bleakAtmosphereForPhase(effectivePhase) }
+  val scheme = if (investigatorMode) InvestigatorColorScheme else BleakColorScheme
   CompositionLocalProvider(LocalBleakAtmosphere provides atmosphere) {
     MaterialTheme(
-      colorScheme = BleakColorScheme,
+      colorScheme = scheme,
       typography = BleakTypography,
       shapes = BleakShapes,
       content = content,

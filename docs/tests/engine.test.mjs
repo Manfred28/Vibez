@@ -5,41 +5,78 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import {
+  ARC2_BALANCE,
+  CASE_DEDUCTIONS,
   CREATURE_TYPES,
+  CULT_DOSSIER_LINES,
+  DESK_ANOMALY_TYPES,
+  DREDGED_RELICS,
+  EXCISION_MILESTONES,
+  GAME_ARCS,
+  INVESTIGATOR_CONTACTS,
   ORGAN_BALANCE,
+  SCAR_NODES,
   SPECIMEN_JARS,
   WALL_ANOMALY_TYPES,
+  activateValveClamp,
+  arc2CanConnectNextChapter,
   bottleJar,
   buyCreature,
+  canAffordChoirLung,
   canAffordGraft,
+  canBreachToArc2,
+  canDredgeSump,
   canExcise,
+  canOfferToThroat,
+  canUnlockNode,
+  connectNextChapter,
   creatureCost,
   creatureCount,
   cycleLifetimeIchorDisplay,
   deserializeState,
+  devAssignArc1Resources,
+  devAssignArc2Resources,
+  devResetAll,
+  devSetActiveArc,
+  devSetAllScarNodes,
+  devSetHighestMilestone,
+  devSpawnDeskAnomaly,
+  devSpawnWallAnomaly,
+  dredgeSump,
   effectiveCreatureIchorPerSec,
   effectiveLampStillnessPerSec,
+  enterArc3Convergence,
   gazeMultiplier,
   ichorDisplay,
   ichorPerSecond,
   initialState,
+  inspectCaseFile,
   interactAnomaly,
+  interactDeskAnomaly,
   isApparatusUnlocked,
   isJarsAndGraftUnlocked,
   manualTapYield,
+  offerToThroat,
   pendingScarTissue,
+  performBreachToArc2,
+  performChoirLungGraft,
   performExcision,
   performGraft,
   phaseForCount,
+  pinDeduction,
   pressValve,
   progressWithinPhase,
+  recruitContact,
   scarMultiplier,
   scarStillnessMultiplier,
   serializeState,
+  setEchoDiversion,
   stillnessDisplay,
   stillnessPerSecond,
   tick,
+  toggleDrainSeal,
   totalCreatureIchorPerSec,
+  unlockScarNode,
 } from '../src/engine.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -77,6 +114,9 @@ test('GitHub Pages static bundle integrity and Android dialogues.json parity', (
   const webRaw = fs.readFileSync(webDialoguesPath, 'utf8').trim();
   const androidRaw = fs.readFileSync(androidDialoguesPath, 'utf8').trim();
   assert.equal(webRaw, androidRaw, 'docs/assets/dialogues.json must match app/src/main/assets/dialogues.json');
+  assert.ok(realCatalog.schemaVersion >= 3);
+  assert.equal(realCatalog.phases.length, 7);
+  assert.ok(realCatalog.entries.length >= 45);
 
   // Verify root index.html redirects to ./docs/ when GitHub Pages serves from /(root)
   const rootIndexPath = path.join(repoRoot, 'index.html');
@@ -86,14 +126,17 @@ test('GitHub Pages static bundle integrity and Android dialogues.json parity', (
 
   // Verify index.html uses relative ./ paths so GitHub Pages subpaths work
   const html = fs.readFileSync(path.join(docsDir, 'index.html'), 'utf8');
-  assert.ok(html.includes('href="./styles.css"'));
-  assert.ok(html.includes('src="./src/app.js"'));
+  assert.ok(html.includes('href="./styles.css?v=') || html.includes('href="./styles.css"'));
+  assert.ok(html.includes('src="./src/app.js?v=') || html.includes('src="./src/app.js"'));
   assert.ok(html.includes('src="./assets/img_recessed_valve.jpg"'));
+  assert.ok(html.includes('id="open-dev-btn"'), 'Web UI must include Clinical Dev Console trigger');
+  assert.ok(html.includes('id="arc2-shell"'), 'Web UI must include Arc 2 Investigator Desk shell');
   assert.ok(!html.includes('href="/styles.css"'), 'Avoid root-absolute asset paths that break GitHub Pages subpaths');
 });
 
 test('initial state starts bare in Phase 0 and valve press triggers first fragment', () => {
   const start = initialState(realCatalog);
+  assert.equal(start.activeArc, GAME_ARCS.ARC_1_CHAMBER);
   assert.equal(ichorDisplay(start), 0);
   assert.equal(start.phase, 0);
   assert.equal(start.phaseName, 'The Counting Room');
@@ -155,8 +198,11 @@ test('per-organism effective yields match aggregate ichorPerSecond and stillness
     isStillnessActive: true,
     gazeRemainingSeconds: 10.0,
     scarTissue: 2,
+    highestExcisionMilestone: 0,
   };
 
+  // scarMultiplier = 1.0 + 0 * 0.25 + 2 * 0.15 = 1.30
+  const expectedScarIchor = 1.0 + 2 * ORGAN_BALANCE.SCAR_RESONANCE_PER_UNIT;
   const summedIchor =
     totalCreatureIchorPerSec(state, CREATURE_TYPES.SUTURE_HAND.id) +
     totalCreatureIchorPerSec(state, CREATURE_TYPES.LEECH_CLERK.id) +
@@ -167,12 +213,12 @@ test('per-organism effective yields match aggregate ichorPerSecond and stillness
   assert.ok(
     Math.abs(
       effectiveCreatureIchorPerSec(state, CREATURE_TYPES.SUTURE_HAND.id) -
-        0.6 * ORGAN_BALANCE.UNSPENT_BREATH_MULTIPLIER * 2.5 * ORGAN_BALANCE.GAZE_PASSIVE_MULTIPLIER,
+        0.6 * ORGAN_BALANCE.UNSPENT_BREATH_MULTIPLIER * expectedScarIchor * ORGAN_BALANCE.GAZE_PASSIVE_MULTIPLIER,
     ) < 0.0001,
   );
 });
 
-test('wall anomalies, specimen jars, grafting, excision, and Cycle 1+ prestige beats match Android engine', () => {
+test('wall anomalies, specimen jars, grafting, Excision I, and Cycle 1+ prestige beats match Android engine', () => {
   // Phase 1 spawns Pale Tooth
   let p1 = { ...initialState(realCatalog), ichor: 80, cycleLifetimeIchor: 80, phase: 1 };
   p1 = tick(p1, ORGAN_BALANCE.FIRST_ANOMALY_DELAY_SEC + 0.5, realCatalog);
@@ -212,21 +258,44 @@ test('wall anomalies, specimen jars, grafting, excision, and Cycle 1+ prestige b
   assert.equal(p3.graftedTendrils, 1);
   assert.equal(p3.activeDialogue?.id, 'dlg_p3_first_graft');
 
-  // Excision -> Cycle 1 dual passive Scar multipliers + Cycle 1+ narrative beats
-  const excisionReady = {
+  // Phase 4 Split Chitin Rib grants Ichor + Stillness + 6s Eye Gaze + dlg_p4_chitin_rib
+  const ribState = {
     ...p3,
+    ichor: 90000,
+    cycleLifetimeIchor: 90000,
+    stillness: 10,
+    phase: 4,
+    isStillnessActive: true,
+    activeAnomalies: [{ id: 88, type: WALL_ANOMALY_TYPES.CHITIN_RIB.id, xFraction: 0.8, yFraction: 0.3 }],
+  };
+  const pried = interactAnomaly(ribState, 88, realCatalog);
+  assert.equal(pried.ichor, 90000 + ORGAN_BALANCE.RIB_BASE_ICHOR_REWARD);
+  assert.equal(pried.stillness, 10 + ORGAN_BALANCE.RIB_BASE_STILLNESS_REWARD);
+  assert.equal(pried.gazeRemainingSeconds, ORGAN_BALANCE.RIB_GAZE_DURATION_SEC);
+  assert.equal(pried.isStillnessActive, true);
+  assert.equal(pried.activeDialogue?.id, 'dlg_p4_chitin_rib');
+
+  // Mid-Phase 4 counter threshold triggers dlg_p4_mid_hollow
+  const midP4 = pressValve({ ...pried, ichor: 144999, cycleLifetimeIchor: 144999 }, realCatalog);
+  assert.equal(midP4.activeDialogue?.id, 'dlg_p4_mid_hollow');
+
+  // Excision I -> Cycle 1 grants 1 base + 2 M1 first-clear bonus = 3 Scar Tissue
+  const excisionReady = {
+    ...midP4,
     ichor: 215000,
     cycleLifetimeIchor: 215000,
     phase: 4,
   };
   assert.equal(canExcise(excisionReady), true);
-  assert.equal(pendingScarTissue(excisionReady), 1);
+  assert.equal(pendingScarTissue(excisionReady), 3);
 
   const cycle1 = performExcision(excisionReady, realCatalog);
   assert.equal(cycle1.cycle, 1);
-  assert.equal(cycle1.scarTissue, 1);
-  assert.equal(scarMultiplier(cycle1), 1.75);
-  assert.equal(scarStillnessMultiplier(cycle1), 1.25);
+  assert.equal(cycle1.highestExcisionMilestone, 1);
+  assert.equal(cycle1.scarTissue, 3);
+  assert.equal(cycle1.availableScarTissue, 3);
+  assert.ok(Math.abs(scarMultiplier(cycle1) - 1.70) < 0.0001);
+  assert.ok(Math.abs(scarStillnessMultiplier(cycle1) - 1.50) < 0.0001);
   assert.equal(cycle1.activeDialogue?.id, 'dlg_cycle_1_excision');
 
   const cycle1P1 = pressValve({ ...cycle1, ichor: 74, cycleLifetimeIchor: 74 }, realCatalog);
@@ -234,6 +303,171 @@ test('wall anomalies, specimen jars, grafting, excision, and Cycle 1+ prestige b
 
   const cycle1P2 = pressValve({ ...cycle1P1, ichor: 1599, cycleLifetimeIchor: 1599 }, realCatalog);
   assert.equal(cycle1P2.activeDialogue?.id, 'dlg_cycle_1_returned_letter');
+});
+
+test('Scar Tissue Surgical Skill Tree enforces prerequisites, deducts spendable Scar, and persists upgrades across resets', () => {
+  let state = {
+    ...initialState(realCatalog),
+    highestExcisionMilestone: 1,
+    scarTissue: 12,
+    availableScarTissue: 12,
+  };
+
+  // Cannot unlock Tier 1 before root first_incision
+  assert.equal(canUnlockNode(state, 'calloused_palm'), false);
+  assert.equal(canUnlockNode(state, 'first_incision'), true);
+
+  state = unlockScarNode(state, 'first_incision', realCatalog);
+  assert.equal(state.availableScarTissue, 11);
+  assert.equal(state.activeDialogue?.id, 'dlg_scar_first_incision');
+
+  state = unlockScarNode(state, 'calloused_palm', realCatalog);
+  state = unlockScarNode(state, 'shorter_silence', realCatalog);
+  state = unlockScarNode(state, 'wax_sealed_memory', realCatalog);
+  assert.equal(state.availableScarTissue, 2);
+
+  // Bottle a jar, cross M1 threshold, and perform Excision -> retains jar + starts with Calloused Palm creatures
+  state = {
+    ...state,
+    ichor: 220000,
+    cycleLifetimeIchor: 220000,
+    phase: 4,
+    ownedJars: [SPECIMEN_JARS.YESTERDAYS_DUST.id],
+  };
+  const reset = performExcision(state, realCatalog);
+  assert.equal(creatureCount(reset, CREATURE_TYPES.SUTURE_HAND.id), 3);
+  assert.equal(creatureCount(reset, CREATURE_TYPES.LEECH_CLERK.id), 1);
+  assert.ok(reset.ownedJars.includes(SPECIMEN_JARS.YESTERDAYS_DUST.id));
+
+  // Shorter Silence activates Stillness after 1.5s instead of 3.0s (requires >= 1 Weeping Lamp)
+  const withLamp = {
+    ...reset,
+    creatures: { ...reset.creatures, [CREATURE_TYPES.WEEPING_LAMP.id]: 1 },
+  };
+  const idleShort = tick(withLamp, 1.6, realCatalog);
+  assert.equal(idleShort.isStillnessActive, true);
+});
+
+test('Excisions II-VI unlock Sump-Siphon/Drain/Relics, Echo Routing, Valve Clamp/Bloom/Choir-Lung, Ossified Throat/Dossier, and Breach to Arc 2', () => {
+  // M2: Drain Seal + Relic Dredging + Sump-Siphon
+  let s = devSetHighestMilestone(initialState(realCatalog), 2, realCatalog);
+  s = devAssignArc1Resources(s, { ichor: 500000, stillness: 200 }, realCatalog);
+  s = buyCreature(s, CREATURE_TYPES.SUMP_SIPHON.id, realCatalog);
+  assert.equal(creatureCount(s, CREATURE_TYPES.SUMP_SIPHON.id), 1);
+
+  s = toggleDrainSeal(s, realCatalog);
+  assert.equal(s.drainSealed, true);
+  s = tick(s, 20.0, realCatalog);
+  assert.equal(canDredgeSump(s), true);
+  s = dredgeSump(s, realCatalog);
+  assert.ok(s.dredgedRelics.includes('patient_wristband'));
+  assert.equal(s.drainPressure, 0);
+
+  // M3: Echo Routing triggers 12s burst
+  s = devSetHighestMilestone(s, 3, realCatalog);
+  s = setEchoDiversion(s, 50, realCatalog);
+  assert.equal(s.echoDiversionPercent, 50);
+  const ichorBeforeEcho = s.ichor;
+  s = tick(s, 13.0, realCatalog);
+  assert.ok(s.echoPulsesTriggered >= 1);
+  assert.ok(s.ichor > ichorBeforeEcho);
+
+  // M4: Valve Clamp 20s -> Marrow Bloom + Choir-Lung Grafting
+  s = devSetHighestMilestone(s, 4, realCatalog);
+  s = activateValveClamp(s, realCatalog);
+  assert.ok(s.clampRemainingSeconds > 0);
+  // Valve taps are blocked while clamped
+  const ichorBefore = s.ichor;
+  const blockedTap = pressValve(s, realCatalog);
+  assert.equal(blockedTap.ichor, ichorBefore);
+  s = tick(s, 21.0, realCatalog);
+  assert.equal(s.marrowBloomCount, 1);
+  assert.ok(s.marrowBloomRemainingSeconds > 0);
+  assert.ok(s.activeAnomalies.length >= 2);
+
+  s = {
+    ...s,
+    creatures: { ...s.creatures, [CREATURE_TYPES.WEEPING_LAMP.id]: 3 },
+    graftedTendrils: 2,
+  };
+  assert.equal(canAffordChoirLung(s), true);
+  s = performChoirLungGraft(s, realCatalog);
+  assert.equal(s.choirLungs, 1);
+  assert.equal(creatureCount(s, CREATURE_TYPES.WEEPING_LAMP.id), 1);
+  assert.equal(s.graftedTendrils, 1);
+
+  // M5: Ossified Throat & Redacted Cult Dossier
+  s = devSetHighestMilestone(s, 5, realCatalog);
+  s = {
+    ...s,
+    creatures: { ...s.creatures, [CREATURE_TYPES.SUMP_SIPHON.id]: 3 },
+  };
+  assert.equal(canOfferToThroat(s, 'dossier_line_1'), true);
+  s = offerToThroat(s, 'dossier_line_1', realCatalog);
+  assert.ok(s.unredactedDossierLines.includes('dossier_line_1'));
+
+  // M6: Breach Ritual transitions cleanly to Arc 2
+  s = devSetHighestMilestone(s, 6, realCatalog);
+  assert.equal(canBreachToArc2(s), true);
+  const arc2State = performBreachToArc2(s, realCatalog);
+  assert.equal(arc2State.activeArc, GAME_ARCS.ARC_2_INVESTIGATION);
+  assert.equal(arc2State.activeDialogue?.id, 'dlg_arc2_entry');
+});
+
+test('Arc 2 Investigator Desk, Contacts, Deductions, Desk Anomalies, File #00 Twist, and Arc 3 Convergence work end-to-end', () => {
+  let state = devSetActiveArc(initialState(realCatalog), GAME_ARCS.ARC_2_INVESTIGATION, realCatalog);
+  assert.equal(state.activeArc, GAME_ARCS.ARC_2_INVESTIGATION);
+
+  state = inspectCaseFile(state, realCatalog);
+  assert.ok(state.arc2.leads >= 1);
+
+  // Silence activates after 2.5s idle and climbs Complicity
+  state = tick(state, 3.0, realCatalog);
+  assert.equal(state.arc2.isSilenceActive, true);
+
+  // Assign resources via Dev helper, recruit Contact, pin Deduction, interact with Desk Anomaly
+  state = devAssignArc2Resources(state, { leads: 250000, silence: 500 }, realCatalog);
+  state = recruitContact(state, 'night_archivist', realCatalog);
+  assert.equal(state.arc2.contacts.night_archivist, 1);
+
+  state = pinDeduction(state, 'hydro_ward_invoices', realCatalog);
+  assert.ok(state.arc2.ownedDeductions.includes('hydro_ward_invoices'));
+
+  state = devSpawnDeskAnomaly(state);
+  assert.equal(state.arc2.activeDeskAnomalies.length, 1);
+  state = interactDeskAnomaly(state, state.arc2.activeDeskAnomalies[0].id, realCatalog);
+  assert.equal(state.arc2.activeDeskAnomalies.length, 0);
+
+  // Connect all 4 chapters to trigger File #00 twist
+  for (let ch = 1; ch <= 4; ch += 1) {
+    assert.equal(arc2CanConnectNextChapter(state.arc2), true);
+    state = connectNextChapter(state, realCatalog);
+    assert.equal(state.arc2.completedChapters, ch);
+  }
+  assert.equal(state.arc2.fileZeroRevealed, true);
+  assert.equal(state.arc2.complicity, 1.0);
+  assert.equal(state.activeDialogue?.id, 'dlg_arc2_ch4_file_zero');
+
+  // Cross into Arc 3 open convergence threshold
+  const arc3 = enterArc3Convergence(state, realCatalog);
+  assert.equal(arc3.activeArc, GAME_ARCS.ARC_3_CONVERGENCE);
+  assert.equal(arc3.activeDialogue?.id, 'dlg_arc3_convergence');
+
+  // Dev utilities: unlock all scars, spawn wall anomaly, reset all
+  let devState = devSetAllScarNodes(devSetActiveArc(arc3, GAME_ARCS.ARC_1_CHAMBER, realCatalog), true, realCatalog);
+  assert.equal(devState.unlockedScarNodes.length, SCAR_NODES.length);
+  devState = devSpawnWallAnomaly(devState);
+  assert.ok(devState.activeAnomalies.length >= 1);
+  const wiped = devResetAll(realCatalog);
+  assert.equal(wiped.activeArc, GAME_ARCS.ARC_1_CHAMBER);
+  assert.equal(wiped.highestExcisionMilestone, 0);
+  assert.equal(EXCISION_MILESTONES.length, 6);
+  assert.equal(DREDGED_RELICS.length, 3);
+  assert.equal(CULT_DOSSIER_LINES.length, 4);
+  assert.equal(INVESTIGATOR_CONTACTS.length, 4);
+  assert.equal(CASE_DEDUCTIONS.length, 3);
+  assert.equal(Object.keys(DESK_ANOMALY_TYPES).length, 4);
+  assert.equal(ARC2_BALANCE.SILENCE_IDLE_DELAY_SEC, 2.5);
 });
 
 test('Cycle 0 moderate-activity pacing reaches First Excision in 12..18 minutes (exact Android parity)', () => {
@@ -295,10 +529,13 @@ test('Cycle 0 moderate-activity pacing reaches First Excision in 12..18 minutes 
   );
 });
 
-test('save serialization round-trips state cleanly and rejects corrupt JSON safely', () => {
+test('save serialization v2 round-trips multi-arc state, migrates v1 saves safely, and rejects corrupt JSON', () => {
   let state = initialState(realCatalog);
   for (let i = 0; i < 80; i += 1) state = pressValve(state, realCatalog);
   state = buyCreature(state, CREATURE_TYPES.SUTURE_HAND.id, realCatalog);
+  state = devSetHighestMilestone(state, 2, realCatalog);
+  state = devAssignArc1Resources(state, { availableScar: 5 }, realCatalog);
+  state = unlockScarNode(state, 'first_incision', realCatalog);
   state = tick(state, 5.0, realCatalog);
 
   const serialized = serializeState(state);
@@ -308,11 +545,30 @@ test('save serialization round-trips state cleanly and rejects corrupt JSON safe
   assert.equal(ichorDisplay(restored), ichorDisplay(state));
   assert.equal(stillnessDisplay(restored), stillnessDisplay(state));
   assert.equal(creatureCount(restored, CREATURE_TYPES.SUTURE_HAND.id), 1);
+  assert.equal(restored.highestExcisionMilestone, 2);
+  assert.ok(restored.unlockedScarNodes.includes('first_incision'));
   assert.equal(restored.phase, state.phase);
   assert.equal(phaseForCount(cycleLifetimeIchorDisplay(restored)), restored.phase);
   assert.equal(progressWithinPhase(147500), 0.5);
   assert.equal(restored.discoveredDialogues.length, state.discoveredDialogues.length);
   assert.equal(restored.activeDialogue?.id, state.activeDialogue?.id);
+
+  // Verify legacy v1 save JSON migrates without crashing
+  const legacyV1 = JSON.stringify({
+    ichor: 1200,
+    cycleLifetimeIchor: 1200,
+    stillness: 15,
+    scarTissue: 2,
+    cycle: 1,
+    creatures: { suture_hand: 3 },
+    triggeredDialogueIds: ['dlg_p0_first_press'],
+  });
+  const migrated = deserializeState(legacyV1, realCatalog);
+  assert.ok(migrated !== null);
+  assert.equal(migrated.activeArc, GAME_ARCS.ARC_1_CHAMBER);
+  assert.equal(migrated.highestExcisionMilestone, 1);
+  assert.equal(migrated.scarTissue, 2);
+  assert.equal(migrated.availableScarTissue, 2);
 
   assert.equal(deserializeState('{invalid json', realCatalog), null);
   assert.equal(deserializeState(null, realCatalog), null);

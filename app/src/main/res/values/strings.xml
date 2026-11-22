@@ -3,18 +3,22 @@
     <string name="phase_readout">PHASE %1$02d // %2$s</string>
     <string name="cycle_readout">CYCLE %1$02d // SCAR TISSUE: %2$s</string>
     <string name="scar_passive_readout">SCAR PASSIVE: ×%1$s ICHOR · ×%2$s STILLNESS</string>
+    <string name="scar_wallet_readout">AVAILABLE SCAR: %1$s · MILESTONE: M%2$d/6</string>
     <string name="ichor_label">ICHOR</string>
     <string name="ichor_rate_format">%1$s /s</string>
     <string name="stillness_readout">STILLNESS: %1$s</string>
     <string name="stillness_active_tag">STILLNESS DRIPPING</string>
     <string name="gaze_active_tag">EYE GAZE: PASSIVE ×1.6 (%1$ds)</string>
+    <string name="bloom_active_tag">MARROW BLOOM: ×%1$s (%2$ds)</string>
     <string name="valve_plus_format">+%1$s</string>
     <string name="valve_action_label">VALVE</string>
+    <string name="valve_clamped_label">CLAMPED (%1$ds)</string>
     <string name="valve_content_description">Press the recessed wall valve to extract ichor</string>
     <string name="counter_value_content_description">Current ichor count: %1$s</string>
     <string name="threshold_progress_format">NEXT FRACTURE: %1$s / %2$s</string>
     <string name="threshold_excision_progress_format">EXCISION MASS: %1$s / %2$s</string>
     <string name="threshold_excision_ready">OVERGROWTH CRITICAL // EXCISION READY</string>
+    <string name="threshold_breach_ready">MORTAR FRACTURED // BREACH RITUAL READY</string>
     <string name="threshold_endless_label">NO SUMMIT REMAINS</string>
     <string name="default_phase_0_name">THE COUNTING ROOM</string>
     <string name="default_phase_1_name">UNCANNY DRIFT</string>
@@ -28,6 +32,7 @@
     <string name="art_suture_hand_cd">Stitched pale anatomical Suture-Hand specimen</string>
     <string name="art_leech_clerk_cd">Blind segmented Leech-Clerk specimen</string>
     <string name="art_weeping_lamp_cd">Suspended glass Weeping Lamp specimen</string>
+    <string name="art_sump_siphon_cd">Ribbed leather Sump-Siphon drawing dark runoff from the floor drain</string>
 
     <!-- Wall anomaly interactive objects -->
     <string name="anomaly_tooth_label">PULL</string>
@@ -39,10 +44,15 @@
     <string name="anomaly_nodule_label">PROD</string>
     <string name="anomaly_nodule_cd">Prod swollen nodule pulsing along fissure</string>
     <string name="anomaly_nodule_feedback">+%1$s ICHOR · +%2$s STILL</string>
+    <string name="anomaly_rib_label">PRY</string>
+    <string name="anomaly_rib_cd">Pry cracked calcified rib parting the chamber wall</string>
+    <string name="anomaly_rib_feedback">+%1$s ICHOR · +%2$s STILL · ×1.6</string>
 
     <!-- Apparatus deck tabs & organisms -->
     <string name="tab_organisms">ORGANISMS</string>
     <string name="tab_jars_graft">JARS &amp; GRAFT</string>
+    <string name="tab_scar_tree">SCARS</string>
+    <string name="tab_rites">RITES</string>
     <string name="tab_excision">EXCISION</string>
     <string name="cost_ichor_format">%1$s ICHOR</string>
     <string name="cost_stillness_format">%1$s STILLNESS</string>
@@ -56,13 +66,17 @@
     <string name="creature_leech_desc">Blind annelid clinging to the counter glass, chewing digits.</string>
     <string name="creature_lamp_code">SPEC-03</string>
     <string name="creature_lamp_name">WEEPING LAMP</string>
-    <string name="creature_lamp_desc">Ceiling vessel that drips Stillness &amp; 2× Ichor after 3s idle.</string>
+    <string name="creature_lamp_desc">Ceiling vessel that drips Stillness &amp; 2× Ichor after idle pause.</string>
+    <string name="creature_siphon_code">SPEC-04</string>
+    <string name="creature_siphon_name">SUMP-SIPHON</string>
+    <string name="creature_siphon_desc">Ribbed floor-drain bladder drawing thick runoff &amp; speeding drain pressure.</string>
 
     <string name="organism_status_dormant">DORMANT</string>
     <string name="organism_status_suture_active">PRESSING VALVE</string>
     <string name="organism_status_leech_active">GRAZING GLASS</string>
     <string name="organism_status_lamp_idle">IDLE 3s TO WEEP</string>
     <string name="organism_status_lamp_weeping">WEEPING ×2</string>
+    <string name="organism_status_siphon_active">DREDGING SUMP</string>
     <string name="organism_yield_each_format">EACH: +%1$s/s</string>
     <string name="organism_yield_colony_format">EACH: +%1$s/s · COLONY: +%2$s/s</string>
     <string name="organism_lamp_stillness_format">IDLE DRIP: +%1$s STILLNESS/s</string>
@@ -83,13 +97,119 @@
     <string name="graft_action">GRAFT</string>
     <string name="graft_locked_hint">UNLOCKS AT PHASE 03</string>
 
-    <!-- Excision / first reset ritual -->
+    <string name="choir_lung_title">GRAFTED CHOIR-LUNG</string>
+    <string name="choir_lung_desc">Fuse 2 Weeping Lamps + 1 Tendril (+260/s Ichor, +4.5/s Stillness, ×2 while Still)</string>
+    <string name="choir_lung_action">GRAFT LUNG</string>
+
+    <!-- Surgical Scar Skill Tree -->
+    <string name="scar_tree_title">SURGICAL SCAR CHART</string>
+    <string name="scar_tree_available">AVAILABLE SCAR TISSUE: %1$s</string>
+    <string name="scar_branch_suture">SUTURE</string>
+    <string name="scar_branch_stillness">STILLNESS</string>
+    <string name="scar_branch_marrow">MARROW</string>
+    <string name="scar_action_suture">SUTURE (%1$s SCAR)</string>
+    <string name="scar_status_sutured">SUTURED</string>
+    <string name="scar_status_locked">PREREQ LOCKED</string>
+
+    <string name="scar_node_first_incision_name">FIRST INCISION</string>
+    <string name="scar_node_first_incision_desc">×1.5 Ichor &amp; ×1.25 Stillness resonance; opens all 3 surgical branches.</string>
+    <string name="scar_node_calloused_palm_name">CALLOUSED PALM</string>
+    <string name="scar_node_calloused_palm_desc">Start every cycle with 3 Suture-Hands &amp; 1 Leech-Clerk; Valve ×2.2.</string>
+    <string name="scar_node_twin_stitch_name">TWIN STITCH</string>
+    <string name="scar_node_twin_stitch_desc">Each Valve tap echoes +3s passive Ichor; Suture &amp; Leech output ×2.5.</string>
+    <string name="scar_node_colony_inertia_name">COLONY INERTIA</string>
+    <string name="scar_node_colony_inertia_desc">Flattens organism cost scaling (-0.05) and multiplies all organisms ×3.2.</string>
+    <string name="scar_node_shorter_silence_name">SHORTER SILENCE</string>
+    <string name="scar_node_shorter_silence_desc">Stillness ignites in 1.5s (down from 3s); Stillness rate ×1.6.</string>
+    <string name="scar_node_wax_sealed_memory_name">WAX-SEALED MEMORY</string>
+    <string name="scar_node_wax_sealed_memory_desc">Retains bottled Specimen Jars across Excision resets; Jar potency ×1.6.</string>
+    <string name="scar_node_deep_weeping_name">DEEP WEEPING</string>
+    <string name="scar_node_deep_weeping_desc">Stillness ticks at 40% while tapping; Lamps &amp; Choir-Lungs ×3.5.</string>
+    <string name="scar_node_softened_mortar_name">SOFTENED MORTAR</string>
+    <string name="scar_node_softened_mortar_desc">Wall anomalies spawn 2× faster (cap 4) and yield ×3 rewards.</string>
+    <string name="scar_node_auto_tendril_suture_name">AUTO-TENDRIL SUTURE</string>
+    <string name="scar_node_auto_tendril_suture_desc">Auto-grafts Choir-Tendrils when 4+ Hands/Leeches exist; Grafts &amp; Siphons ×3.</string>
+    <string name="scar_node_bone_resonance_name">BONE RESONANCE</string>
+    <string name="scar_node_bone_resonance_desc">Global Ichor ×4.0 and amplifies Excision II–V chamber rites ×2.5.</string>
+
+    <!-- Excision II-V Chamber Rites -->
+    <string name="rite_drain_title">FLOOR DRAIN GRATE // EXCISION II</string>
+    <string name="rite_drain_desc" formatted="false">Seal grate (-15% Ichor) to build pressure to 100%, then Dredge sunken relics.</string>
+    <string name="rite_drain_pressure">SUMP PRESSURE: %1$d%%</string>
+    <string name="rite_drain_seal">SEAL GRATE</string>
+    <string name="rite_drain_vent">VENT GRATE</string>
+    <string name="rite_drain_dredge">DREDGE RELIC</string>
+    <string name="rite_drain_complete">ALL SUMP RELICS DREDGED</string>
+
+    <string name="rite_echo_title">NEIGHBOR APERTURE // EXCISION III</string>
+    <string name="rite_echo_desc">Divert passive Ichor through the wall slit for 12s Resonance Echo bursts &amp; richer anomalies.</string>
+    <string name="rite_echo_pulses">RESONANCE ECHOES RECEIVED: %1$d</string>
+
+    <string name="rite_clamp_title">VALVE CLAMP // EXCISION IV</string>
+    <string name="rite_clamp_desc">Bolt the valve shut for 20s to rupture a 4-anomaly Marrow Bloom &amp; ×2.5 surge.</string>
+    <string name="rite_clamp_action">CLAMP VALVE (20s)</string>
+    <string name="rite_clamp_active">PRESSURE BUILDING (%1$ds)</string>
+
+    <string name="rite_throat_title">THE OSSIFIED THROAT // EXCISION V</string>
+    <string name="rite_throat_desc">Feed Sump-Siphons, Tendrils, and sealed Jars to permanently un-redact cult dossier lines (×2.4–3.2 each).</string>
+    <string name="rite_throat_offer">FEED &amp; UN-REDACT</string>
+    <string name="rite_throat_unsealed">UN-REDACTED</string>
+
+    <!-- Excision / milestone prestige panel -->
     <string name="excision_title">EXCISION // MOLTING</string>
-    <string name="excision_summary" formatted="false">Sever the overgrown organ back to bare tile. Retains permanent Scar Tissue (+75% Ichor, +25% Stillness per unit) and reveals deeper Cycle 1+ fragments.</string>
-    <string name="excision_reward_format">YIELD: +%1$s SCAR TISSUE</string>
+    <string name="excision_summary" formatted="false">Harvest Scar Tissue to suture permanent Surgical Tree nodes, or push past the next Milestone mass to unlock a new chamber mutation.</string>
+    <string name="excision_milestone_progress">NEXT MILESTONE: %1$s (%2$s / %3$s)</string>
+    <string name="excision_milestone_cleared_banner">MILESTONE THRESHOLD BREACHED — WILL UNLOCK ON SEVERANCE</string>
+    <string name="excision_reward_format">HARVEST YIELD: +%1$s SCAR TISSUE</string>
     <string name="excision_action_arm">EXCISE &amp; MOLT</string>
     <string name="excision_action_confirm">CONFIRM SEVERANCE</string>
     <string name="excision_action_cancel">HOLD</string>
+    <string name="excision_breach_title">EXCISION VI // THE BREACH RITUAL</string>
+    <string name="excision_breach_desc">Cut past bone and mortar alike. Cross into Arc 2: The Inquiry while preserving your Arc 1 ledger.</string>
+    <string name="excision_breach_action">CUT THROUGH THE MORTAR</string>
+
+    <!-- Arc 2 Haunted Investigator Desk -->
+    <string name="arc2_header">CASE #14-B // THE INQUIRY (CH %1$d/4)</string>
+    <string name="arc2_complicity_readout">COMPLICITY: %1$d%% · SILENCE: %2$s</string>
+    <string name="arc2_leads_label">CASE LEADS</string>
+    <string name="arc2_inspect_label">STAMP FILE</string>
+    <string name="arc2_inspect_cd">Inspect case folder and stamp leads</string>
+    <string name="arc2_silence_badge">LATE-NIGHT SILENCE</string>
+    <string name="arc2_focus_badge">LENS FOCUS ×1.8 (%1$ds)</string>
+    <string name="arc2_tab_contacts">CONTACTS</string>
+    <string name="arc2_tab_deductions">DEDUCTIONS</string>
+    <string name="arc2_tab_board">PINBOARD</string>
+    <string name="arc2_contact_archivist">NIGHT ARCHIVIST</string>
+    <string name="arc2_contact_archivist_desc">Pulls damp municipal basement logs after midnight.</string>
+    <string name="arc2_contact_orderly">BRIBED ORDERLY</string>
+    <string name="arc2_contact_orderly_desc">Smuggles wax jar manifests out of Hydro-Ward IV.</string>
+    <string name="arc2_contact_scanner">MICROFILM SCANNER</string>
+    <string name="arc2_contact_scanner_desc">Cross-checks Day 14 bled-ink slips against precinct rosters.</string>
+    <string name="arc2_contact_transcriber">AUDIO TRANSCRIBER</string>
+    <string name="arc2_contact_transcriber_desc">Loops sub-basement valve recordings for buried voices.</string>
+    <string name="arc2_deduction_invoices">HYDRO-WARD INVOICES</string>
+    <string name="arc2_deduction_invoices_desc">Stamp inspection +4 base Leads</string>
+    <string name="arc2_deduction_roster">CARETAKER ROSTER</string>
+    <string name="arc2_deduction_roster_desc">Contacts &amp; tools ×2.0 Leads</string>
+    <string name="arc2_deduction_mortar">MORTAR SAMPLE MATCH</string>
+    <string name="arc2_deduction_mortar_desc">Silence rate &amp; desk anomalies ×2.2</string>
+    <string name="arc2_pin_action">PIN</string>
+    <string name="arc2_chapter_connect">CONNECT RED STRING</string>
+    <string name="arc2_chapter_sealed">CONNECTED</string>
+    <string name="arc2_file_zero_banner">FILE #00 UNSEALED — SUBJECT SCAR MATCHES LEFT THUMB</string>
+    <string name="arc2_enter_arc3">STEP PAST THE SEAM (ARC 3)</string>
+
+    <!-- Arc 3 Convergence Threshold -->
+    <string name="arc3_title">ARC 03 // CONVERGENCE THRESHOLD</string>
+    <string name="arc3_subtitle">The desk blotter and damp tiled wall share one floor. Both ledgers are preserved for future expansion.</string>
+    <string name="arc3_return_chamber">INSPECT ARC 1 CHAMBER</string>
+    <string name="arc3_return_desk">INSPECT ARC 2 DESK</string>
+
+    <!-- Clinical Dev Console -->
+    <string name="dev_button_label">DEV</string>
+    <string name="dev_button_cd">Open developer testing console</string>
+    <string name="dev_modal_title">// CLINICAL DEV CONSOLE</string>
+    <string name="dev_modal_close">CLOSE</string>
 
     <!-- Transmission ledger & archive -->
     <string name="transmission_header_idle">// GROUT LEDGER: SILENT</string>

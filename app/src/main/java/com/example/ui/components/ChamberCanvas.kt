@@ -54,6 +54,7 @@ import kotlin.math.roundToInt
 fun ChamberCanvas(
   state: OrganGameState,
   breathPhaseProvider: () -> Float,
+  dropPhaseProvider: () -> Float,
   onPressValve: () -> Unit,
   onInteractAnomaly: (Long) -> Unit,
   modifier: Modifier = Modifier,
@@ -105,6 +106,7 @@ fun ChamberCanvas(
         lampCount = lampCount,
         isStillnessActive = state.isStillnessActive,
         breathPhaseProvider = breathPhaseProvider,
+        dropPhaseProvider = dropPhaseProvider,
       )
 
       Column(
@@ -138,9 +140,10 @@ fun ChamberCanvas(
 
           Spacer(modifier = Modifier.height(6.dp))
 
-          // Recessed damp counter glass plate where Leech-Clerks cling and graze
+          // Recessed damp counter glass plate with outer clearance so Leech-Clerk tails never clip
           Box(contentAlignment = Alignment.Center) {
             Surface(
+              modifier = Modifier.padding(horizontal = 24.dp, vertical = 4.dp),
               shape = MaterialTheme.shapes.extraSmall,
               color = colorScheme.background.copy(alpha = 0.62f),
               border =
@@ -238,6 +241,19 @@ fun ChamberCanvas(
                 modifier = Modifier.testTag("gaze_active_badge"),
               )
             }
+            if (state.marrowBloomRemainingSeconds > 0.0) {
+              Text(
+                text =
+                  stringResource(
+                    R.string.bloom_active_tag,
+                    formatMultiplier(state.bloomMultiplier),
+                    ceil(state.marrowBloomRemainingSeconds).toInt(),
+                  ),
+                style = MaterialTheme.typography.labelSmall,
+                color = colorScheme.tertiary,
+                modifier = Modifier.testTag("bloom_active_badge"),
+              )
+            }
           }
         }
 
@@ -249,16 +265,24 @@ fun ChamberCanvas(
             veinColor = colorScheme.tertiary,
           )
 
+          val valveYieldLabel =
+            if (state.isValveClamped) {
+              stringResource(R.string.valve_clamped_label, ceil(state.clampRemainingSeconds).toInt())
+            } else {
+              stringResource(R.string.valve_plus_format, formattedTapYield)
+            }
           RecessedValveButton(
-            yieldLabel = stringResource(R.string.valve_plus_format, formattedTapYield),
+            yieldLabel = valveYieldLabel,
             onPress = {
-              onPressValve()
-              val id = nextResidueId++
-              val drift = ((id % 5) - 2) * 14f
-              if (residues.size >= 14) {
-                residues.removeAt(0)
+              if (!state.isValveClamped) {
+                onPressValve()
+                val id = nextResidueId++
+                val drift = ((id % 5) - 2) * 14f
+                if (residues.size >= 14) {
+                  residues.removeAt(0)
+                }
+                residues.add(ValveResidue(id = id, label = "+$formattedTapYield", xDriftDp = drift))
               }
-              residues.add(ValveResidue(id = id, label = "+$formattedTapYield", xDriftDp = drift))
             },
           )
 
@@ -286,24 +310,30 @@ fun ChamberCanvas(
         key(anomaly.id) {
           val offsetX = (boxWidth - 62.dp) * anomaly.xFraction
           val offsetY = (boxHeight - 62.dp) * anomaly.yFraction
-          val jarBoost =
-            if (SpecimenJar.ALMOST_A_NAME in state.ownedJars) OrganBalance.ALMOST_A_NAME_MULTIPLIER
-            else 1.0
+          val rewardBoost = state.anomalyRewardMultiplier
+          val ichorScale =
+            state.scarMultiplier * state.relicIchorMultiplier * state.dossierIchorMultiplier * rewardBoost
+          val stillnessScale =
+            state.scarStillnessMultiplier * state.relicStillnessMultiplier * rewardBoost
           val feedbackLabel =
             when (anomaly.type) {
               WallAnomalyType.PALE_TOOTH ->
                 stringResource(
                   R.string.anomaly_tooth_feedback,
-                  formatCompactDecimal(OrganBalance.TOOTH_BASE_ICHOR_REWARD * state.scarMultiplier * jarBoost),
+                  formatCompactDecimal(OrganBalance.TOOTH_BASE_ICHOR_REWARD * ichorScale),
                 )
               WallAnomalyType.GLASS_EYE -> stringResource(R.string.anomaly_eye_feedback)
               WallAnomalyType.SWOLLEN_NODULE ->
                 stringResource(
                   R.string.anomaly_nodule_feedback,
-                  formatCompactDecimal(OrganBalance.NODULE_BASE_ICHOR_REWARD * state.scarMultiplier * jarBoost),
-                  formatCompactDecimal(
-                    OrganBalance.NODULE_BASE_STILLNESS_REWARD * state.scarStillnessMultiplier * jarBoost
-                  ),
+                  formatCompactDecimal(OrganBalance.NODULE_BASE_ICHOR_REWARD * ichorScale),
+                  formatCompactDecimal(OrganBalance.NODULE_BASE_STILLNESS_REWARD * stillnessScale),
+                )
+              WallAnomalyType.CHITIN_RIB ->
+                stringResource(
+                  R.string.anomaly_rib_feedback,
+                  formatCompactDecimal(OrganBalance.RIB_BASE_ICHOR_REWARD * ichorScale),
+                  formatCompactDecimal(OrganBalance.RIB_BASE_STILLNESS_REWARD * stillnessScale),
                 )
             }
           WallAnomalyNode(

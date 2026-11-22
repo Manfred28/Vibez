@@ -4,7 +4,7 @@ import androidx.compose.ui.graphics.Color
 
 // Dark, desaturated surreal/grotesque/hopeless palette aligned with /GAME_DESIGN_BIBLE.md
 
-// Abyssal backgrounds & sunken institutional surfaces
+// Abyssal backgrounds & sunken institutional surfaces (Arc 1 Chamber)
 val VoidAbyss = Color(0xFF0A0B0B)
 val SunkenSlate = Color(0xFF111313)
 val ApparatusSurface = Color(0xFF171A19)
@@ -28,3 +28,13 @@ val ClotShadow = Color(0xFF28191A)
 val BruisedViolet = Color(0xFF4C4352)
 val DreadError = Color(0xFF8F5252)
 val DreadErrorContainer = Color(0xFF2E1A1A)
+
+// Arc 2 Haunted Investigator Desk muted rain-slate & cold tungsten tokens
+val RainNightSlate = Color(0xFF0B0D10)
+val DeskBlotterSurface = Color(0xFF13161B)
+val FolderSlate = Color(0xFF1B1F26)
+val ManilaAsh = Color(0xFFB5AF9F)
+val TungstenAmberAsh = Color(0xFFA99B7B)
+val TungstenShadow = Color(0xFF28251E)
+val PrecinctLine = Color(0xFF2D333C)
+val PrecinctOutline = Color(0xFF444C57)
