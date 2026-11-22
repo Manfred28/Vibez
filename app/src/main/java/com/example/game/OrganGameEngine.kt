@@ -121,7 +121,9 @@ object OrganGameEngine {
   ): OrganGameState {
     val anomaly = state.activeAnomalies.firstOrNull { it.id == anomalyId } ?: return state
     val remaining = state.activeAnomalies.filterNot { it.id == anomalyId }
-    val jarBoost = if (SpecimenJar.ALMOST_A_NAME in state.ownedJars) 2.5 else 1.0
+    val jarBoost =
+      if (SpecimenJar.ALMOST_A_NAME in state.ownedJars) OrganBalance.ALMOST_A_NAME_MULTIPLIER
+      else 1.0
 
     val updatedCounts = state.anomalyInteractions.toMutableMap()
     updatedCounts[anomaly.type] = (updatedCounts[anomaly.type] ?: 0) + 1
@@ -237,7 +239,11 @@ object OrganGameEngine {
         phase = nextPhase,
         phaseName = catalog.phaseName(nextPhase),
         nextPhaseThreshold = EscalationCurve.nextThresholdForPhase(nextPhase),
-        phaseProgress = EscalationCurve.progressWithinPhase(lifetimeDisplay),
+        phaseProgress =
+          EscalationCurve.progressWithinPhase(
+            count = lifetimeDisplay,
+            finalGoalThreshold = OrganBalance.EXCISION_ICHOR_THRESHOLD,
+          ),
       )
 
     val newlyTriggered =

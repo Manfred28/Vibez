@@ -15,9 +15,11 @@ import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -92,18 +94,73 @@ internal fun WallAnomalyNode(
         val cy = size.height / 2f
         when (anomaly.type) {
           WallAnomalyType.PALE_TOOTH -> {
-            drawLine(
-              color = colorScheme.outline,
-              start = Offset(2.dp.toPx(), size.height * 0.72f),
-              end = Offset(size.width - 2.dp.toPx(), size.height * 0.66f),
-              strokeWidth = 1.5.dp.toPx(),
-            )
             val lift = breath * 2.dp.toPx()
-            drawRoundRect(
-              color = colorScheme.onBackground.copy(alpha = 0.90f),
-              topLeft = Offset(cx - 6.dp.toPx(), cy - 7.dp.toPx() - lift),
-              size = Size(12.dp.toPx(), 14.dp.toPx()),
-              cornerRadius = CornerRadius(3.dp.toPx(), 3.dp.toPx()),
+
+            // Jagged plaster fissure cavity
+            val crackPath =
+              Path().apply {
+                moveTo(2.dp.toPx(), size.height * 0.72f)
+                lineTo(cx - 6.dp.toPx(), size.height * 0.68f)
+                lineTo(cx, size.height * 0.79f)
+                lineTo(cx + 6.dp.toPx(), size.height * 0.66f)
+                lineTo(size.width - 2.dp.toPx(), size.height * 0.70f)
+              }
+            drawOval(
+              color = colorScheme.background.copy(alpha = 0.92f),
+              topLeft = Offset(cx - 9.dp.toPx(), size.height * 0.60f),
+              size = Size(18.dp.toPx(), 7.dp.toPx()),
+            )
+            drawPath(
+              path = crackPath,
+              color = colorScheme.outline,
+              style = Stroke(width = 1.4.dp.toPx(), cap = StrokeCap.Round),
+            )
+
+            // Anatomical bifurcated molar crown + roots emerging from the seam
+            val topY = cy - 9.dp.toPx() - lift
+            val midY = cy + 1.dp.toPx() - lift
+            val rootY = cy + 7.5.dp.toPx() - lift * 0.4f
+            val toothPath =
+              Path().apply {
+                moveTo(cx - 6.5.dp.toPx(), topY + 2.5.dp.toPx())
+                quadraticTo(cx - 4.5.dp.toPx(), topY - 1.5.dp.toPx(), cx - 1.2.dp.toPx(), topY + 1.4.dp.toPx())
+                quadraticTo(cx, topY + 2.4.dp.toPx(), cx + 1.2.dp.toPx(), topY + 1.4.dp.toPx())
+                quadraticTo(cx + 4.5.dp.toPx(), topY - 1.5.dp.toPx(), cx + 6.5.dp.toPx(), topY + 2.5.dp.toPx())
+                quadraticTo(cx + 7.dp.toPx(), midY, cx + 4.2.dp.toPx(), rootY)
+                lineTo(cx + 1.6.dp.toPx(), midY + 2.dp.toPx())
+                lineTo(cx, midY + 1.dp.toPx())
+                lineTo(cx - 1.6.dp.toPx(), midY + 2.dp.toPx())
+                lineTo(cx - 4.2.dp.toPx(), rootY)
+                quadraticTo(cx - 7.dp.toPx(), midY, cx - 6.5.dp.toPx(), topY + 2.5.dp.toPx())
+                close()
+              }
+
+            drawPath(
+              path = toothPath,
+              brush =
+                Brush.verticalGradient(
+                  colors =
+                    listOf(
+                      colorScheme.onBackground,
+                      colorScheme.onSurfaceVariant,
+                      colorScheme.surfaceVariant,
+                    ),
+                  startY = topY,
+                  endY = rootY,
+                ),
+            )
+            drawPath(
+              path = toothPath,
+              color = colorScheme.outline.copy(alpha = 0.85f),
+              style = Stroke(width = 1.dp.toPx(), cap = StrokeCap.Round),
+            )
+            // Subtle enamel cusp specular glint
+            drawLine(
+              color = colorScheme.onBackground.copy(alpha = 0.75f),
+              start = Offset(cx - 3.8.dp.toPx(), topY + 3.dp.toPx()),
+              end = Offset(cx - 2.6.dp.toPx(), topY + 6.5.dp.toPx()),
+              strokeWidth = 1.1.dp.toPx(),
+              cap = StrokeCap.Round,
             )
           }
           WallAnomalyType.GLASS_EYE -> {

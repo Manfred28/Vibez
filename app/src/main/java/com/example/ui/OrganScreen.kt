@@ -48,6 +48,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.R
 import com.example.data.AssetDialogueRepository
 import com.example.game.CreatureType
+import com.example.game.OrganBalance
 import com.example.game.OrganDeckTab
 import com.example.game.OrganGameState
 import com.example.game.SpecimenJar
@@ -256,6 +257,12 @@ private fun PhaseTelemetryHeader(
       }
     }
 
+  val formattedExcisionProgress =
+    remember(state.cycleLifetimeIchorDisplay) {
+      val nf = NumberFormat.getIntegerInstance()
+      nf.format(state.cycleLifetimeIchorDisplay) to nf.format(OrganBalance.EXCISION_ICHOR_THRESHOLD)
+    }
+
   val formattedScar =
     remember(state.scarTissue) { NumberFormat.getIntegerInstance().format(state.scarTissue) }
 
@@ -308,6 +315,12 @@ private fun PhaseTelemetryHeader(
             R.string.threshold_progress_format,
             formattedThresholds.first,
             formattedThresholds.second,
+          )
+        state.phase >= 4 ->
+          stringResource(
+            R.string.threshold_excision_progress_format,
+            formattedExcisionProgress.first,
+            formattedExcisionProgress.second,
           )
         else -> stringResource(R.string.threshold_endless_label)
       }

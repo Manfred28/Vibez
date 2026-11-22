@@ -6,12 +6,13 @@
     <string name="ichor_rate_format">%1$s /s</string>
     <string name="stillness_readout">STILLNESS: %1$s</string>
     <string name="stillness_active_tag">STILLNESS DRIPPING</string>
-    <string name="gaze_active_tag">EYE FOCUSED ×2 (%1$ds)</string>
+    <string name="gaze_active_tag">EYE FOCUSED ×1.6 (%1$ds)</string>
     <string name="valve_plus_format">+%1$s</string>
     <string name="valve_action_label">VALVE</string>
     <string name="valve_content_description">Press the recessed wall valve to extract ichor</string>
     <string name="counter_value_content_description">Current ichor count: %1$s</string>
     <string name="threshold_progress_format">NEXT FRACTURE: %1$s / %2$s</string>
+    <string name="threshold_excision_progress_format">EXCISION MASS: %1$s / %2$s</string>
     <string name="threshold_excision_ready">OVERGROWTH CRITICAL // EXCISION READY</string>
     <string name="threshold_endless_label">NO SUMMIT REMAINS</string>
     <string name="default_phase_0_name">THE COUNTING ROOM</string>
@@ -19,6 +20,12 @@
     <string name="default_phase_2_name">APPARATUS &amp; FLESH</string>
     <string name="default_phase_3_name">COLLAPSE OF MEANING</string>
     <string name="default_phase_4_name">THE ENDLESS HOLLOW</string>
+
+    <!-- Graphic asset content descriptions -->
+    <string name="art_wall_phase1_cd">Damp cracked tiled chamber wall</string>
+    <string name="art_recessed_valve_cd">Tarnished iron and bone recessed wall valve</string>
+    <string name="art_suture_hand_cd">Stitched pale anatomical Suture-Hand specimen</string>
+    <string name="art_leech_clerk_cd">Blind segmented Leech-Clerk specimen</string>
 
     <!-- Wall anomaly interactive objects -->
     <string name="anomaly_tooth_label">PULL</string>
@@ -37,9 +44,9 @@
     <string name="owned_count_format">[%1$d]</string>
 
     <string name="creature_suture_name">SUTURE-HAND</string>
-    <string name="creature_suture_desc">Stitched appendage pressing valve (+1/s)</string>
+    <string name="creature_suture_desc">Stitched appendage pressing valve (+0.6/s)</string>
     <string name="creature_leech_name">LEECH-CLERK</string>
-    <string name="creature_leech_desc">Clings to counter glass, chewing total (+4/s)</string>
+    <string name="creature_leech_desc">Clings to counter glass, chewing total (+2.4/s)</string>
     <string name="creature_lamp_name">WEEPING LAMP</string>
     <string name="creature_lamp_desc">Sweats Stillness &amp; 2× Ichor while idle 3s (+6/s)</string>
 
@@ -47,14 +54,14 @@
     <string name="jar_dust_name">YESTERDAY\'S DUST</string>
     <string name="jar_dust_effect">Valve extraction +3 base Ichor</string>
     <string name="jar_breath_name">UNSPENT BREATH</string>
-    <string name="jar_breath_effect">Suture-Hands &amp; Leech-Clerks ×2</string>
+    <string name="jar_breath_effect">Suture-Hands &amp; Leech-Clerks ×1.75</string>
     <string name="jar_name_title">A NAME YOU ALMOST REMEMBER</string>
-    <string name="jar_name_effect">Weeping Lamps &amp; wall anomalies ×2.5</string>
+    <string name="jar_name_effect">Weeping Lamps &amp; wall anomalies ×1.8</string>
     <string name="jar_sealed_badge">SEALED</string>
     <string name="jar_bottle_action">BOTTLE</string>
 
     <string name="graft_title">GRAFTED CHOIR-TENDRIL</string>
-    <string name="graft_desc">Fuse 2 Suture-Hands + 2 Leech-Clerks (+28/s Ichor, +1.5/s Stillness)</string>
+    <string name="graft_desc">Fuse 2 Suture-Hands + 2 Leech-Clerks (+18/s Ichor, +0.7/s Stillness)</string>
     <string name="graft_action">GRAFT</string>
     <string name="graft_locked_hint">UNLOCKS AT PHASE 03</string>
 

@@ -66,7 +66,7 @@ class OrganGameEngineTest {
             id = "dlg_stillness",
             phase = 2,
             mood = "depressive",
-            trigger = DialogueTrigger("stillness_reached", 5L),
+            trigger = DialogueTrigger("stillness_reached", 12L),
             once = true,
             speaker = "Letter",
             lines = listOf("Stillness filled."),
@@ -108,7 +108,7 @@ class OrganGameEngineTest {
     assertEquals(0L, state.ichorDisplay)
     assertEquals(0, state.phase)
     assertEquals("The Counting Room", state.phaseName)
-    assertEquals(25L, state.nextPhaseThreshold)
+    assertEquals(75L, state.nextPhaseThreshold)
     assertFalse(state.isApparatusUnlocked)
     assertFalse(state.isJarsAndGraftUnlocked)
     assertFalse(state.canExcise)
@@ -134,18 +134,22 @@ class OrganGameEngineTest {
   @Test
   fun buyCreature_deductsScalingCostIncreasesPassiveRateAndTriggersFragment() {
     val catalog = sampleCatalog()
-    var state = OrganGameEngine.initialState(catalog).copy(ichor = 14.0, cycleLifetimeIchor = 14.0)
+    var state = OrganGameEngine.initialState(catalog).copy(ichor = 24.0, cycleLifetimeIchor = 24.0)
 
-    // Cannot buy when below base cost (15)
-    assertEquals(0, OrganGameEngine.buyCreature(state, CreatureType.SUTURE_HAND, catalog).creatureCount(CreatureType.SUTURE_HAND))
+    // Cannot buy when below base cost (25)
+    assertEquals(
+      0,
+      OrganGameEngine.buyCreature(state, CreatureType.SUTURE_HAND, catalog)
+        .creatureCount(CreatureType.SUTURE_HAND),
+    )
 
-    state = state.copy(ichor = 40.0, cycleLifetimeIchor = 40.0)
+    state = state.copy(ichor = 75.0, cycleLifetimeIchor = 75.0)
     val bought = OrganGameEngine.buyCreature(state, CreatureType.SUTURE_HAND, catalog)
 
     assertEquals(1, bought.creatureCount(CreatureType.SUTURE_HAND))
-    assertEquals(25.0, bought.ichor, 0.001)
-    assertEquals(1.0, bought.ichorPerSecond, 0.001)
-    assertTrue("Cost must scale after purchase", bought.creatureCost(CreatureType.SUTURE_HAND) > 15L)
+    assertEquals(50.0, bought.ichor, 0.001)
+    assertEquals(0.6, bought.ichorPerSecond, 0.001)
+    assertTrue("Cost must scale after purchase", bought.creatureCost(CreatureType.SUTURE_HAND) > 25L)
     assertEquals("dlg_suture", bought.activeDialogue?.id)
   }
 
@@ -154,22 +158,23 @@ class OrganGameEngineTest {
     val catalog = sampleCatalog()
     var state =
       OrganGameEngine.initialState(catalog).copy(
-        ichor = 200.0,
-        cycleLifetimeIchor = 200.0,
+        ichor = 1_600.0,
+        cycleLifetimeIchor = 1_600.0,
         creatures = mapOf(CreatureType.WEEPING_LAMP to 2),
       )
 
-    // Tick 2.0s: below 3s threshold, so stillness is NOT active yet (base rate = 2 * 6 = 12/s)
+    // Tick 2.0s: below 3s threshold, so stillness is NOT active yet (base rate = 2 * 6.0 = 12/s)
     state = OrganGameEngine.tick(state, 2.0, catalog)
     assertFalse(state.isStillnessActive)
     assertEquals(0.0, state.stillness, 0.001)
-    assertEquals(224.0, state.ichor, 0.001)
+    assertEquals(1_624.0, state.ichor, 0.001)
 
-    // Tick 3.0s more (total idle 5.0s >= 3.0s): stillness activates (2 * 1 = 2 stillness/s, 2 * 6 * 2 = 24 ichor/s)
-    state = OrganGameEngine.tick(state, 3.0, catalog)
+    // Tick 15.0s more (total idle 17s >= 3s): stillness activates (2 * 0.45 = 0.9/s -> 13.5,
+    // 2 * 6.0 * 2 = 24 ichor/s -> +360)
+    state = OrganGameEngine.tick(state, 15.0, catalog)
     assertTrue(state.isStillnessActive)
-    assertEquals(6.0, state.stillness, 0.001)
-    assertEquals(224.0 + 72.0, state.ichor, 0.001)
+    assertEquals(13.5, state.stillness, 0.001)
+    assertEquals(1_624.0 + 360.0, state.ichor, 0.001)
     assertEquals("dlg_stillness", state.activeDialogue?.id)
 
     // Tapping the valve breaks stillness immediately
@@ -186,7 +191,8 @@ class OrganGameEngineTest {
     assertTrue(p0Ticked.activeAnomalies.isEmpty())
 
     // Phase 1 spawns Pale Tooth after timer
-    var p1 = OrganGameEngine.initialState(catalog).copy(ichor = 30.0, cycleLifetimeIchor = 30.0, phase = 1)
+    var p1 =
+      OrganGameEngine.initialState(catalog).copy(ichor = 80.0, cycleLifetimeIchor = 80.0, phase = 1)
     p1 = OrganGameEngine.tick(p1, OrganBalance.FIRST_ANOMALY_DELAY_SEC + 0.5, catalog)
     assertEquals(1, p1.activeAnomalies.size)
     val tooth = p1.activeAnomalies.first()
@@ -195,23 +201,23 @@ class OrganGameEngineTest {
     val pulled = OrganGameEngine.interactAnomaly(p1, tooth.id, catalog)
     assertTrue(pulled.activeAnomalies.isEmpty())
     assertEquals(1, pulled.anomalyInteractions[WallAnomalyType.PALE_TOOTH])
-    assertEquals(30.0 + OrganBalance.TOOTH_BASE_ICHOR_REWARD, pulled.ichor, 0.001)
+    assertEquals(80.0 + OrganBalance.TOOTH_BASE_ICHOR_REWARD, pulled.ichor, 0.001)
     assertEquals(1.5, pulled.manualTapYield, 0.001)
     assertEquals("dlg_tooth", pulled.activeDialogue?.id)
 
-    // Phase 2 Glass Eye activates 15s of 2x Gaze multiplier and decays over time
+    // Phase 2 Glass Eye activates 12s of 1.6x Gaze multiplier and decays over time
     val p2WithEye =
       OrganGameEngine.initialState(catalog).copy(
-        ichor = 160.0,
-        cycleLifetimeIchor = 160.0,
+        ichor = 1_700.0,
+        cycleLifetimeIchor = 1_700.0,
         phase = 2,
         creatures = mapOf(CreatureType.SUTURE_HAND to 2),
         activeAnomalies = listOf(ActiveWallAnomaly(99L, WallAnomalyType.GLASS_EYE, 0.2f, 0.2f)),
       )
     val wiped = OrganGameEngine.interactAnomaly(p2WithEye, 99L, catalog)
     assertEquals(OrganBalance.GAZE_DURATION_SEC, wiped.gazeRemainingSeconds, 0.001)
-    assertEquals(2.0, wiped.gazeMultiplier, 0.001)
-    assertEquals(4.0, wiped.ichorPerSecond, 0.001)
+    assertEquals(OrganBalance.GAZE_PASSIVE_MULTIPLIER, wiped.gazeMultiplier, 0.001)
+    assertEquals(2 * 0.6 * OrganBalance.GAZE_PASSIVE_MULTIPLIER, wiped.ichorPerSecond, 0.001)
 
     val afterDecay = OrganGameEngine.tick(wiped, OrganBalance.GAZE_DURATION_SEC + 1.0, catalog)
     assertEquals(0.0, afterDecay.gazeRemainingSeconds, 0.001)
@@ -220,13 +226,13 @@ class OrganGameEngineTest {
     // Phase 3 Swollen Nodule yields both Ichor and Stillness
     val p3WithNodule =
       OrganGameEngine.initialState(catalog).copy(
-        ichor = 650.0,
-        cycleLifetimeIchor = 650.0,
+        ichor = 16_500.0,
+        cycleLifetimeIchor = 16_500.0,
         phase = 3,
         activeAnomalies = listOf(ActiveWallAnomaly(101L, WallAnomalyType.SWOLLEN_NODULE, 0.8f, 0.7f)),
       )
     val prodded = OrganGameEngine.interactAnomaly(p3WithNodule, 101L, catalog)
-    assertEquals(650.0 + OrganBalance.NODULE_BASE_ICHOR_REWARD, prodded.ichor, 0.001)
+    assertEquals(16_500.0 + OrganBalance.NODULE_BASE_ICHOR_REWARD, prodded.ichor, 0.001)
     assertEquals(OrganBalance.NODULE_BASE_STILLNESS_REWARD, prodded.stillness, 0.001)
   }
 
@@ -235,26 +241,26 @@ class OrganGameEngineTest {
     val catalog = sampleCatalog()
     var state =
       OrganGameEngine.initialState(catalog).copy(
-        ichor = 200.0,
-        cycleLifetimeIchor = 200.0,
-        stillness = 30.0,
+        ichor = 1_700.0,
+        cycleLifetimeIchor = 1_700.0,
+        stillness = 100.0,
         creatures = mapOf(CreatureType.SUTURE_HAND to 2, CreatureType.LEECH_CLERK to 1),
       )
 
     state = OrganGameEngine.bottleJar(state, SpecimenJar.YESTERDAYS_DUST, catalog)
     assertTrue(SpecimenJar.YESTERDAYS_DUST in state.ownedJars)
-    assertEquals(22.0, state.stillness, 0.001)
+    assertEquals(76.0, state.stillness, 0.001)
     assertEquals(4.0, state.manualTapYield, 0.001)
     assertEquals("dlg_jar", state.activeDialogue?.id)
 
     // Duplicate bottling does nothing
     val duplicate = OrganGameEngine.bottleJar(state, SpecimenJar.YESTERDAYS_DUST, catalog)
-    assertEquals(22.0, duplicate.stillness, 0.001)
+    assertEquals(76.0, duplicate.stillness, 0.001)
 
-    // Unspent Breath doubles Suture-Hands (2*1=2) + Leech-Clerks (1*4=4) -> 12/s
+    // Unspent Breath boosts Suture-Hands (2*0.6=1.2) + Leech-Clerks (1*2.4=2.4) by 1.75x -> 6.3/s
     val breath = OrganGameEngine.bottleJar(state, SpecimenJar.UNSPENT_BREATH, catalog)
     assertTrue(SpecimenJar.UNSPENT_BREATH in breath.ownedJars)
-    assertEquals(12.0, breath.ichorPerSecond, 0.001)
+    assertEquals(6.3, breath.ichorPerSecond, 0.001)
   }
 
   @Test
@@ -262,21 +268,21 @@ class OrganGameEngineTest {
     val catalog = sampleCatalog()
     val lockedP2 =
       OrganGameEngine.initialState(catalog).copy(
-        cycleLifetimeIchor = 200.0,
+        cycleLifetimeIchor = 2_000.0,
         phase = 2,
         creatures = mapOf(CreatureType.SUTURE_HAND to 3, CreatureType.LEECH_CLERK to 2),
       )
     assertFalse(lockedP2.canAffordGraft)
     assertEquals(0, OrganGameEngine.performGraft(lockedP2, catalog).graftedTendrils)
 
-    val readyP3 = lockedP2.copy(cycleLifetimeIchor = 700.0, phase = 3)
+    val readyP3 = lockedP2.copy(cycleLifetimeIchor = 16_500.0, phase = 3)
     assertTrue(readyP3.canAffordGraft)
 
     val grafted = OrganGameEngine.performGraft(readyP3, catalog)
     assertEquals(1, grafted.graftedTendrils)
     assertEquals(1, grafted.creatureCount(CreatureType.SUTURE_HAND))
     assertEquals(0, grafted.creatureCount(CreatureType.LEECH_CLERK))
-    assertEquals(1.0 + OrganBalance.GRAFT_ICHOR_PER_SEC, grafted.ichorPerSecond, 0.001)
+    assertEquals(0.6 + OrganBalance.GRAFT_ICHOR_PER_SEC, grafted.ichorPerSecond, 0.001)
     assertEquals(OrganBalance.GRAFT_STILLNESS_PER_SEC, grafted.stillnessPerSecond, 0.001)
     assertEquals("dlg_graft", grafted.activeDialogue?.id)
   }
@@ -285,20 +291,25 @@ class OrganGameEngineTest {
   fun excision_resetsCycleProgressGrantsScarTissueMultiplierAndTriggersCycleOneNote() {
     val catalog = sampleCatalog()
     val notReady =
-      OrganGameEngine.initialState(catalog).copy(ichor = 1_500.0, cycleLifetimeIchor = 1_500.0)
-    assertFalse(notReady.canExcise)
+      OrganGameEngine.initialState(catalog).copy(
+        ichor = 100_000.0,
+        cycleLifetimeIchor = 100_000.0,
+        phase = 4,
+      )
+    assertFalse("Phase 4 entry alone must not immediately unlock Excision", notReady.canExcise)
     assertEquals(0L, notReady.pendingScarTissue)
     assertEquals(0, OrganGameEngine.performExcision(notReady, catalog).cycle)
 
     val ready =
       OrganGameEngine.initialState(catalog).copy(
-        ichor = 2_200.0,
-        cycleLifetimeIchor = 2_200.0,
-        stillness = 50.0,
+        ichor = 155_000.0,
+        cycleLifetimeIchor = 155_000.0,
+        stillness = 80.0,
         phase = 4,
         creatures = mapOf(CreatureType.SUTURE_HAND to 5, CreatureType.WEEPING_LAMP to 2),
         graftedTendrils = 1,
         ownedJars = setOf(SpecimenJar.YESTERDAYS_DUST),
+        anomalyInteractions = mapOf(WallAnomalyType.PALE_TOOTH to 3),
       )
     assertTrue(ready.canExcise)
     assertEquals(1L, ready.pendingScarTissue)
@@ -312,6 +323,7 @@ class OrganGameEngineTest {
     assertTrue(postReset.creatures.isEmpty())
     assertEquals(0, postReset.graftedTendrils)
     assertTrue(postReset.ownedJars.isEmpty())
+    assertTrue(postReset.anomalyInteractions.isEmpty())
     assertEquals(1.75, postReset.scarMultiplier, 0.001)
     assertEquals(1.75, postReset.manualTapYield, 0.001)
     assertEquals("dlg_excision", postReset.activeDialogue?.id)
@@ -320,12 +332,20 @@ class OrganGameEngineTest {
   @Test
   fun escalationCurveAndViewModelFallback_handleBoundariesAndRepositoryErrorsSafely() {
     assertEquals(0, EscalationCurve.phaseForCount(-1L))
-    assertEquals(0, EscalationCurve.phaseForCount(24L))
-    assertEquals(1, EscalationCurve.phaseForCount(25L))
-    assertEquals(2, EscalationCurve.phaseForCount(150L))
-    assertEquals(3, EscalationCurve.phaseForCount(600L))
-    assertEquals(4, EscalationCurve.phaseForCount(2_000L))
+    assertEquals(0, EscalationCurve.phaseForCount(74L))
+    assertEquals(1, EscalationCurve.phaseForCount(75L))
+    assertEquals(2, EscalationCurve.phaseForCount(1_600L))
+    assertEquals(3, EscalationCurve.phaseForCount(16_000L))
+    assertEquals(4, EscalationCurve.phaseForCount(85_000L))
     assertNull(EscalationCurve.nextThresholdForPhase(4))
+    assertEquals(
+      0.5f,
+      EscalationCurve.progressWithinPhase(
+        count = 117_500L,
+        finalGoalThreshold = OrganBalance.EXCISION_ICHOR_THRESHOLD,
+      ),
+      0.01f,
+    )
 
     val brokenRepo =
       object : DialogueRepository {
@@ -335,5 +355,76 @@ class OrganGameEngineTest {
     viewModel.pressValve()
     assertEquals(1L, viewModel.uiState.value.ichorDisplay)
     assertNull(viewModel.uiState.value.activeDialogue)
+  }
+
+  @Test
+  fun firstCyclePacing_reachesFirstExcisionInRoughlyFifteenMinutesWithModerateActivity() {
+    val catalog = sampleCatalog()
+    var state = OrganGameEngine.initialState(catalog)
+    var elapsedSec = 0
+
+    // Simulate realistic moderate activity:
+    // - Before Weeping Lamps: ~1.2 manual taps/sec (alternating 1 and 2 taps/sec) + anomalies + purchases
+    // - Once Weeping Lamps unlock: alternates 25s Stillness pauses (hands off) with 20s active tending
+    while (!state.canExcise && elapsedSec < 1_800) {
+      val hasLamps = state.creatureCount(CreatureType.WEEPING_LAMP) > 0
+      val inStillnessWindow = hasLamps && (elapsedSec % 45) < 25
+
+      if (!inStillnessWindow) {
+        // Moderate manual valve tapping (~1.2 taps/sec early, ~0.8 taps/sec once automated)
+        val tapsThisSecond =
+          when {
+            !hasLamps && elapsedSec % 5 == 0 -> 2
+            !hasLamps -> 1
+            elapsedSec % 2 == 0 -> 1
+            else -> 0
+          }
+        repeat(tapsThisSecond) { state = OrganGameEngine.pressValve(state, catalog) }
+
+        // Interact with any wall anomaly during active windows
+        if (state.activeAnomalies.isNotEmpty()) {
+          state = OrganGameEngine.interactAnomaly(state, state.activeAnomalies.first().id, catalog)
+        }
+      }
+
+      // Bottle affordable Specimen Jars (does not break Stillness)
+      SpecimenJar.entries.forEach { jar ->
+        if (jar !in state.ownedJars && state.stillness >= jar.stillnessCost) {
+          state = OrganGameEngine.bottleJar(state, jar, catalog)
+        }
+      }
+
+      // Perform Graft once Phase 3 unlocks and creatures are available
+      if (state.canAffordGraft) {
+        state = OrganGameEngine.performGraft(state, catalog)
+      }
+
+      // Purchase best-value affordable organism (with brief saving for next tier)
+      val lampCost = state.creatureCost(CreatureType.WEEPING_LAMP)
+      val leechCost = state.creatureCost(CreatureType.LEECH_CLERK)
+      val sutureCost = state.creatureCost(CreatureType.SUTURE_HAND)
+      val lampUnlocked = state.cycleLifetimeIchorDisplay >= CreatureType.WEEPING_LAMP.unlockIchorThreshold
+      val leechUnlocked = state.cycleLifetimeIchorDisplay >= CreatureType.LEECH_CLERK.unlockIchorThreshold
+
+      when {
+        lampUnlocked && state.ichor >= lampCost ->
+          state = OrganGameEngine.buyCreature(state, CreatureType.WEEPING_LAMP, catalog)
+        leechUnlocked && state.ichor >= leechCost && (!lampUnlocked || leechCost < lampCost * 0.55) ->
+          state = OrganGameEngine.buyCreature(state, CreatureType.LEECH_CLERK, catalog)
+        state.isApparatusUnlocked &&
+          state.ichor >= sutureCost &&
+          (!leechUnlocked || sutureCost < leechCost * 0.45) ->
+          state = OrganGameEngine.buyCreature(state, CreatureType.SUTURE_HAND, catalog)
+      }
+
+      state = OrganGameEngine.tick(state, 1.0, catalog)
+      elapsedSec += 1
+    }
+
+    assertTrue("Expected moderate-activity Cycle 0 to reach Excision within 30 min", state.canExcise)
+    assertTrue(
+      "Expected Cycle 0 -> First Excision in 12..18 min (720..1080s), actual was ${elapsedSec}s (${elapsedSec / 60.0} min)",
+      elapsedSec in 720..1_080,
+    )
   }
 }

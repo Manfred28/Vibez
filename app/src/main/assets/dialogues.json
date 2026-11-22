@@ -41,7 +41,7 @@
       "once": true,
       "speaker": "Intake Slip #01",
       "lines": [
-        "One drop cleared the brass lip.",
+        "One drop cleared the iron lip.",
         "The tile stays cold, though something behind the grout shifted its weight."
       ]
     },
@@ -67,7 +67,7 @@
       "mood": "uncanny",
       "trigger": {
         "type": "counter_reached",
-        "threshold": 25
+        "threshold": 75
       },
       "once": true,
       "speaker": "Previous Caretaker",
@@ -114,7 +114,7 @@
       "mood": "heavy",
       "trigger": {
         "type": "counter_reached",
-        "threshold": 150
+        "threshold": 1600
       },
       "once": true,
       "speaker": "Redacted Chart",
@@ -145,7 +145,7 @@
       "mood": "depressive",
       "trigger": {
         "type": "stillness_reached",
-        "threshold": 5
+        "threshold": 12
       },
       "once": true,
       "speaker": "Unaddressed Letter",
@@ -191,7 +191,7 @@
       "mood": "existential",
       "trigger": {
         "type": "counter_reached",
-        "threshold": 600
+        "threshold": 16000
       },
       "once": true,
       "speaker": "Eviction Notice (Undated)",
@@ -233,17 +233,32 @@
       ]
     },
     {
-      "id": "dlg_p4_overgrown",
+      "id": "dlg_p4_endless_hollow",
       "phase": 4,
       "mood": "hopeless",
       "trigger": {
         "type": "counter_reached",
-        "threshold": 2000
+        "threshold": 85000
       },
       "once": true,
       "speaker": "The Unnamed Organ",
       "lines": [
-        "The seams have swallowed the ceiling. There is no room left for anything else to grow.",
+        "The seams have swallowed the ceiling light. The tiles bend inward like ribs.",
+        "It is nearly too large for the chamber—and still it asks for more."
+      ]
+    },
+    {
+      "id": "dlg_p4_excision_ready",
+      "phase": 4,
+      "mood": "hopeless",
+      "trigger": {
+        "type": "counter_reached",
+        "threshold": 150000
+      },
+      "once": true,
+      "speaker": "Surgical Tray",
+      "lines": [
+        "There is no room left for anything else to grow. A cold blade rests beside the drain.",
         "Cut it back to the tile. You already know you will not leave while the knife is in your hand."
       ]
     },

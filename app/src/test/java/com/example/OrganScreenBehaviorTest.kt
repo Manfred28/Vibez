@@ -67,6 +67,8 @@ class OrganScreenBehaviorTest {
       .onNodeWithTag("phase_header")
       .assertIsDisplayed()
       .assertTextEquals("PHASE 00 // THE COUNTING ROOM")
+    composeTestRule.onNodeWithTag("chamber_wall_art").assertIsDisplayed()
+    composeTestRule.onNodeWithTag("valve_artwork", useUnmergedTree = true).assertIsDisplayed()
     composeTestRule.onNodeWithTag("counter_text").assertTextEquals("0")
     composeTestRule
       .onNodeWithTag("increment_button")
@@ -93,21 +95,32 @@ class OrganScreenBehaviorTest {
   }
 
   @Test
-  fun phaseOneProgression_unlocksOrganismBuySpawnsPullableWallToothAndOpensArchive() {
+  fun phaseOneProgression_rendersPhaseOneGraphicsUnlocksOrganismsSpawnsToothAndOpensArchive() {
     val viewModel = createViewModel()
     composeTestRule.setContent { OrganRoute(viewModel = viewModel) }
     composeTestRule.waitForIdle()
 
-    // Tap 25 times to enter Phase 1 (Uncanny Drift) and afford Suture-Hand (15 Ichor)
-    repeat(25) { composeTestRule.onNodeWithTag("increment_button").performClick() }
+    // Tap 75 times to enter Phase 1 (Uncanny Drift), revealing both Suture-Hand & Leech-Clerk
+    repeat(75) { composeTestRule.onNodeWithTag("increment_button").performClick() }
     composeTestRule.waitForIdle()
 
     composeTestRule
       .onNodeWithTag("phase_header")
       .assertTextEquals("PHASE 01 // UNCANNY DRIFT")
+    composeTestRule.onNodeWithTag("chamber_wall_art").assertIsDisplayed()
     composeTestRule.onNodeWithTag("apparatus_deck").performScrollTo().assertIsDisplayed()
 
-    // Buy Suture-Hand via UI
+    // Verify Phase 1 bespoke specimen portraits render inside organism deck rows
+    composeTestRule
+      .onNodeWithTag("art_suture_hand", useUnmergedTree = true)
+      .performScrollTo()
+      .assertIsDisplayed()
+    composeTestRule
+      .onNodeWithTag("art_leech_clerk", useUnmergedTree = true)
+      .performScrollTo()
+      .assertIsDisplayed()
+
+    // Buy Suture-Hand (25 Ichor) via UI
     composeTestRule.onNodeWithTag("buy_suture_hand").performScrollTo().performClick()
     composeTestRule.waitForIdle()
 
@@ -143,9 +156,9 @@ class OrganScreenBehaviorTest {
     var state by
       mutableStateOf(
         OrganGameEngine.initialState(catalog).copy(
-          ichor = 900.0,
-          cycleLifetimeIchor = 900.0,
-          stillness = 15.0,
+          ichor = 17_000.0,
+          cycleLifetimeIchor = 17_000.0,
+          stillness = 30.0,
           phase = 3,
           phaseName = catalog.phaseName(3),
           creatures =
@@ -175,7 +188,7 @@ class OrganScreenBehaviorTest {
 
     composeTestRule.onNodeWithTag("stillness_active_badge").assertIsDisplayed()
 
-    // Switch to JARS & GRAFT tab, bottle Yesterday's Dust, and perform Graft
+    // Switch to JARS & GRAFT tab, bottle Yesterday's Dust (18 Stillness), and perform Graft
     composeTestRule.onNodeWithTag("deck_tab_jars_and_graft").performScrollTo().performClick()
     composeTestRule.waitForIdle()
 
@@ -191,26 +204,40 @@ class OrganScreenBehaviorTest {
   }
 
   @Test
-  fun firstExcisionFlow_resetsChamberAwardsScarTissueAndRevealsCycleOneFragment() {
+  fun phaseFourExcisionProgressAndSeverance_showsMassProgressThenResetsChamberToCycleOne() {
     val context = ApplicationProvider.getApplicationContext<Context>()
     val catalog = AssetDialogueRepository(context).loadCatalog()
     val excisionFragment = catalog.entries.first { it.trigger.type == "excision_completed" }
 
     val viewModel = createViewModel()
-    // Build up through real engine steps to reach Phase 4 (2,000+ Ichor)
-    repeat(20) { viewModel.pressValve() }
+    // Build up through real engine steps to Phase 4 entry (85,000+ but < 150,000)
+    repeat(75) { viewModel.pressValve() }
     viewModel.buyCreature(CreatureType.SUTURE_HAND)
-    viewModel.advanceTime(60.0)
+    viewModel.advanceTime(300.0)
     viewModel.buyCreature(CreatureType.LEECH_CLERK)
-    viewModel.advanceTime(40.0)
+    viewModel.advanceTime(500.0)
     viewModel.buyCreature(CreatureType.WEEPING_LAMP)
-    // Idle so Weeping Lamp drips Stillness + 2x Ichor until Phase 4 Excision threshold (2,000)
-    viewModel.advanceTime(130.0)
-
-    assertTrue("Expected Excision to be ready in Phase 4", viewModel.uiState.value.canExcise)
+    // Idle under Stillness so Weeping Lamp drives Ichor cleanly past 85,000 into Phase 4 (< 150,000)
+    viewModel.advanceTime(6_000.0)
+    assertEquals(4, viewModel.uiState.value.phase)
 
     composeTestRule.setContent { OrganRoute(viewModel = viewModel) }
     composeTestRule.waitForIdle()
+
+    if (!viewModel.uiState.value.canExcise) {
+      composeTestRule
+        .onNodeWithTag("threshold_status")
+        .assertTextEquals(
+          "EXCISION MASS: ${
+            java.text.NumberFormat.getIntegerInstance()
+              .format(viewModel.uiState.value.cycleLifetimeIchorDisplay)
+          } / 150,000"
+        )
+      composeTestRule.runOnIdle { viewModel.advanceTime(5_000.0) }
+      composeTestRule.waitForIdle()
+    }
+
+    assertTrue("Expected Excision to be ready in Phase 4", viewModel.uiState.value.canExcise)
 
     composeTestRule
       .onNodeWithTag("threshold_status")

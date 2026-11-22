@@ -5,6 +5,7 @@ import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -29,13 +30,17 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -89,22 +94,52 @@ fun ChamberCanvas(
   val leechCount = state.creatureCount(CreatureType.LEECH_CLERK)
   val lampCount = state.creatureCount(CreatureType.WEEPING_LAMP)
 
+  // Phase 1 graphic focus: cracked asylum wall surfaces sharply upon entering Phase 1
+  val wallArtAlpha =
+    when {
+      state.phase >= 2 -> 0.72f
+      state.phase == 1 -> 0.66f
+      else -> 0.28f
+    }
+
   Surface(
     modifier = modifier.fillMaxWidth().testTag("chamber_canvas"),
     shape = MaterialTheme.shapes.small,
-    color = colorScheme.surface.copy(alpha = 0.62f),
+    color = colorScheme.surface.copy(alpha = 0.84f),
     border = BorderStroke(1.dp, atmosphere.hairline),
   ) {
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
       val boxWidth = maxWidth
       val boxHeight = maxHeight
 
-      // Living tiled wall, grout cracks, organic veins, hanging weeping lamps & scar seams
+      // Bespoke Phase 1 damp tiled chamber wall graphic
+      Image(
+        painter = painterResource(id = R.drawable.img_wall_phase1),
+        contentDescription = stringResource(R.string.art_wall_phase1_cd),
+        contentScale = ContentScale.Crop,
+        modifier = Modifier.fillMaxSize().alpha(wallArtAlpha).testTag("chamber_wall_art"),
+      )
+
+      // Living tiled wall scrim, grout cracks, organic veins, hanging weeping lamps & scar seams
       Canvas(modifier = Modifier.fillMaxSize()) {
         val breath = breathPhaseProvider()
+
+        // Vertical & radial dark scrim preserving high-contrast telemetry digits over wall texture
+        drawRect(
+          brush =
+            Brush.verticalGradient(
+              colors =
+                listOf(
+                  colorScheme.background.copy(alpha = 0.76f),
+                  colorScheme.background.copy(alpha = 0.34f),
+                  colorScheme.background.copy(alpha = 0.68f),
+                )
+            )
+        )
+
         val tileStep = 38.dp.toPx()
 
-        val tileLineColor = atmosphere.hairline.copy(alpha = 0.34f)
+        val tileLineColor = atmosphere.hairline.copy(alpha = 0.22f)
         var x = tileStep
         while (x < size.width) {
           drawLine(tileLineColor, Offset(x, 0f), Offset(x, size.height), strokeWidth = 1f)

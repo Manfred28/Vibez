@@ -20,7 +20,11 @@ The app should feel **surreal, grotesque, weird, and out of this world**.
 
 ### Visual & Sensory Direction
 - **Dark, Desaturated, Monospaced (`BleakTheme`):** Always-dark void/ash/slate surfaces, bleached-bone typography, sickly lichen/olive/dried-clot undertones, and bundled monospaced typography (`JetBrains Mono`) throughout.
-- **Beyond Buttons — Living Surfaces, Creatures & Objects:** Clicking begins on a recessed valve, then expands directly onto the chamber wall and counter monolith:
+- **Handcrafted Surreal Graphic Design (Phase 1 Visual Foundation):**
+  - Damp, cracked institutional tiled chamber wall (`img_wall_phase1`) emerging out of deep shadow as Phase 0 yields to Phase 1.
+  - Tarnished iron-and-calcified-bone recessed mechanical wall valve (`img_recessed_valve`) serving as the physical centerpiece.
+  - Painterly anatomical specimen portraits for Phase 1 organisms (`img_suture_hand`, `img_leech_clerk`) paired with detailed shaded anatomical Canvas art for interactive wall anomalies (**Pale Tooth**, **Blinking Glass Eye**, **Swollen Nodule**).
+- **Beyond Buttons — Living Surfaces, Creatures & Objects:** Clicking begins on the recessed valve, then expands directly onto the chamber wall and counter monolith:
   - Pulling **Pale Teeth** from hairline plaster cracks.
   - Wiping grey condensation off a **Blinking Glass Eye** embedded in masonry.
   - Prodding **Swollen Nodules** pulsing along bruised fissures.
@@ -49,17 +53,17 @@ Three primary emotional threads anchor the entire experience:
 
 ---
 
-## 4. Escalation Curve & Prototype Arc (Start → First Excision)
+## 4. Escalation Curve & ~15-Minute First-Cycle Pacing (Start → First Excision)
 
-The emotional weight and surreal grotesquerie **must intensify as the game progresses**:
+Cycle 0 is balanced for **~15 minutes with moderate activity** from the first press to First Excision:
 
-| Phase | Working Name | Cycle Ichor Threshold | Mechanics & Chamber Transformation |
-| :--- | :--- | :--- | :--- |
-| **0** | *The Counting Room* | `0` | Stark tiled wall, recessed valve (`+1` Ichor), silent ledger. Early unlock of **Suture-Hands** (`15` Ichor). |
-| **1** | *Uncanny Drift* | `25` | Hairline fissures widen. **Pale Teeth** protrude from plaster (tap on wall to pull). **Leech-Clerks** latch onto the counter digits. |
-| **2** | *Apparatus & Flesh* | `150` | **Weeping Lamps** hang overhead; pausing taps for 3s triggers **Stillness** harvesting. A **Blinking Glass Eye** fogs over (tap to wipe for `2×` gaze boost). **Specimen Jars** unlock (*Yesterday's Dust*, *Unspent Breath*, *A Name You Almost Remember*). |
-| **3** | *Collapse of Meaning* | `600` | Bruised fissures pulse with **Swollen Nodules** (tap to prod). **Grafting** unlocks: sacrifice 2 Suture-Hands + 2 Leech-Clerks to form 1 **Grafted Choir-Tendril**. |
-| **4** | *The Endless Hollow* | `2,000` | Overgrowth encroaches on the chamber borders. **Excision / Molting** unlocks: sever the overgrown mass to reset into the next **Cycle**, retaining permanent **Scar Tissue** multipliers and uncovering post-reset notes. |
+| Phase | Working Name | Cycle Ichor Threshold | Target Window | Mechanics & Chamber Transformation |
+| :--- | :--- | :--- | :--- | :--- |
+| **0** | *The Counting Room* | `0` | `0:00 – 1:00` | Dimly shadowed tiled wall, recessed iron-and-bone valve (`+1` Ichor), silent ledger. **Suture-Hands** unfold at `25` Ichor (cost `25`, `+0.6/s`). |
+| **1** | *Uncanny Drift* | `75` | `1:00 – 4:30` | Cracked damp tiled wall art (`img_wall_phase1`) surfaces sharply. **Pale Teeth** protrude from plaster seams (`+25` Ichor, `+0.5` tap yield). **Leech-Clerks** unlock (cost `180`, `+2.4/s`) and cling to the counter glass. |
+| **2** | *Apparatus & Flesh* | `1,600` | `4:30 – 9:00` | **Weeping Lamps** (`1,400` Ichor, `+6/s`) hang overhead; pausing taps for 3s triggers **Stillness** harvesting (`+0.45/s` & `2×` lamp Ichor). **Blinking Glass Eye** fogs over (wipe for 12s `1.6×` gaze boost). **Specimen Jars** unlock (`24 / 65 / 140` Stillness). |
+| **3** | *Collapse of Meaning* | `16,000` | `9:00 – 13:00` | Bruised fissures pulse with **Swollen Nodules** (`+220` Ichor, `+6` Stillness). **Grafting** unlocks: fuse 2 Suture-Hands + 2 Leech-Clerks into 1 **Grafted Choir-Tendril** (`+18/s` Ichor, `+0.7/s` Stillness). |
+| **4** | *The Endless Hollow* | `85,000` | `13:00 – 15:30` | Overgrowth encroaches heavily while building toward critical mass. At **`150,000` Cycle Ichor**, **Excision / Molting** unlocks: sever the mass to enter **Cycle 01**, keeping permanent **Scar Tissue** (`+75%` Ichor per unit) and unlocking post-reset notes. |
 
 ---
 

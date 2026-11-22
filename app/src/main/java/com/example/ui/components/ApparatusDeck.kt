@@ -1,14 +1,20 @@
 package com.example.ui.components
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -21,7 +27,14 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
@@ -163,8 +176,73 @@ private fun OrganismsList(
       enabled = canAfford,
       accentAction = false,
       testTag = "buy_${type.id}",
+      leadingArt = { CreatureSpecimenPortrait(type = type, enabled = canAfford || count > 0) },
       onClick = { onBuyCreature(type) },
     )
+  }
+}
+
+@Composable
+private fun CreatureSpecimenPortrait(type: CreatureType, enabled: Boolean) {
+  val colorScheme = MaterialTheme.colorScheme
+  val borderColor = if (enabled) colorScheme.outline else colorScheme.outlineVariant
+  val contentAlpha = if (enabled) 0.96f else 0.52f
+
+  Surface(
+    modifier = Modifier.size(48.dp),
+    shape = MaterialTheme.shapes.extraSmall,
+    color = colorScheme.background,
+    border = BorderStroke(1.dp, borderColor),
+  ) {
+    when (type) {
+      CreatureType.SUTURE_HAND ->
+        Image(
+          painter = painterResource(id = R.drawable.img_suture_hand),
+          contentDescription = stringResource(R.string.art_suture_hand_cd),
+          contentScale = ContentScale.Crop,
+          modifier = Modifier.fillMaxSize().alpha(contentAlpha).testTag("art_suture_hand"),
+        )
+      CreatureType.LEECH_CLERK ->
+        Image(
+          painter = painterResource(id = R.drawable.img_leech_clerk),
+          contentDescription = stringResource(R.string.art_leech_clerk_cd),
+          contentScale = ContentScale.Crop,
+          modifier = Modifier.fillMaxSize().alpha(contentAlpha).testTag("art_leech_clerk"),
+        )
+      CreatureType.WEEPING_LAMP ->
+        Box(modifier = Modifier.fillMaxSize().alpha(contentAlpha).testTag("art_weeping_lamp")) {
+          Canvas(modifier = Modifier.fillMaxSize()) {
+            val cx = size.width / 2f
+            drawLine(
+              color = colorScheme.outline,
+              start = Offset(cx, 0f),
+              end = Offset(cx, size.height * 0.28f),
+              strokeWidth = 1.4.dp.toPx(),
+            )
+            drawOval(
+              brush =
+                Brush.radialGradient(
+                  colors = listOf(colorScheme.primary.copy(alpha = 0.55f), colorScheme.surfaceVariant),
+                  center = Offset(cx, size.height * 0.48f),
+                  radius = size.minDimension * 0.34f,
+                ),
+              topLeft = Offset(cx - 9.dp.toPx(), size.height * 0.26f),
+              size = Size(18.dp.toPx(), 22.dp.toPx()),
+            )
+            drawOval(
+              color = colorScheme.primary.copy(alpha = 0.78f),
+              topLeft = Offset(cx - 9.dp.toPx(), size.height * 0.26f),
+              size = Size(18.dp.toPx(), 22.dp.toPx()),
+              style = Stroke(width = 1.dp.toPx()),
+            )
+            drawCircle(
+              color = colorScheme.primary,
+              radius = 2.dp.toPx(),
+              center = Offset(cx, size.height * 0.84f),
+            )
+          }
+        }
+    }
   }
 }
 
@@ -347,6 +425,7 @@ private fun DeckActionRow(
   enabled: Boolean,
   accentAction: Boolean,
   testTag: String,
+  leadingArt: (@Composable () -> Unit)? = null,
   onClick: () -> Unit,
 ) {
   val colorScheme = MaterialTheme.colorScheme
@@ -380,6 +459,11 @@ private fun DeckActionRow(
       horizontalArrangement = Arrangement.SpaceBetween,
       verticalAlignment = Alignment.CenterVertically,
     ) {
+      if (leadingArt != null) {
+        leadingArt()
+        Spacer(modifier = Modifier.width(10.dp))
+      }
+
       Column(modifier = Modifier.weight(1f).padding(end = 10.dp)) {
         Text(
           text = title,

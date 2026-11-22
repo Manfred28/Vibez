@@ -9,6 +9,8 @@ import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
@@ -35,14 +37,17 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
@@ -213,22 +218,50 @@ internal fun RecessedValveButton(
           color = if (isPressed) colorScheme.tertiary else colorScheme.outline,
         ),
     ) {
-      Column(
-        modifier = Modifier.fillMaxSize(),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center,
-      ) {
-        Text(
-          text = yieldLabel,
-          style = MaterialTheme.typography.headlineLarge.copy(fontSize = 30.sp),
-          color = colorScheme.onBackground,
+      Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        Image(
+          painter = painterResource(id = R.drawable.img_recessed_valve),
+          contentDescription = null,
+          contentScale = ContentScale.Crop,
+          modifier =
+            Modifier.fillMaxSize()
+              .clip(CircleShape)
+              .alpha(if (isPressed) 0.72f else 0.88f)
+              .testTag("valve_artwork"),
         )
-        Spacer(modifier = Modifier.height(4.dp))
-        Text(
-          text = stringResource(R.string.valve_action_label),
-          style = MaterialTheme.typography.labelLarge,
-          color = colorScheme.onSurfaceVariant,
+
+        Box(
+          modifier =
+            Modifier.fillMaxSize()
+              .background(
+                Brush.radialGradient(
+                  colors =
+                    listOf(
+                      (if (isPressed) colorScheme.tertiaryContainer else colorScheme.background)
+                        .copy(alpha = if (isPressed) 0.72f else 0.62f),
+                      colorScheme.background.copy(alpha = 0.28f),
+                    )
+                )
+              )
         )
+
+        Column(
+          modifier = Modifier.fillMaxSize(),
+          horizontalAlignment = Alignment.CenterHorizontally,
+          verticalArrangement = Arrangement.Center,
+        ) {
+          Text(
+            text = yieldLabel,
+            style = MaterialTheme.typography.headlineLarge.copy(fontSize = 30.sp),
+            color = colorScheme.onBackground,
+          )
+          Spacer(modifier = Modifier.height(4.dp))
+          Text(
+            text = stringResource(R.string.valve_action_label),
+            style = MaterialTheme.typography.labelLarge,
+            color = colorScheme.onBackground.copy(alpha = 0.85f),
+          )
+        }
       }
     }
   }

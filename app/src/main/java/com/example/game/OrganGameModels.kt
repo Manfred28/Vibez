@@ -15,31 +15,31 @@ enum class CreatureType(
 ) {
   SUTURE_HAND(
     id = "suture_hand",
-    baseCost = 15.0,
-    costGrowth = 1.18,
-    baseIchorPerSec = 1.0,
-    unlockIchorThreshold = 10L,
+    baseCost = 25.0,
+    costGrowth = 1.24,
+    baseIchorPerSec = 0.6,
+    unlockIchorThreshold = 25L,
   ),
   LEECH_CLERK(
     id = "leech_clerk",
-    baseCost = 60.0,
-    costGrowth = 1.20,
-    baseIchorPerSec = 4.0,
-    unlockIchorThreshold = 25L,
+    baseCost = 180.0,
+    costGrowth = 1.26,
+    baseIchorPerSec = 2.4,
+    unlockIchorThreshold = 75L,
   ),
   WEEPING_LAMP(
     id = "weeping_lamp",
-    baseCost = 180.0,
-    costGrowth = 1.22,
+    baseCost = 1_400.0,
+    costGrowth = 1.28,
     baseIchorPerSec = 6.0,
-    unlockIchorThreshold = 120L,
+    unlockIchorThreshold = 1_200L,
   ),
 }
 
 enum class SpecimenJar(val id: String, val stillnessCost: Double) {
-  YESTERDAYS_DUST(id = "yesterdays_dust", stillnessCost = 8.0),
-  UNSPENT_BREATH(id = "unspent_breath", stillnessCost = 20.0),
-  ALMOST_A_NAME(id = "almost_a_name", stillnessCost = 45.0),
+  YESTERDAYS_DUST(id = "yesterdays_dust", stillnessCost = 24.0),
+  UNSPENT_BREATH(id = "unspent_breath", stillnessCost = 65.0),
+  ALMOST_A_NAME(id = "almost_a_name", stillnessCost = 140.0),
 }
 
 enum class WallAnomalyType(val id: String, val minPhase: Int) {
@@ -63,8 +63,8 @@ enum class OrganDeckTab {
 }
 
 /**
- * Complete immutable state for Direction 1 ("The Tending of the Unnamed Organ") from start through
- * First Excision (Reset) and beyond.
+ * Complete immutable state for Direction 1 ("The Tending of the Unnamed Organ"), paced for ~15
+ * minutes of moderate activity from tap 1 to First Excision.
  */
 data class OrganGameState(
   val ichor: Double = 0.0,
@@ -115,17 +115,21 @@ data class OrganGameState(
 
   val manualTapYield: Double
     get() {
-      val dustBonus = if (SpecimenJar.YESTERDAYS_DUST in ownedJars) 3.0 else 0.0
+      val dustBonus =
+        if (SpecimenJar.YESTERDAYS_DUST in ownedJars) OrganBalance.YESTERDAYS_DUST_TAP_BONUS
+        else 0.0
       val toothBonus = (anomalyInteractions[WallAnomalyType.PALE_TOOTH] ?: 0) * 0.5
       return (1.0 + dustBonus + toothBonus) * scarMultiplier
     }
 
   val ichorPerSecond: Double
     get() {
-      val clerkMultiplier = if (SpecimenJar.UNSPENT_BREATH in ownedJars) 2.0 else 1.0
+      val clerkMultiplier =
+        if (SpecimenJar.UNSPENT_BREATH in ownedJars) OrganBalance.UNSPENT_BREATH_MULTIPLIER
+        else 1.0
       val lampMultiplier =
-        (if (SpecimenJar.ALMOST_A_NAME in ownedJars) 2.5 else 1.0) *
-          (if (isStillnessActive) 2.0 else 1.0)
+        (if (SpecimenJar.ALMOST_A_NAME in ownedJars) OrganBalance.ALMOST_A_NAME_MULTIPLIER
+        else 1.0) * (if (isStillnessActive) 2.0 else 1.0)
 
       val sutureRate =
         creatureCount(CreatureType.SUTURE_HAND) *
@@ -146,7 +150,8 @@ data class OrganGameState(
 
   val stillnessPerSecond: Double
     get() {
-      val lampMultiplier = if (SpecimenJar.ALMOST_A_NAME in ownedJars) 2.5 else 1.0
+      val lampMultiplier =
+        if (SpecimenJar.ALMOST_A_NAME in ownedJars) OrganBalance.ALMOST_A_NAME_MULTIPLIER else 1.0
       val lampStillness =
         if (isStillnessActive) {
           creatureCount(CreatureType.WEEPING_LAMP) *
@@ -196,19 +201,22 @@ data class OrganGameState(
 
 object OrganBalance {
   const val STILLNESS_IDLE_DELAY_SEC: Double = 3.0
-  const val LAMP_STILLNESS_PER_SEC: Double = 1.0
-  const val GAZE_DURATION_SEC: Double = 15.0
-  const val GAZE_PASSIVE_MULTIPLIER: Double = 2.0
+  const val LAMP_STILLNESS_PER_SEC: Double = 0.45
+  const val GAZE_DURATION_SEC: Double = 12.0
+  const val GAZE_PASSIVE_MULTIPLIER: Double = 1.6
+  const val YESTERDAYS_DUST_TAP_BONUS: Double = 3.0
+  const val UNSPENT_BREATH_MULTIPLIER: Double = 1.75
+  const val ALMOST_A_NAME_MULTIPLIER: Double = 1.8
   const val GRAFT_SUTURE_COST: Int = 2
   const val GRAFT_LEECH_COST: Int = 2
-  const val GRAFT_ICHOR_PER_SEC: Double = 28.0
-  const val GRAFT_STILLNESS_PER_SEC: Double = 1.5
-  const val EXCISION_ICHOR_THRESHOLD: Long = 2_000L
+  const val GRAFT_ICHOR_PER_SEC: Double = 18.0
+  const val GRAFT_STILLNESS_PER_SEC: Double = 0.7
+  const val EXCISION_ICHOR_THRESHOLD: Long = 150_000L
   const val SCAR_TISSUE_BONUS_PER_UNIT: Double = 0.75
-  const val FIRST_ANOMALY_DELAY_SEC: Double = 6.0
-  const val ANOMALY_SPAWN_INTERVAL_SEC: Double = 9.0
+  const val FIRST_ANOMALY_DELAY_SEC: Double = 14.0
+  const val ANOMALY_SPAWN_INTERVAL_SEC: Double = 26.0
   const val MAX_ACTIVE_ANOMALIES: Int = 3
-  const val TOOTH_BASE_ICHOR_REWARD: Double = 14.0
-  const val NODULE_BASE_ICHOR_REWARD: Double = 45.0
-  const val NODULE_BASE_STILLNESS_REWARD: Double = 4.0
+  const val TOOTH_BASE_ICHOR_REWARD: Double = 25.0
+  const val NODULE_BASE_ICHOR_REWARD: Double = 220.0
+  const val NODULE_BASE_STILLNESS_REWARD: Double = 6.0
 }

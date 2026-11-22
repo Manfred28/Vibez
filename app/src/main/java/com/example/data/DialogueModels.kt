@@ -1,11 +1,12 @@
 package com.example.data
 
 /**
- * Escalation progression curve for Direction 1 ("The Tending of the Unnamed Organ"), aligned with
+ * Escalation progression curve for Direction 1 ("The Tending of the Unnamed Organ"), balanced for
+ * ~15 minutes of moderate activity before First Excision (150,000 Ichor) and aligned with
  * `/GAME_DESIGN_BIBLE.md` and `app/src/main/assets/dialogues.json`.
  */
 object EscalationCurve {
-  val phaseThresholds: List<Long> = listOf(0L, 25L, 150L, 600L, 2_000L)
+  val phaseThresholds: List<Long> = listOf(0L, 75L, 1_600L, 16_000L, 85_000L)
 
   fun phaseForCount(count: Long): Int {
     val safeCount = count.coerceAtLeast(0L)
@@ -23,10 +24,10 @@ object EscalationCurve {
     return phaseThresholds.getOrNull(nextPhase)
   }
 
-  fun progressWithinPhase(count: Long): Float {
+  fun progressWithinPhase(count: Long, finalGoalThreshold: Long? = null): Float {
     val safeCount = count.coerceAtLeast(0L)
     val phase = phaseForCount(safeCount)
-    val nextThreshold = nextThresholdForPhase(phase) ?: return 1f
+    val nextThreshold = nextThresholdForPhase(phase) ?: finalGoalThreshold ?: return 1f
     val startThreshold = phaseThresholds[phase]
     val span = (nextThreshold - startThreshold).coerceAtLeast(1L)
     return ((safeCount - startThreshold).toFloat() / span.toFloat()).coerceIn(0f, 1f)
