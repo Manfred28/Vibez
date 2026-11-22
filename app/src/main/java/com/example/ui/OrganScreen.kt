@@ -8,6 +8,7 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -17,11 +18,13 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -177,10 +180,33 @@ fun OrganScreen(
       },
     containerColor = Color.Transparent,
     contentWindowInsets = WindowInsets.safeDrawing,
+    bottomBar = {
+      Column(
+        modifier =
+          Modifier.fillMaxWidth()
+            .background(colorScheme.background.copy(alpha = 0.96f))
+            .navigationBarsPadding(),
+        horizontalAlignment = Alignment.CenterHorizontally,
+      ) {
+        HorizontalDivider(color = atmosphere.hairline, thickness = 1.dp)
+        Box(
+          modifier =
+            Modifier.fillMaxWidth()
+              .widthIn(max = 600.dp)
+              .padding(horizontal = 16.dp, vertical = 8.dp),
+        ) {
+          TransmissionLedgerPanel(
+            activeDialogue = state.activeDialogue,
+            discoveredCount = state.discoveredDialogues.size,
+            onOpenArchive = { archiveVisible = true },
+          )
+        }
+      }
+    },
   ) { innerPadding ->
     Box(
       modifier =
-        Modifier.fillMaxSize().padding(innerPadding).padding(horizontal = 18.dp, vertical = 14.dp)
+        Modifier.fillMaxSize().padding(innerPadding).padding(horizontal = 18.dp, vertical = 12.dp)
     ) {
       Column(
         modifier =
@@ -198,7 +224,7 @@ fun OrganScreen(
           breathPhaseProvider = { breathPhaseState.value },
           onPressValve = onPressValve,
           onInteractAnomaly = onInteractAnomaly,
-          modifier = Modifier.height(316.dp),
+          modifier = Modifier.height(300.dp),
         )
 
         AnimatedVisibility(
@@ -219,13 +245,7 @@ fun OrganScreen(
           )
         }
 
-        TransmissionLedgerPanel(
-          activeDialogue = state.activeDialogue,
-          discoveredCount = state.discoveredDialogues.size,
-          onOpenArchive = { archiveVisible = true },
-        )
-
-        Spacer(modifier = Modifier.height(6.dp))
+        Spacer(modifier = Modifier.height(8.dp))
       }
     }
   }

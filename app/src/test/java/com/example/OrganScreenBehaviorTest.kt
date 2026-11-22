@@ -168,8 +168,12 @@ class OrganScreenBehaviorTest {
     assertTrue(viewModel.uiState.value.ichorDisplay > ichorBeforePull)
     composeTestRule.onNodeWithTag("anomaly_pale_tooth_$toothId").assertDoesNotExist()
 
-    // Open Notes Archive sheet via the dedicated Archive pill button
-    composeTestRule.onNodeWithTag("open_archive_button").performScrollTo().performClick()
+    // Pinned story ledger remains directly visible at bottom without scrolling even after deck unlocks
+    composeTestRule.onNodeWithTag("dialogue_panel").assertIsDisplayed()
+    composeTestRule.onNodeWithTag("dialogue_body").assertIsDisplayed()
+
+    // Open Notes Archive sheet directly from pinned bottom ledger (no scrolling required)
+    composeTestRule.onNodeWithTag("open_archive_button").assertIsDisplayed().performClick()
     composeTestRule.waitForIdle()
 
     composeTestRule.onNodeWithTag("fragment_archive_sheet").assertIsDisplayed()
@@ -195,6 +199,7 @@ class OrganScreenBehaviorTest {
               CreatureType.WEEPING_LAMP to 1,
             ),
           isStillnessActive = true,
+          gazeRemainingSeconds = 8.0,
         )
       )
 
@@ -214,6 +219,10 @@ class OrganScreenBehaviorTest {
     composeTestRule.waitForIdle()
 
     composeTestRule.onNodeWithTag("stillness_active_badge").assertIsDisplayed()
+    composeTestRule
+      .onNodeWithTag("gaze_active_badge")
+      .assertIsDisplayed()
+      .assertTextEquals("EYE GAZE: PASSIVE ×1.6 (8s)")
     // Living chamber organisms: Suture-Hands on valve, Leech-Clerks on counter glass, Weeping Lamps overhead
     composeTestRule.onNodeWithTag("suture_hands_overlay").assertIsDisplayed()
     composeTestRule.onNodeWithTag("leech_clerks_overlay").assertIsDisplayed()
@@ -322,11 +331,11 @@ class OrganScreenBehaviorTest {
     composeTestRule.onNodeWithTag("counter_text").performScrollTo().assertTextEquals("0")
     composeTestRule
       .onNodeWithTag("dialogue_speaker")
-      .performScrollTo()
+      .assertIsDisplayed()
       .assertTextEquals("// ${excisionFragment.speaker.uppercase()}")
     composeTestRule
       .onNodeWithTag("dialogue_body")
-      .performScrollTo()
+      .assertIsDisplayed()
       .assertTextEquals(excisionFragment.lines.joinToString("\n"))
 
     // Reaching 75 Ichor in Cycle 1 unlocks the new prestige-bound handwriting fragment
@@ -337,11 +346,11 @@ class OrganScreenBehaviorTest {
 
     composeTestRule
       .onNodeWithTag("dialogue_speaker")
-      .performScrollTo()
+      .assertIsDisplayed()
       .assertTextEquals("// ${scarHandwritingFragment.speaker.uppercase()}")
     composeTestRule
       .onNodeWithTag("dialogue_body")
-      .performScrollTo()
+      .assertIsDisplayed()
       .assertTextEquals(scarHandwritingFragment.lines.joinToString("\n"))
   }
 }

@@ -7,7 +7,7 @@
     <string name="ichor_rate_format">%1$s /s</string>
     <string name="stillness_readout">STILLNESS: %1$s</string>
     <string name="stillness_active_tag">STILLNESS DRIPPING</string>
-    <string name="gaze_active_tag">EYE FOCUSED ×1.6 (%1$ds)</string>
+    <string name="gaze_active_tag">EYE GAZE: PASSIVE ×1.6 (%1$ds)</string>
     <string name="valve_plus_format">+%1$s</string>
     <string name="valve_action_label">VALVE</string>
     <string name="valve_content_description">Press the recessed wall valve to extract ichor</string>
@@ -32,10 +32,13 @@
     <!-- Wall anomaly interactive objects -->
     <string name="anomaly_tooth_label">PULL</string>
     <string name="anomaly_tooth_cd">Pull pale tooth protruding from plaster crack</string>
+    <string name="anomaly_tooth_feedback">+%1$s ICHOR · +0.5 TAP</string>
     <string name="anomaly_eye_label">WIPE</string>
     <string name="anomaly_eye_cd">Wipe condensation from blinking glass eye</string>
+    <string name="anomaly_eye_feedback">PASSIVE ×1.6 (12s)</string>
     <string name="anomaly_nodule_label">PROD</string>
     <string name="anomaly_nodule_cd">Prod swollen nodule pulsing along fissure</string>
+    <string name="anomaly_nodule_feedback">+%1$s ICHOR · +%2$s STILL</string>
 
     <!-- Apparatus deck tabs & organisms -->
     <string name="tab_organisms">ORGANISMS</string>

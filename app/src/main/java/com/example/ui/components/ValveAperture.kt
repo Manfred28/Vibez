@@ -159,11 +159,13 @@ internal fun RecessedValveButton(
             },
           ),
       shape = CircleShape,
-      color = if (isPressed) colorScheme.tertiaryContainer else colorScheme.surfaceVariant,
+      color = if (isPressed) colorScheme.tertiaryContainer else colorScheme.surface,
       border =
         BorderStroke(
-          width = 1.5.dp,
-          color = if (isPressed) colorScheme.tertiary else colorScheme.outline,
+          width = 1.dp,
+          color =
+            if (isPressed) colorScheme.tertiary.copy(alpha = 0.85f)
+            else colorScheme.outline.copy(alpha = 0.72f),
         ),
     ) {
       Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -174,7 +176,7 @@ internal fun RecessedValveButton(
           modifier =
             Modifier.fillMaxSize()
               .clip(CircleShape)
-              .alpha(if (isPressed) 0.72f else 0.88f)
+              .alpha(if (isPressed) 0.46f else 0.58f)
               .testTag("valve_artwork"),
         )
 
@@ -186,8 +188,8 @@ internal fun RecessedValveButton(
                   colors =
                     listOf(
                       (if (isPressed) colorScheme.tertiaryContainer else colorScheme.background)
-                        .copy(alpha = if (isPressed) 0.72f else 0.62f),
-                      colorScheme.background.copy(alpha = 0.28f),
+                        .copy(alpha = if (isPressed) 0.76f else 0.72f),
+                      colorScheme.background.copy(alpha = 0.50f),
                     )
                 )
               )
@@ -201,13 +203,13 @@ internal fun RecessedValveButton(
           Text(
             text = yieldLabel,
             style = MaterialTheme.typography.headlineLarge.copy(fontSize = 30.sp),
-            color = colorScheme.onBackground,
+            color = colorScheme.onBackground.copy(alpha = 0.88f),
           )
           Spacer(modifier = Modifier.height(4.dp))
           Text(
             text = stringResource(R.string.valve_action_label),
             style = MaterialTheme.typography.labelLarge,
-            color = colorScheme.onBackground.copy(alpha = 0.85f),
+            color = colorScheme.onBackground.copy(alpha = 0.70f),
           )
         }
       }

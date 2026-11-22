@@ -451,8 +451,8 @@ button:focus-visible {
   height: 132px;
   padding: 0;
   border-radius: 50%;
-  border: 1.5px solid var(--fracture-outline);
-  background: var(--chitin-surface);
+  border: 1px solid rgba(62, 68, 65, 0.72);
+  background: var(--sunken-slate);
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -463,13 +463,13 @@ button:focus-visible {
 }
 
 .valve-button:hover {
-  border-color: var(--pale-lichen);
+  border-color: rgba(141, 152, 138, 0.58);
 }
 
 .valve-button:active,
 .valve-button.is-pressed {
   transform: translateY(5px) scale(0.96);
-  border-color: var(--dried-clot);
+  border-color: rgba(123, 74, 74, 0.85);
 }
 
 .valve-art-img {
@@ -478,14 +478,14 @@ button:focus-visible {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  opacity: 0.88;
+  opacity: 0.58;
   pointer-events: none;
 }
 
 .valve-vignette {
   position: absolute;
   inset: 0;
-  background: radial-gradient(circle, rgba(10, 11, 11, 0.62) 0%, rgba(10, 11, 11, 0.28) 100%);
+  background: radial-gradient(circle, rgba(10, 11, 11, 0.72) 0%, rgba(10, 11, 11, 0.50) 100%);
   pointer-events: none;
 }
 
@@ -494,7 +494,7 @@ button:focus-visible {
   z-index: 1;
   font-size: 28px;
   font-weight: 500;
-  color: var(--bleached-bone);
+  color: rgba(200, 203, 195, 0.88);
 }
 
 .valve-sub-label {
@@ -502,7 +502,7 @@ button:focus-visible {
   z-index: 1;
   font-size: 11px;
   letter-spacing: 1.8px;
-  color: rgba(200, 203, 195, 0.85);
+  color: rgba(200, 203, 195, 0.70);
 }
 
 .residue-layer {
@@ -840,8 +840,8 @@ button:focus-visible {
 }
 
 .cultivate-btn:not(:disabled) {
-  background: rgba(10, 11, 11, 0.88);
-  border-color: rgba(141, 152, 138, 0.72);
+  background: rgba(17, 19, 19, 0.90);
+  border-color: rgba(141, 152, 138, 0.44);
 }
 
 .cultivate-btn:not(:disabled):hover {
@@ -855,7 +855,7 @@ button:focus-visible {
 }
 
 .cultivate-btn:not(:disabled) .cultivate-kicker {
-  color: rgba(200, 203, 195, 0.88);
+  color: rgba(200, 203, 195, 0.76);
 }
 
 .cultivate-cost {
@@ -865,7 +865,7 @@ button:focus-visible {
 }
 
 .cultivate-btn:not(:disabled) .cultivate-cost {
-  color: var(--pale-lichen);
+  color: rgba(141, 152, 138, 0.86);
 }
 
 .afford-bar {

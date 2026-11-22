@@ -41,7 +41,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.R
 import com.example.game.CreatureType
+import com.example.game.OrganBalance
 import com.example.game.OrganGameState
+import com.example.game.SpecimenJar
+import com.example.game.WallAnomalyType
 import com.example.ui.theme.BleakTheme
 import java.text.NumberFormat
 import kotlin.math.ceil
@@ -283,10 +286,37 @@ fun ChamberCanvas(
         key(anomaly.id) {
           val offsetX = (boxWidth - 62.dp) * anomaly.xFraction
           val offsetY = (boxHeight - 62.dp) * anomaly.yFraction
+          val jarBoost =
+            if (SpecimenJar.ALMOST_A_NAME in state.ownedJars) OrganBalance.ALMOST_A_NAME_MULTIPLIER
+            else 1.0
+          val feedbackLabel =
+            when (anomaly.type) {
+              WallAnomalyType.PALE_TOOTH ->
+                stringResource(
+                  R.string.anomaly_tooth_feedback,
+                  formatCompactDecimal(OrganBalance.TOOTH_BASE_ICHOR_REWARD * state.scarMultiplier * jarBoost),
+                )
+              WallAnomalyType.GLASS_EYE -> stringResource(R.string.anomaly_eye_feedback)
+              WallAnomalyType.SWOLLEN_NODULE ->
+                stringResource(
+                  R.string.anomaly_nodule_feedback,
+                  formatCompactDecimal(OrganBalance.NODULE_BASE_ICHOR_REWARD * state.scarMultiplier * jarBoost),
+                  formatCompactDecimal(
+                    OrganBalance.NODULE_BASE_STILLNESS_REWARD * state.scarStillnessMultiplier * jarBoost
+                  ),
+                )
+            }
           WallAnomalyNode(
             anomaly = anomaly,
             breathPhaseProvider = breathPhaseProvider,
-            onInteract = { onInteractAnomaly(anomaly.id) },
+            onInteract = {
+              onInteractAnomaly(anomaly.id)
+              val id = nextResidueId++
+              if (residues.size >= 14) {
+                residues.removeAt(0)
+              }
+              residues.add(ValveResidue(id = id, label = feedbackLabel, xDriftDp = 0f))
+            },
             modifier = Modifier.offset(x = offsetX, y = offsetY),
           )
         }

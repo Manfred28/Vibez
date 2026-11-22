@@ -78,6 +78,12 @@ test('GitHub Pages static bundle integrity and Android dialogues.json parity', (
   const androidRaw = fs.readFileSync(androidDialoguesPath, 'utf8').trim();
   assert.equal(webRaw, androidRaw, 'docs/assets/dialogues.json must match app/src/main/assets/dialogues.json');
 
+  // Verify root index.html redirects to ./docs/ when GitHub Pages serves from /(root)
+  const rootIndexPath = path.join(repoRoot, 'index.html');
+  assert.ok(fs.existsSync(rootIndexPath), 'Missing root index.html redirect for default GitHub Pages root');
+  const rootHtml = fs.readFileSync(rootIndexPath, 'utf8');
+  assert.ok(rootHtml.includes('./docs/'), 'Root index.html must redirect to ./docs/');
+
   // Verify index.html uses relative ./ paths so GitHub Pages subpaths work
   const html = fs.readFileSync(path.join(docsDir, 'index.html'), 'utf8');
   assert.ok(html.includes('href="./styles.css"'));

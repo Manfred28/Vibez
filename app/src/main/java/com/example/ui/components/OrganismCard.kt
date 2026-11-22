@@ -276,13 +276,13 @@ internal fun OrganismSpecimenCard(
               .clickable(enabled = canAfford, role = Role.Button, onClick = onBuy),
           shape = MaterialTheme.shapes.extraSmall,
           color =
-            if (canAfford) colorScheme.background.copy(alpha = 0.86f)
-            else colorScheme.surface.copy(alpha = 0.72f),
+            if (canAfford) colorScheme.surface.copy(alpha = 0.90f)
+            else colorScheme.background.copy(alpha = 0.65f),
           border =
             BorderStroke(
-              width = if (canAfford) 1.2.dp else 1.dp,
+              width = 1.dp,
               color =
-                if (canAfford) colorScheme.primary.copy(alpha = 0.72f)
+                if (canAfford) colorScheme.primary.copy(alpha = 0.44f)
                 else colorScheme.outlineVariant,
             ),
         ) {
@@ -295,13 +295,15 @@ internal fun OrganismSpecimenCard(
               text = stringResource(R.string.organism_action_cultivate),
               style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp, letterSpacing = 1.sp),
               color =
-                if (canAfford) colorScheme.onBackground.copy(alpha = 0.88f)
+                if (canAfford) colorScheme.onBackground.copy(alpha = 0.76f)
                 else colorScheme.onSurfaceVariant,
             )
             Text(
               text = stringResource(R.string.cost_ichor_format, numberFormat.format(cost)),
               style = MaterialTheme.typography.labelMedium.copy(letterSpacing = 0.6.sp),
-              color = if (canAfford) colorScheme.primary else colorScheme.onSurfaceVariant,
+              color =
+                if (canAfford) colorScheme.primary.copy(alpha = 0.86f)
+                else colorScheme.onSurfaceVariant,
               textAlign = TextAlign.Center,
             )
           }

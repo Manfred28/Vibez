@@ -13,10 +13,13 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
@@ -51,7 +54,7 @@ fun TransmissionLedgerPanel(
   Surface(
     modifier = modifier.fillMaxWidth().testTag("dialogue_panel"),
     shape = MaterialTheme.shapes.small,
-    color = colorScheme.surface.copy(alpha = 0.94f),
+    color = colorScheme.surface.copy(alpha = 0.97f),
     border = BorderStroke(1.dp, atmosphere.hairline),
   ) {
     AnimatedContent(
@@ -59,7 +62,7 @@ fun TransmissionLedgerPanel(
       transitionSpec = { fadeIn(tween(240)) togetherWith fadeOut(tween(160)) },
       label = "dialogue_transition",
     ) { entry ->
-      Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 10.dp)) {
+      Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp)) {
         if (entry == null) {
           Row(
             modifier = Modifier.fillMaxWidth(),
@@ -73,7 +76,7 @@ fun TransmissionLedgerPanel(
             )
             ArchivePillButton(discoveredCount = discoveredCount, onClick = onOpenArchive)
           }
-          Spacer(modifier = Modifier.height(6.dp))
+          Spacer(modifier = Modifier.height(4.dp))
           Text(
             text = stringResource(R.string.transmission_idle_body),
             style = MaterialTheme.typography.bodyMedium,
@@ -95,15 +98,19 @@ fun TransmissionLedgerPanel(
             ArchivePillButton(discoveredCount = discoveredCount, onClick = onOpenArchive)
           }
 
-          Spacer(modifier = Modifier.height(6.dp))
+          Spacer(modifier = Modifier.height(4.dp))
           HorizontalDivider(color = atmosphere.hairline, thickness = 1.dp)
-          Spacer(modifier = Modifier.height(8.dp))
+          Spacer(modifier = Modifier.height(6.dp))
 
           Text(
             text = entry.lines.joinToString(separator = "\n"),
             style = MaterialTheme.typography.bodyMedium,
             color = colorScheme.onSurface,
-            modifier = Modifier.testTag("dialogue_body"),
+            modifier =
+              Modifier.fillMaxWidth()
+                .heightIn(max = 96.dp)
+                .verticalScroll(rememberScrollState())
+                .testTag("dialogue_body"),
           )
         }
       }
