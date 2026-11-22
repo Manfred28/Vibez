@@ -1,0 +1,6 @@
+{
+  "name": "Tap Counter",
+  "description": "A tactile single-button incremental counter app, built as the first step of an incremental game.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

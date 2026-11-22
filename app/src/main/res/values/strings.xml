@@ -1,0 +1,8 @@
+<resources>
+    <string name="app_name">Tap Counter</string>
+    <string name="counter_label">COUNTER</string>
+    <string name="tap_button_plus_one">+1</string>
+    <string name="tap_button_action">TAP</string>
+    <string name="tap_button_content_description">Increase counter by one</string>
+    <string name="counter_value_content_description">Current counter value: %1$s</string>
+</resources>
