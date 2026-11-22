@@ -40,7 +40,6 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.PathEffect
-import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
@@ -56,10 +55,6 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.R
-import kotlin.math.PI
-import kotlin.math.cos
-import kotlin.math.min
-import kotlin.math.sin
 
 internal data class ValveResidue(val id: Long, val label: String, val xDriftDp: Float)
 
@@ -67,85 +62,38 @@ internal data class ValveResidue(val id: Long, val label: String, val xDriftDp: 
 internal fun ValveApertureArt(
   breathPhaseProvider: () -> Float,
   distortion: Float,
-  sutureCount: Int,
-  graftCount: Int,
   ringColor: Color,
   veinColor: Color,
-  tendrilColor: Color,
   modifier: Modifier = Modifier,
 ) {
-  Canvas(modifier = modifier.size(192.dp)) {
+  Canvas(modifier = modifier.size(228.dp).testTag("valve_aperture_art")) {
     val breath = breathPhaseProvider()
     val center = Offset(size.width / 2f, size.height / 2f)
-    val outerRadius = size.minDimension * (0.47f + breath * 0.02f)
-    val innerRadius = size.minDimension * 0.41f
+    val outerRadius = size.minDimension * (0.43f + breath * 0.015f)
+    val innerRadius = size.minDimension * 0.35f
 
     drawCircle(
-      color = ringColor.copy(alpha = 0.8f),
+      color = ringColor.copy(alpha = 0.85f),
       radius = outerRadius,
       center = center,
       style =
         Stroke(
-          width = 1.dp.toPx(),
-          pathEffect = PathEffect.dashPathEffect(floatArrayOf(9f, 11f)),
+          width = 1.1.dp.toPx(),
+          pathEffect = PathEffect.dashPathEffect(floatArrayOf(9f, 10f)),
         ),
     )
 
     val drift = (2.dp.toPx() + 6.dp.toPx() * distortion) * (breath - 0.5f)
     drawCircle(
-      color = veinColor.copy(alpha = 0.18f + distortion * 0.30f),
+      color = veinColor.copy(alpha = 0.20f + distortion * 0.34f),
       radius = innerRadius,
       center = Offset(center.x + drift, center.y - drift * 0.7f),
-      style = Stroke(width = 1.2.dp.toPx()),
+      style = Stroke(width = 1.3.dp.toPx()),
     )
-
-    val visibleHands = min(sutureCount, 8)
-    for (i in 0 until visibleHands) {
-      val angle = (i * (2.0 * PI / visibleHands)) - PI / 2.0
-      val reachInset = (10.dp.toPx() * sin((breath * PI) + i)).toFloat()
-      val outerPt =
-        Offset(
-          center.x + cos(angle).toFloat() * (outerRadius + 4.dp.toPx()),
-          center.y + sin(angle).toFloat() * (outerRadius + 4.dp.toPx()),
-        )
-      val tipPt =
-        Offset(
-          center.x + cos(angle).toFloat() * (innerRadius - 10.dp.toPx() - reachInset * 0.4f),
-          center.y + sin(angle).toFloat() * (innerRadius - 10.dp.toPx() - reachInset * 0.4f),
-        )
-      drawLine(
-        color = tendrilColor.copy(alpha = 0.65f),
-        start = outerPt,
-        end = tipPt,
-        strokeWidth = 1.6.dp.toPx(),
-        cap = StrokeCap.Round,
-      )
-      drawCircle(color = tendrilColor, radius = 2.4.dp.toPx(), center = tipPt)
-    }
-
-    val visibleGrafts = min(graftCount, 4)
-    for (g in 0 until visibleGrafts) {
-      val angle = (g * (PI / 2.0)) + PI / 4.0 + (breath - 0.5) * 0.12
-      val start =
-        Offset(
-          center.x + cos(angle).toFloat() * (outerRadius + 6.dp.toPx()),
-          center.y + sin(angle).toFloat() * (outerRadius + 6.dp.toPx()),
-        )
-      val end =
-        Offset(
-          center.x + cos(angle).toFloat() * (innerRadius - 14.dp.toPx()),
-          center.y + sin(angle).toFloat() * (innerRadius - 14.dp.toPx()),
-        )
-      drawLine(
-        color = veinColor.copy(alpha = 0.85f),
-        start = start,
-        end = end,
-        strokeWidth = 3.2.dp.toPx(),
-        cap = StrokeCap.Round,
-      )
-    }
   }
 }
+
+
 
 @Composable
 internal fun RecessedValveButton(

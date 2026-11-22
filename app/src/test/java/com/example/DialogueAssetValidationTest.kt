@@ -48,17 +48,18 @@ class DialogueAssetValidationTest {
     val allowedTriggerTypes =
       setOf(
         "counter_reached",
+        "cycle_counter_reached",
         "creature_owned",
         "anomaly_interacted",
         "stillness_reached",
         "jar_bottled",
         "excision_completed",
       )
-    val targetedTypes = setOf("creature_owned", "anomaly_interacted")
+    val targetedTypes = setOf("cycle_counter_reached", "creature_owned", "anomaly_interacted")
 
     val root = loadDialoguesJson()
     val entries = root.getJSONArray("entries")
-    assertTrue("dialogues.json must contain all rebalanced Direction 1 fragments", entries.length() >= 16)
+    assertTrue("dialogues.json must contain all Direction 1 + prestige fragments", entries.length() >= 18)
 
     val seenIds = mutableSetOf<String>()
     val counterThresholdByPhase = mutableMapOf<Int, Long>()
@@ -133,7 +134,7 @@ class DialogueAssetValidationTest {
 
     assertTrue(catalog.schemaVersion >= 2)
     assertEquals(5, catalog.phases.size)
-    assertTrue(catalog.entries.size >= 16)
+    assertTrue(catalog.entries.size >= 18)
     assertEquals("The Counting Room", catalog.phaseName(0))
     assertEquals("The Endless Hollow", catalog.phaseName(4))
 
@@ -147,6 +148,8 @@ class DialogueAssetValidationTest {
     assertNotNull("Expected Excision-ready Phase 4 fragment", excisionReadyEntry)
     val excisionEntry = catalog.entries.firstOrNull { it.trigger.type == "excision_completed" }
     assertNotNull("Expected excision_completed fragment", excisionEntry)
+    val postPrestigeEntries = catalog.entries.filter { it.trigger.type == "cycle_counter_reached" }
+    assertTrue("Expected at least 2 Cycle 1+ prestige story fragments", postPrestigeEntries.size >= 2)
   }
 
   @Test

@@ -2,6 +2,7 @@
     <string name="app_name">Tap Counter</string>
     <string name="phase_readout">PHASE %1$02d // %2$s</string>
     <string name="cycle_readout">CYCLE %1$02d // SCAR TISSUE: %2$s</string>
+    <string name="scar_passive_readout">SCAR PASSIVE: ×%1$s ICHOR · ×%2$s STILLNESS</string>
     <string name="ichor_label">ICHOR</string>
     <string name="ichor_rate_format">%1$s /s</string>
     <string name="stillness_readout">STILLNESS: %1$s</string>
@@ -26,6 +27,7 @@
     <string name="art_recessed_valve_cd">Tarnished iron and bone recessed wall valve</string>
     <string name="art_suture_hand_cd">Stitched pale anatomical Suture-Hand specimen</string>
     <string name="art_leech_clerk_cd">Blind segmented Leech-Clerk specimen</string>
+    <string name="art_weeping_lamp_cd">Suspended glass Weeping Lamp specimen</string>
 
     <!-- Wall anomaly interactive objects -->
     <string name="anomaly_tooth_label">PULL</string>
@@ -43,12 +45,25 @@
     <string name="cost_stillness_format">%1$s STILLNESS</string>
     <string name="owned_count_format">[%1$d]</string>
 
+    <string name="creature_suture_code">SPEC-01</string>
     <string name="creature_suture_name">SUTURE-HAND</string>
-    <string name="creature_suture_desc">Stitched appendage pressing valve (+0.6/s)</string>
+    <string name="creature_suture_desc">Stitched appendage gripping and pressing the wall valve.</string>
+    <string name="creature_leech_code">SPEC-02</string>
     <string name="creature_leech_name">LEECH-CLERK</string>
-    <string name="creature_leech_desc">Clings to counter glass, chewing total (+2.4/s)</string>
+    <string name="creature_leech_desc">Blind annelid clinging to the counter glass, chewing digits.</string>
+    <string name="creature_lamp_code">SPEC-03</string>
     <string name="creature_lamp_name">WEEPING LAMP</string>
-    <string name="creature_lamp_desc">Sweats Stillness &amp; 2× Ichor while idle 3s (+6/s)</string>
+    <string name="creature_lamp_desc">Ceiling vessel that drips Stillness &amp; 2× Ichor after 3s idle.</string>
+
+    <string name="organism_status_dormant">DORMANT</string>
+    <string name="organism_status_suture_active">PRESSING VALVE</string>
+    <string name="organism_status_leech_active">GRAZING GLASS</string>
+    <string name="organism_status_lamp_idle">IDLE 3s TO WEEP</string>
+    <string name="organism_status_lamp_weeping">WEEPING ×2</string>
+    <string name="organism_yield_each_format">EACH: +%1$s/s</string>
+    <string name="organism_yield_colony_format">EACH: +%1$s/s · COLONY: +%2$s/s</string>
+    <string name="organism_lamp_stillness_format">IDLE DRIP: +%1$s STILLNESS/s</string>
+    <string name="organism_action_cultivate">CULTIVATE</string>
 
     <!-- Specimen jars & grafting -->
     <string name="jar_dust_name">YESTERDAY\'S DUST</string>
@@ -67,7 +82,7 @@
 
     <!-- Excision / first reset ritual -->
     <string name="excision_title">EXCISION // MOLTING</string>
-    <string name="excision_summary">Sever the overgrown organ back to bare tile. Retains Scar Tissue (+75% Ichor per unit) and reveals deeper notes.</string>
+    <string name="excision_summary" formatted="false">Sever the overgrown organ back to bare tile. Retains permanent Scar Tissue (+75% Ichor, +25% Stillness per unit) and reveals deeper Cycle 1+ fragments.</string>
     <string name="excision_reward_format">YIELD: +%1$s SCAR TISSUE</string>
     <string name="excision_action_arm">EXCISE &amp; MOLT</string>
     <string name="excision_action_confirm">CONFIRM SEVERANCE</string>

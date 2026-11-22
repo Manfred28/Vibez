@@ -148,7 +148,8 @@ object OrganGameEngine {
         }
         WallAnomalyType.SWOLLEN_NODULE -> {
           val ichorBonus = OrganBalance.NODULE_BASE_ICHOR_REWARD * state.scarMultiplier * jarBoost
-          val stillnessBonus = OrganBalance.NODULE_BASE_STILLNESS_REWARD * jarBoost
+          val stillnessBonus =
+            OrganBalance.NODULE_BASE_STILLNESS_REWARD * state.scarStillnessMultiplier * jarBoost
           state.copy(
             ichor = state.ichor + ichorBonus,
             cycleLifetimeIchor = state.cycleLifetimeIchor + ichorBonus,
@@ -265,6 +266,10 @@ object OrganGameEngine {
     val trigger = entry.trigger
     return when (trigger.type) {
       "counter_reached" -> state.cycleLifetimeIchorDisplay >= trigger.threshold
+      "cycle_counter_reached" -> {
+        val requiredCycle = trigger.target?.toIntOrNull() ?: 1
+        state.cycle >= requiredCycle && state.cycleLifetimeIchorDisplay >= trigger.threshold
+      }
       "creature_owned" ->
         when (trigger.target) {
           CreatureType.SUTURE_HAND.id ->

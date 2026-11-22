@@ -56,6 +56,7 @@ import com.example.ui.components.ApparatusDeck
 import com.example.ui.components.ChamberCanvas
 import com.example.ui.components.FragmentArchiveSheet
 import com.example.ui.components.TransmissionLedgerPanel
+import com.example.ui.components.formatMultiplier
 import com.example.ui.theme.BleakTheme
 import java.text.NumberFormat
 
@@ -197,7 +198,7 @@ fun OrganScreen(
           breathPhaseProvider = { breathPhaseState.value },
           onPressValve = onPressValve,
           onInteractAnomaly = onInteractAnomaly,
-          modifier = Modifier.height(296.dp),
+          modifier = Modifier.height(316.dp),
         )
 
         AnimatedVisibility(
@@ -293,6 +294,20 @@ private fun PhaseTelemetryHeader(
         color = colorScheme.primary,
         modifier = Modifier.testTag("cycle_status"),
       )
+      if (state.scarTissue > 0L) {
+        Spacer(modifier = Modifier.height(2.dp))
+        Text(
+          text =
+            stringResource(
+              R.string.scar_passive_readout,
+              formatMultiplier(state.scarMultiplier),
+              formatMultiplier(state.scarStillnessMultiplier),
+            ),
+          style = MaterialTheme.typography.bodySmall,
+          color = colorScheme.onSurfaceVariant,
+          modifier = Modifier.testTag("scar_passive_status"),
+        )
+      }
     }
 
     Spacer(modifier = Modifier.height(6.dp))

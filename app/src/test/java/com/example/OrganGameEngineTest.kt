@@ -98,6 +98,15 @@ class OrganGameEngineTest {
             speaker = "Overwritten",
             lines = listOf("Cycle 1."),
           ),
+          DialogueEntry(
+            id = "dlg_cycle_1_echo",
+            phase = 1,
+            mood = "existential",
+            trigger = DialogueTrigger("cycle_counter_reached", 75L, target = "1"),
+            once = true,
+            speaker = "Caretaker Margin",
+            lines = listOf("Cycle 1 handwriting echo."),
+          ),
         ),
     )
 
@@ -151,6 +160,10 @@ class OrganGameEngineTest {
     assertEquals(0.6, bought.ichorPerSecond, 0.001)
     assertTrue("Cost must scale after purchase", bought.creatureCost(CreatureType.SUTURE_HAND) > 25L)
     assertEquals("dlg_suture", bought.activeDialogue?.id)
+
+    // Verify Weeping Lamp is 15% cheaper (1,190 Ichor base cost, unlocks at 1,000 Ichor)
+    assertEquals(1_190L, bought.creatureCost(CreatureType.WEEPING_LAMP))
+    assertEquals(1_000L, CreatureType.WEEPING_LAMP.unlockIchorThreshold)
   }
 
   @Test
@@ -302,8 +315,8 @@ class OrganGameEngineTest {
 
     val ready =
       OrganGameEngine.initialState(catalog).copy(
-        ichor = 155_000.0,
-        cycleLifetimeIchor = 155_000.0,
+        ichor = 215_000.0,
+        cycleLifetimeIchor = 215_000.0,
         stillness = 80.0,
         phase = 4,
         creatures = mapOf(CreatureType.SUTURE_HAND to 5, CreatureType.WEEPING_LAMP to 2),
@@ -325,8 +338,36 @@ class OrganGameEngineTest {
     assertTrue(postReset.ownedJars.isEmpty())
     assertTrue(postReset.anomalyInteractions.isEmpty())
     assertEquals(1.75, postReset.scarMultiplier, 0.001)
+    assertEquals(1.25, postReset.scarStillnessMultiplier, 0.001)
     assertEquals(1.75, postReset.manualTapYield, 0.001)
     assertEquals("dlg_excision", postReset.activeDialogue?.id)
+
+    // Verify prestige passive Stillness multiplier applies to Weeping Lamps & Swollen Nodules
+    val cycle1LampIdle =
+      postReset.copy(
+        creatures = mapOf(CreatureType.WEEPING_LAMP to 1),
+        isStillnessActive = true,
+      )
+    assertEquals(
+      OrganBalance.LAMP_STILLNESS_PER_SEC * 1.25,
+      cycle1LampIdle.stillnessPerSecond,
+      0.0001,
+    )
+
+    // Verify cycle_counter_reached story entry does NOT trigger in Cycle 0, but DOES in Cycle 1+
+    val cycle0Phase1 =
+      OrganGameEngine.pressValve(
+        OrganGameEngine.initialState(catalog).copy(ichor = 74.0, cycleLifetimeIchor = 74.0),
+        catalog,
+      )
+    assertFalse("dlg_cycle_1_echo" in cycle0Phase1.triggeredDialogueIds)
+
+    val cycle1Phase1 =
+      OrganGameEngine.pressValve(
+        postReset.copy(ichor = 74.0, cycleLifetimeIchor = 74.0),
+        catalog,
+      )
+    assertEquals("dlg_cycle_1_echo", cycle1Phase1.activeDialogue?.id)
   }
 
   @Test
@@ -341,7 +382,7 @@ class OrganGameEngineTest {
     assertEquals(
       0.5f,
       EscalationCurve.progressWithinPhase(
-        count = 117_500L,
+        count = 147_500L,
         finalGoalThreshold = OrganBalance.EXCISION_ICHOR_THRESHOLD,
       ),
       0.01f,
@@ -426,5 +467,61 @@ class OrganGameEngineTest {
       "Expected Cycle 0 -> First Excision in 12..18 min (720..1080s), actual was ${elapsedSec}s (${elapsedSec / 60.0} min)",
       elapsedSec in 720..1_080,
     )
+  }
+
+  @Test
+  fun perOrganismEffectiveRates_matchAggregateIchorAndStillnessAcrossAllMultipliers() {
+    val catalog = sampleCatalog()
+    val state =
+      OrganGameEngine.initialState(catalog).copy(
+        creatures =
+          mapOf(
+            CreatureType.SUTURE_HAND to 3,
+            CreatureType.LEECH_CLERK to 2,
+            CreatureType.WEEPING_LAMP to 2,
+          ),
+        ownedJars = setOf(SpecimenJar.UNSPENT_BREATH, SpecimenJar.ALMOST_A_NAME),
+        isStillnessActive = true,
+        gazeRemainingSeconds = 10.0,
+        scarTissue = 2L,
+      )
+
+    val scarIchorMult = 1.0 + 2 * OrganBalance.SCAR_TISSUE_BONUS_PER_UNIT // 2.5x
+    val scarStillMult = 1.0 + 2 * OrganBalance.SCAR_STILLNESS_BONUS_PER_UNIT // 1.5x
+    val gazeMult = OrganBalance.GAZE_PASSIVE_MULTIPLIER // 1.6x
+
+    val expectedSutureEach =
+      CreatureType.SUTURE_HAND.baseIchorPerSec *
+        OrganBalance.UNSPENT_BREATH_MULTIPLIER *
+        scarIchorMult *
+        gazeMult
+    val expectedLeechEach =
+      CreatureType.LEECH_CLERK.baseIchorPerSec *
+        OrganBalance.UNSPENT_BREATH_MULTIPLIER *
+        scarIchorMult *
+        gazeMult
+    val expectedLampEach =
+      CreatureType.WEEPING_LAMP.baseIchorPerSec *
+        OrganBalance.ALMOST_A_NAME_MULTIPLIER *
+        2.0 *
+        scarIchorMult *
+        gazeMult
+    val expectedLampStillnessEach =
+      OrganBalance.LAMP_STILLNESS_PER_SEC *
+        OrganBalance.ALMOST_A_NAME_MULTIPLIER *
+        scarStillMult *
+        gazeMult
+
+    assertEquals(expectedSutureEach, state.effectiveCreatureIchorPerSec(CreatureType.SUTURE_HAND), 0.0001)
+    assertEquals(expectedLeechEach, state.effectiveCreatureIchorPerSec(CreatureType.LEECH_CLERK), 0.0001)
+    assertEquals(expectedLampEach, state.effectiveCreatureIchorPerSec(CreatureType.WEEPING_LAMP), 0.0001)
+    assertEquals(expectedLampStillnessEach, state.effectiveLampStillnessPerSec(), 0.0001)
+
+    val summedIchor =
+      state.totalCreatureIchorPerSec(CreatureType.SUTURE_HAND) +
+        state.totalCreatureIchorPerSec(CreatureType.LEECH_CLERK) +
+        state.totalCreatureIchorPerSec(CreatureType.WEEPING_LAMP)
+    assertEquals(state.ichorPerSecond, summedIchor, 0.0001)
+    assertEquals(state.stillnessPerSecond, 2 * expectedLampStillnessEach, 0.0001)
   }
 }

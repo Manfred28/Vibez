@@ -68,6 +68,8 @@ class OrganScreenBehaviorTest {
       .assertIsDisplayed()
       .assertTextEquals("PHASE 00 // THE COUNTING ROOM")
     composeTestRule.onNodeWithTag("chamber_wall_art").assertIsDisplayed()
+    composeTestRule.onNodeWithTag("chamber_wall_phase_0").assertIsDisplayed()
+    composeTestRule.onNodeWithTag("suture_hands_overlay").assertDoesNotExist()
     composeTestRule.onNodeWithTag("valve_artwork", useUnmergedTree = true).assertIsDisplayed()
     composeTestRule.onNodeWithTag("counter_text").assertTextEquals("0")
     composeTestRule
@@ -108,9 +110,24 @@ class OrganScreenBehaviorTest {
       .onNodeWithTag("phase_header")
       .assertTextEquals("PHASE 01 // UNCANNY DRIFT")
     composeTestRule.onNodeWithTag("chamber_wall_art").assertIsDisplayed()
+    composeTestRule.onNodeWithTag("chamber_wall_phase_1").assertIsDisplayed()
     composeTestRule.onNodeWithTag("apparatus_deck").performScrollTo().assertIsDisplayed()
 
-    // Verify Phase 1 bespoke specimen portraits render inside organism deck rows
+    // Verify Phase 1 wet-lab organism dossier cards & portraits render with initial DORMANT status
+    composeTestRule
+      .onNodeWithTag("organism_status_suture_hand")
+      .performScrollTo()
+      .assertIsDisplayed()
+      .assertTextEquals("DORMANT")
+    composeTestRule
+      .onNodeWithTag("organism_yield_suture_hand")
+      .performScrollTo()
+      .assertIsDisplayed()
+      .assertTextEquals("EACH: +0.6/s")
+    composeTestRule
+      .onNodeWithTag("organism_affordability_suture_hand")
+      .performScrollTo()
+      .assertIsDisplayed()
     composeTestRule
       .onNodeWithTag("art_suture_hand", useUnmergedTree = true)
       .performScrollTo()
@@ -120,11 +137,21 @@ class OrganScreenBehaviorTest {
       .performScrollTo()
       .assertIsDisplayed()
 
-    // Buy Suture-Hand (25 Ichor) via UI
+    // Buy Suture-Hand (25 Ichor) via UI -> status flips to PRESSING VALVE, colony rate updates,
+    // and Suture-Hands anatomical overlay appears directly on valve rim
     composeTestRule.onNodeWithTag("buy_suture_hand").performScrollTo().performClick()
     composeTestRule.waitForIdle()
 
     assertEquals(1, viewModel.uiState.value.creatureCount(CreatureType.SUTURE_HAND))
+    composeTestRule
+      .onNodeWithTag("organism_status_suture_hand")
+      .performScrollTo()
+      .assertTextEquals("PRESSING VALVE")
+    composeTestRule
+      .onNodeWithTag("organism_yield_suture_hand")
+      .performScrollTo()
+      .assertTextEquals("EACH: +0.6/s · COLONY: +0.6/s")
+    composeTestRule.onNodeWithTag("suture_hands_overlay").performScrollTo().assertIsDisplayed()
     composeTestRule.onNodeWithTag("ichor_rate_text").performScrollTo().assertIsDisplayed()
 
     // Advance time to spawn Pale Tooth anomaly directly on the chamber wall and pull it
@@ -187,8 +214,30 @@ class OrganScreenBehaviorTest {
     composeTestRule.waitForIdle()
 
     composeTestRule.onNodeWithTag("stillness_active_badge").assertIsDisplayed()
+    // Living chamber organisms: Suture-Hands on valve, Leech-Clerks on counter glass, Weeping Lamps overhead
+    composeTestRule.onNodeWithTag("suture_hands_overlay").assertIsDisplayed()
+    composeTestRule.onNodeWithTag("leech_clerks_overlay").assertIsDisplayed()
+    composeTestRule.onNodeWithTag("weeping_lamps_overlay").assertIsDisplayed()
 
-    // Switch to JARS & GRAFT tab, bottle Yesterday's Dust (18 Stillness), and perform Graft
+    // Verify Weeping Lamp dossier card reflects active Stillness 2x state & Stillness drip telemetry
+    composeTestRule
+      .onNodeWithTag("organism_status_leech_clerk")
+      .performScrollTo()
+      .assertTextEquals("GRAZING GLASS")
+    composeTestRule
+      .onNodeWithTag("organism_status_weeping_lamp")
+      .performScrollTo()
+      .assertTextEquals("WEEPING ×2")
+    composeTestRule
+      .onNodeWithTag("art_weeping_lamp", useUnmergedTree = true)
+      .performScrollTo()
+      .assertIsDisplayed()
+    composeTestRule
+      .onNodeWithTag("organism_stillness_yield_weeping_lamp")
+      .performScrollTo()
+      .assertIsDisplayed()
+
+    // Switch to JARS & GRAFT tab, bottle Yesterday's Dust, and perform Graft
     composeTestRule.onNodeWithTag("deck_tab_jars_and_graft").performScrollTo().performClick()
     composeTestRule.waitForIdle()
 
@@ -224,6 +273,8 @@ class OrganScreenBehaviorTest {
     composeTestRule.setContent { OrganRoute(viewModel = viewModel) }
     composeTestRule.waitForIdle()
 
+    composeTestRule.onNodeWithTag("chamber_wall_phase_4").assertIsDisplayed()
+
     if (!viewModel.uiState.value.canExcise) {
       composeTestRule
         .onNodeWithTag("threshold_status")
@@ -231,9 +282,9 @@ class OrganScreenBehaviorTest {
           "EXCISION MASS: ${
             java.text.NumberFormat.getIntegerInstance()
               .format(viewModel.uiState.value.cycleLifetimeIchorDisplay)
-          } / 150,000"
+          } / 210,000"
         )
-      composeTestRule.runOnIdle { viewModel.advanceTime(5_000.0) }
+      composeTestRule.runOnIdle { viewModel.advanceTime(9_000.0) }
       composeTestRule.waitForIdle()
     }
 
@@ -254,7 +305,7 @@ class OrganScreenBehaviorTest {
     composeTestRule.onNodeWithTag("excision_confirm_button").performScrollTo().performClick()
     composeTestRule.waitForIdle()
 
-    // Verify full Cycle 1 post-reset state in UI
+    // Verify full Cycle 1 post-reset state, passive Scar multipliers, and Cycle 1 story beats in UI
     assertEquals(1, viewModel.uiState.value.cycle)
     assertTrue(viewModel.uiState.value.scarTissue >= 1L)
 
@@ -266,12 +317,31 @@ class OrganScreenBehaviorTest {
       .performScrollTo()
       .assertIsDisplayed()
       .assertTextEquals("CYCLE 01 // SCAR TISSUE: ${viewModel.uiState.value.scarTissue}")
-    composeTestRule.onNodeWithTag("counter_text").assertTextEquals("0")
+    composeTestRule.onNodeWithTag("scar_passive_status").performScrollTo().assertIsDisplayed()
+    composeTestRule.onNodeWithTag("prestige_passive_banner").performScrollTo().assertIsDisplayed()
+    composeTestRule.onNodeWithTag("counter_text").performScrollTo().assertTextEquals("0")
     composeTestRule
       .onNodeWithTag("dialogue_speaker")
+      .performScrollTo()
       .assertTextEquals("// ${excisionFragment.speaker.uppercase()}")
     composeTestRule
       .onNodeWithTag("dialogue_body")
+      .performScrollTo()
       .assertTextEquals(excisionFragment.lines.joinToString("\n"))
+
+    // Reaching 75 Ichor in Cycle 1 unlocks the new prestige-bound handwriting fragment
+    val scarHandwritingFragment =
+      catalog.entries.first { it.id == "dlg_cycle_1_scar_handwriting" }
+    repeat(44) { viewModel.pressValve() }
+    composeTestRule.waitForIdle()
+
+    composeTestRule
+      .onNodeWithTag("dialogue_speaker")
+      .performScrollTo()
+      .assertTextEquals("// ${scarHandwritingFragment.speaker.uppercase()}")
+    composeTestRule
+      .onNodeWithTag("dialogue_body")
+      .performScrollTo()
+      .assertTextEquals(scarHandwritingFragment.lines.joinToString("\n"))
   }
 }

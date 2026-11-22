@@ -253,7 +253,7 @@
       "mood": "hopeless",
       "trigger": {
         "type": "counter_reached",
-        "threshold": 150000
+        "threshold": 210000
       },
       "once": true,
       "speaker": "Surgical Tray",
@@ -275,6 +275,38 @@
       "lines": [
         "The chamber is bare again, colder than before, except for the pale seam stitched across the tile.",
         "Someone wrote your initials under the valve long before you arrived. Press again."
+      ]
+    },
+    {
+      "id": "dlg_cycle_1_scar_handwriting",
+      "phase": 1,
+      "mood": "existential",
+      "trigger": {
+        "type": "cycle_counter_reached",
+        "target": "1",
+        "threshold": 75
+      },
+      "once": true,
+      "speaker": "Previous Caretaker (Margin)",
+      "lines": [
+        "The bled-ink slip from Day 14 surfaced again beside the fresh scar seam—only now you recognize the slant of your own hand.",
+        "The scar tissue draws ichor faster than bare tile ever did, as though the wall remembers the shape of your palm."
+      ]
+    },
+    {
+      "id": "dlg_cycle_1_returned_letter",
+      "phase": 2,
+      "mood": "hopeless",
+      "trigger": {
+        "type": "cycle_counter_reached",
+        "target": "1",
+        "threshold": 1600
+      },
+      "once": true,
+      "speaker": "Unaddressed Letter (Second Fold)",
+      "lines": [
+        "Found wedged beside the bricked-over door, sealed under the same grey wax you have not melted yet.",
+        "Even your stillness settles heavier on the second pass; the room is no longer waiting for you to leave."
       ]
     }
   ]

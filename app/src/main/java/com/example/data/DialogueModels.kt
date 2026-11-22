@@ -2,7 +2,7 @@ package com.example.data
 
 /**
  * Escalation progression curve for Direction 1 ("The Tending of the Unnamed Organ"), balanced for
- * ~15 minutes of moderate activity before First Excision (150,000 Ichor) and aligned with
+ * ~15 minutes of moderate activity before First Excision (210,000 Ichor) and aligned with
  * `/GAME_DESIGN_BIBLE.md` and `app/src/main/assets/dialogues.json`.
  */
 object EscalationCurve {

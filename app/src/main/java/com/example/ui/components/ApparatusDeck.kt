@@ -1,19 +1,14 @@
 package com.example.ui.components
 
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
@@ -27,17 +22,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.example.R
 import com.example.game.CreatureType
 import com.example.game.OrganDeckTab
@@ -117,6 +106,26 @@ fun ApparatusDeck(
 
       HorizontalDivider(color = atmosphere.hairline, thickness = 1.dp)
 
+      if (state.scarTissue > 0L) {
+        Surface(
+          modifier = Modifier.fillMaxWidth().testTag("prestige_passive_banner"),
+          color = colorScheme.tertiaryContainer.copy(alpha = 0.45f),
+        ) {
+          Text(
+            text =
+              stringResource(
+                R.string.scar_passive_readout,
+                formatMultiplier(state.scarMultiplier),
+                formatMultiplier(state.scarStillnessMultiplier),
+              ),
+            style = MaterialTheme.typography.bodySmall,
+            color = colorScheme.onBackground.copy(alpha = 0.92f),
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
+          )
+        }
+        HorizontalDivider(color = atmosphere.hairline, thickness = 1.dp)
+      }
+
       Column(
         modifier = Modifier.fillMaxWidth().padding(12.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -143,7 +152,6 @@ private fun OrganismsList(
   state: OrganGameState,
   onBuyCreature: (CreatureType) -> Unit,
 ) {
-  val numberFormat = remember { NumberFormat.getIntegerInstance() }
   val visibleCreatures =
     CreatureType.entries.filter { type ->
       state.cycle > 0 ||
@@ -152,97 +160,11 @@ private fun OrganismsList(
     }
 
   visibleCreatures.forEach { type ->
-    val count = state.creatureCount(type)
-    val cost = state.creatureCost(type)
-    val canAfford = state.ichor >= cost.toDouble()
-
-    val title =
-      when (type) {
-        CreatureType.SUTURE_HAND -> stringResource(R.string.creature_suture_name)
-        CreatureType.LEECH_CLERK -> stringResource(R.string.creature_leech_name)
-        CreatureType.WEEPING_LAMP -> stringResource(R.string.creature_lamp_name)
-      }
-    val desc =
-      when (type) {
-        CreatureType.SUTURE_HAND -> stringResource(R.string.creature_suture_desc)
-        CreatureType.LEECH_CLERK -> stringResource(R.string.creature_leech_desc)
-        CreatureType.WEEPING_LAMP -> stringResource(R.string.creature_lamp_desc)
-      }
-
-    DeckActionRow(
-      title = "$title ${stringResource(R.string.owned_count_format, count)}",
-      subtitle = desc,
-      actionLabel = stringResource(R.string.cost_ichor_format, numberFormat.format(cost)),
-      enabled = canAfford,
-      accentAction = false,
-      testTag = "buy_${type.id}",
-      leadingArt = { CreatureSpecimenPortrait(type = type, enabled = canAfford || count > 0) },
-      onClick = { onBuyCreature(type) },
+    OrganismSpecimenCard(
+      type = type,
+      state = state,
+      onBuy = { onBuyCreature(type) },
     )
-  }
-}
-
-@Composable
-private fun CreatureSpecimenPortrait(type: CreatureType, enabled: Boolean) {
-  val colorScheme = MaterialTheme.colorScheme
-  val borderColor = if (enabled) colorScheme.outline else colorScheme.outlineVariant
-  val contentAlpha = if (enabled) 0.96f else 0.52f
-
-  Surface(
-    modifier = Modifier.size(48.dp),
-    shape = MaterialTheme.shapes.extraSmall,
-    color = colorScheme.background,
-    border = BorderStroke(1.dp, borderColor),
-  ) {
-    when (type) {
-      CreatureType.SUTURE_HAND ->
-        Image(
-          painter = painterResource(id = R.drawable.img_suture_hand),
-          contentDescription = stringResource(R.string.art_suture_hand_cd),
-          contentScale = ContentScale.Crop,
-          modifier = Modifier.fillMaxSize().alpha(contentAlpha).testTag("art_suture_hand"),
-        )
-      CreatureType.LEECH_CLERK ->
-        Image(
-          painter = painterResource(id = R.drawable.img_leech_clerk),
-          contentDescription = stringResource(R.string.art_leech_clerk_cd),
-          contentScale = ContentScale.Crop,
-          modifier = Modifier.fillMaxSize().alpha(contentAlpha).testTag("art_leech_clerk"),
-        )
-      CreatureType.WEEPING_LAMP ->
-        Box(modifier = Modifier.fillMaxSize().alpha(contentAlpha).testTag("art_weeping_lamp")) {
-          Canvas(modifier = Modifier.fillMaxSize()) {
-            val cx = size.width / 2f
-            drawLine(
-              color = colorScheme.outline,
-              start = Offset(cx, 0f),
-              end = Offset(cx, size.height * 0.28f),
-              strokeWidth = 1.4.dp.toPx(),
-            )
-            drawOval(
-              brush =
-                Brush.radialGradient(
-                  colors = listOf(colorScheme.primary.copy(alpha = 0.55f), colorScheme.surfaceVariant),
-                  center = Offset(cx, size.height * 0.48f),
-                  radius = size.minDimension * 0.34f,
-                ),
-              topLeft = Offset(cx - 9.dp.toPx(), size.height * 0.26f),
-              size = Size(18.dp.toPx(), 22.dp.toPx()),
-            )
-            drawOval(
-              color = colorScheme.primary.copy(alpha = 0.78f),
-              topLeft = Offset(cx - 9.dp.toPx(), size.height * 0.26f),
-              size = Size(18.dp.toPx(), 22.dp.toPx()),
-              style = Stroke(width = 1.dp.toPx()),
-            )
-            drawCircle(
-              color = colorScheme.primary,
-              radius = 2.dp.toPx(),
-              center = Offset(cx, size.height * 0.84f),
-            )
-          }
-        }
-    }
   }
 }
 
@@ -467,27 +389,55 @@ private fun DeckActionRow(
       Column(modifier = Modifier.weight(1f).padding(end = 10.dp)) {
         Text(
           text = title,
-          style = MaterialTheme.typography.labelMedium,
-          color = if (enabled) colorScheme.onBackground else colorScheme.onSurfaceVariant,
+          style =
+            MaterialTheme.typography.titleMedium.copy(
+              fontSize = 13.sp,
+              lineHeight = 18.sp,
+              letterSpacing = 0.8.sp,
+            ),
+          color = if (enabled) colorScheme.onBackground else colorScheme.onBackground.copy(alpha = 0.82f),
         )
-        Spacer(modifier = Modifier.height(2.dp))
+        Spacer(modifier = Modifier.height(3.dp))
         Text(
           text = subtitle,
-          style = MaterialTheme.typography.labelSmall,
-          color = colorScheme.onSurfaceVariant.copy(alpha = if (enabled) 0.9f else 0.6f),
+          style = MaterialTheme.typography.bodySmall,
+          color =
+            if (enabled) colorScheme.onBackground.copy(alpha = 0.90f)
+            else colorScheme.onSurfaceVariant,
         )
       }
 
-      Text(
-        text = actionLabel,
-        style = MaterialTheme.typography.labelSmall,
+      Surface(
+        shape = MaterialTheme.shapes.extraSmall,
         color =
           when {
-            enabled && accentAction -> colorScheme.tertiary
-            enabled -> colorScheme.primary
-            else -> colorScheme.onSurfaceVariant.copy(alpha = 0.55f)
+            enabled && accentAction -> colorScheme.tertiaryContainer
+            enabled -> colorScheme.background.copy(alpha = 0.72f)
+            else -> colorScheme.surface
           },
-      )
+        border =
+          BorderStroke(
+            width = 1.dp,
+            color =
+              when {
+                enabled && accentAction -> colorScheme.tertiary
+                enabled -> colorScheme.primary.copy(alpha = 0.55f)
+                else -> colorScheme.outlineVariant
+              },
+          ),
+      ) {
+        Text(
+          text = actionLabel,
+          style = MaterialTheme.typography.labelMedium.copy(letterSpacing = 0.8.sp),
+          color =
+            when {
+              enabled && accentAction -> colorScheme.onTertiaryContainer
+              enabled -> colorScheme.primary
+              else -> colorScheme.onSurfaceVariant
+            },
+          modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp),
+        )
+      }
     }
   }
 }

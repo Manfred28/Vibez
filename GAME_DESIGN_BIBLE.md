@@ -20,10 +20,11 @@ The app should feel **surreal, grotesque, weird, and out of this world**.
 
 ### Visual & Sensory Direction
 - **Dark, Desaturated, Monospaced (`BleakTheme`):** Always-dark void/ash/slate surfaces, bleached-bone typography, sickly lichen/olive/dried-clot undertones, and bundled monospaced typography (`JetBrains Mono`) throughout.
-- **Handcrafted Surreal Graphic Design (Phase 1 Visual Foundation):**
-  - Damp, cracked institutional tiled chamber wall (`img_wall_phase1`) emerging out of deep shadow as Phase 0 yields to Phase 1.
-  - Tarnished iron-and-calcified-bone recessed mechanical wall valve (`img_recessed_valve`) serving as the physical centerpiece.
-  - Painterly anatomical specimen portraits for Phase 1 organisms (`img_suture_hand`, `img_leech_clerk`) paired with detailed shaded anatomical Canvas art for interactive wall anomalies (**Pale Tooth**, **Blinking Glass Eye**, **Swollen Nodule**).
+- **Handcrafted Surreal Graphic Design & Phase Wall Mutations:**
+  - Damp, cracked institutional tiled chamber wall (`img_wall_phase1`) that **visually transforms across Phases 0–4**: cold sterile fluorescent slate (Phase 0) → exposed cracked damp tile with corner seepage & fractures (Phase 1) → sickly olive-lichen condensation & pulsing veins (Phase 2) → inward-buckling warped tile grid & bruised tissue pockets (Phase 3) → encroaching chitinous rib arches over arterial fissures (Phase 4).
+  - Tarnished iron-and-calcified-bone recessed mechanical wall valve (`img_recessed_valve`) serving as the physical centerpiece, gripped directly by shaded anatomical **Suture-Hands** (curved metacarpal silhouettes, dark surgical wrist sutures with dried-clot punctures, articulated fingers with pale nails, and intertwined **Grafted Choir-Tendrils**).
+  - Wet-lab **Organism Specimen Dossier Cards** (`SPEC-01..03`) with framed `64dp` observation viewports (corner registration reticles, painterly `img_suture_hand` / `img_leech_clerk` portraits, and an anatomical bell-vessel `Weeping Lamp` Canvas portrait), live physiological status badges (`DORMANT`, `PRESSING VALVE`, `GRAZING GLASS`, `IDLE 3s TO WEEP`, `WEEPING ×2`), live effective per-unit & colony telemetry, and silent affordability creep bars.
+  - Detailed shaded anatomical Canvas art for interactive wall anomalies (**Pale Tooth**, **Blinking Glass Eye**, **Swollen Nodule**) and living chamber organisms: 7-segment undulating **Leech-Clerks** with pulsing anterior suction mouths grazing the recessed counter glass plate, and suspended pear-vessel **Weeping Lamps** on braided cords that glow sickly lichen and weep falling droplets during Stillness.
 - **Beyond Buttons — Living Surfaces, Creatures & Objects:** Clicking begins on the recessed valve, then expands directly onto the chamber wall and counter monolith:
   - Pulling **Pale Teeth** from hairline plaster cracks.
   - Wiping grey condensation off a **Blinking Glass Eye** embedded in masonry.
@@ -59,24 +60,25 @@ Cycle 0 is balanced for **~15 minutes with moderate activity** from the first pr
 
 | Phase | Working Name | Cycle Ichor Threshold | Target Window | Mechanics & Chamber Transformation |
 | :--- | :--- | :--- | :--- | :--- |
-| **0** | *The Counting Room* | `0` | `0:00 – 1:00` | Dimly shadowed tiled wall, recessed iron-and-bone valve (`+1` Ichor), silent ledger. **Suture-Hands** unfold at `25` Ichor (cost `25`, `+0.6/s`). |
-| **1** | *Uncanny Drift* | `75` | `1:00 – 4:30` | Cracked damp tiled wall art (`img_wall_phase1`) surfaces sharply. **Pale Teeth** protrude from plaster seams (`+25` Ichor, `+0.5` tap yield). **Leech-Clerks** unlock (cost `180`, `+2.4/s`) and cling to the counter glass. |
-| **2** | *Apparatus & Flesh* | `1,600` | `4:30 – 9:00` | **Weeping Lamps** (`1,400` Ichor, `+6/s`) hang overhead; pausing taps for 3s triggers **Stillness** harvesting (`+0.45/s` & `2×` lamp Ichor). **Blinking Glass Eye** fogs over (wipe for 12s `1.6×` gaze boost). **Specimen Jars** unlock (`24 / 65 / 140` Stillness). |
-| **3** | *Collapse of Meaning* | `16,000` | `9:00 – 13:00` | Bruised fissures pulse with **Swollen Nodules** (`+220` Ichor, `+6` Stillness). **Grafting** unlocks: fuse 2 Suture-Hands + 2 Leech-Clerks into 1 **Grafted Choir-Tendril** (`+18/s` Ichor, `+0.7/s` Stillness). |
-| **4** | *The Endless Hollow* | `85,000` | `13:00 – 15:30` | Overgrowth encroaches heavily while building toward critical mass. At **`150,000` Cycle Ichor**, **Excision / Molting** unlocks: sever the mass to enter **Cycle 01**, keeping permanent **Scar Tissue** (`+75%` Ichor per unit) and unlocking post-reset notes. |
+| **0** | *The Counting Room* | `0` | `0:00 – 1:00` | Cold sterile slate tiled wall, recessed iron-and-bone valve (`+1` Ichor), silent ledger. **Suture-Hands** unfold at `25` Ichor (cost `25`, `+0.6/s`) and visibly reach onto the valve rim. |
+| **1** | *Uncanny Drift* | `75` | `1:00 – 4:15` | Cracked damp tiled wall (`img_wall_phase1`) surfaces with corner seepage & fractures. **Pale Teeth** protrude from plaster seams (`+25` Ichor, `+0.5` tap yield). **Leech-Clerks** unlock (cost `180`, `+2.4/s`) and cling to the counter glass. |
+| **2** | *Apparatus & Flesh* | `1,600` | `4:15 – 8:30` | Sickly olive tint, condensation streaks & pulsing veins. **Weeping Lamps** unlock at `1,000` (`1,190` Ichor, `+6/s`) and hang overhead; pausing taps for 3s triggers **Stillness** harvesting (`+0.45/s` & `2×` lamp Ichor). **Blinking Glass Eye** fogs over (wipe for 12s `1.6×` gaze boost). **Specimen Jars** unlock (`24 / 65 / 140` Stillness). |
+| **3** | *Collapse of Meaning* | `16,000` | `8:30 – 12:45` | Tile grid warps and buckles inward around bruised tissue pockets. **Swollen Nodules** (`+220` Ichor, `+6` Stillness). **Grafting** unlocks: fuse 2 Suture-Hands + 2 Leech-Clerks into 1 **Grafted Choir-Tendril** (`+18/s` Ichor, `+0.7/s` Stillness). |
+| **4** | *The Endless Hollow* | `85,000` | `12:45 – 15:15` | Chitinous rib arches encroach inward over deep arterial fissures. At **`210,000` Cycle Ichor**, **Excision / Molting** unlocks: sever the mass to enter **Cycle 01**, keeping permanent **Scar Tissue** (`+75%` Ichor & `+25%` Stillness passive multiplier per unit) and unlocking Cycle 1+ narrative fragments. |
 
 ---
 
 ## 5. Dialogue & Narrative Storage Contract
 
-Dialogues are patchy, ambiguous fragments and **must always be stored separately** from Kotlin UI/business logic.
+Dialogues are patchy, ambiguous fragments and **must always be stored separately** from Kotlin UI/business logic. Follow `/skills/story-writing/SKILL.md` whenever authoring or editing fragments so new entries build coherently on earlier fragments without contradictions.
 
-- **Canonical Storage Location:** `app/src/main/assets/dialogues.json`
+- **Canonical Storage Location:** `app/src/main/assets/dialogues.json` (mirrored byte-for-byte to `docs/assets/dialogues.json` for the GitHub Pages playable web version and verified by automated parity tests).
 - **Strict Separation Rule:**
-  - Do **not** hardcode dialogue lines inside Jetpack Compose screens, ViewModels, game logic classes, or `strings.xml`.
-  - Keep `res/values/strings.xml` strictly for UI chrome, telemetry headings, accessibility labels, and system strings.
+  - Do **not** hardcode dialogue lines inside Jetpack Compose screens, ViewModels, game logic classes, `strings.xml`, or web HTML/JS modules.
+  - Keep `res/values/strings.xml` (and clinical web UI chrome) strictly for UI telemetry headings, accessibility labels, and system strings.
 - **Supported Progress-Binding Trigger Types:**
   - `counter_reached` — Cycle lifetime Ichor reaches `threshold`.
+  - `cycle_counter_reached` — Player is in Cycle `>= target` AND Cycle lifetime Ichor reaches `threshold` (post-prestige story beats).
   - `creature_owned` — Owned count of `target` (`suture_hand`, `leech_clerk`, `weeping_lamp`, `grafted_tendril`) reaches `threshold`.
   - `anomaly_interacted` — Lifetime interactions with `target` (`pale_tooth`, `glass_eye`, `swollen_nodule`) reach `threshold`.
   - `stillness_reached` — Accumulated Stillness reaches `threshold`.

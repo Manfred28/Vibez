@@ -29,10 +29,10 @@ enum class CreatureType(
   ),
   WEEPING_LAMP(
     id = "weeping_lamp",
-    baseCost = 1_400.0,
-    costGrowth = 1.28,
+    baseCost = 1_190.0,
+    costGrowth = 1.32,
     baseIchorPerSec = 6.0,
-    unlockIchorThreshold = 1_200L,
+    unlockIchorThreshold = 1_000L,
   ),
 }
 
@@ -110,6 +110,9 @@ data class OrganGameState(
   val scarMultiplier: Double
     get() = 1.0 + scarTissue * OrganBalance.SCAR_TISSUE_BONUS_PER_UNIT
 
+  val scarStillnessMultiplier: Double
+    get() = 1.0 + scarTissue * OrganBalance.SCAR_STILLNESS_BONUS_PER_UNIT
+
   val gazeMultiplier: Double
     get() = if (gazeRemainingSeconds > 0.0) OrganBalance.GAZE_PASSIVE_MULTIPLIER else 1.0
 
@@ -122,46 +125,66 @@ data class OrganGameState(
       return (1.0 + dustBonus + toothBonus) * scarMultiplier
     }
 
+  /**
+   * Effective Ichor/sec produced by a single specimen of [type], including active Specimen Jars,
+   * Stillness 2x lamp surge, Blinking Glass Eye Gaze, and permanent Scar Tissue.
+   */
+  fun effectiveCreatureIchorPerSec(type: CreatureType): Double {
+    val specimenMultiplier =
+      when (type) {
+        CreatureType.SUTURE_HAND,
+        CreatureType.LEECH_CLERK ->
+          if (SpecimenJar.UNSPENT_BREATH in ownedJars) OrganBalance.UNSPENT_BREATH_MULTIPLIER
+          else 1.0
+        CreatureType.WEEPING_LAMP ->
+          (if (SpecimenJar.ALMOST_A_NAME in ownedJars) OrganBalance.ALMOST_A_NAME_MULTIPLIER
+          else 1.0) * (if (isStillnessActive) 2.0 else 1.0)
+      }
+    return type.baseIchorPerSec * specimenMultiplier * scarMultiplier * gazeMultiplier
+  }
+
+  /** Total effective Ichor/sec contributed by all owned specimens of [type]. */
+  fun totalCreatureIchorPerSec(type: CreatureType): Double =
+    creatureCount(type) * effectiveCreatureIchorPerSec(type)
+
+  /**
+   * Effective Stillness/sec produced by a single Weeping Lamp while Stillness is active (includes
+   * Specimen Jar, Gaze, and permanent Scar Tissue Stillness multiplier).
+   */
+  fun effectiveLampStillnessPerSec(): Double {
+    val lampMultiplier =
+      if (SpecimenJar.ALMOST_A_NAME in ownedJars) OrganBalance.ALMOST_A_NAME_MULTIPLIER else 1.0
+    return OrganBalance.LAMP_STILLNESS_PER_SEC *
+      lampMultiplier *
+      scarStillnessMultiplier *
+      gazeMultiplier
+  }
+
   val ichorPerSecond: Double
     get() {
-      val clerkMultiplier =
-        if (SpecimenJar.UNSPENT_BREATH in ownedJars) OrganBalance.UNSPENT_BREATH_MULTIPLIER
-        else 1.0
-      val lampMultiplier =
-        (if (SpecimenJar.ALMOST_A_NAME in ownedJars) OrganBalance.ALMOST_A_NAME_MULTIPLIER
-        else 1.0) * (if (isStillnessActive) 2.0 else 1.0)
-
-      val sutureRate =
-        creatureCount(CreatureType.SUTURE_HAND) *
-          CreatureType.SUTURE_HAND.baseIchorPerSec *
-          clerkMultiplier
-      val leechRate =
-        creatureCount(CreatureType.LEECH_CLERK) *
-          CreatureType.LEECH_CLERK.baseIchorPerSec *
-          clerkMultiplier
-      val lampRate =
-        creatureCount(CreatureType.WEEPING_LAMP) *
-          CreatureType.WEEPING_LAMP.baseIchorPerSec *
-          lampMultiplier
-      val graftRate = graftedTendrils * OrganBalance.GRAFT_ICHOR_PER_SEC
-
-      return (sutureRate + leechRate + lampRate + graftRate) * scarMultiplier * gazeMultiplier
+      val creaturesRate =
+        totalCreatureIchorPerSec(CreatureType.SUTURE_HAND) +
+          totalCreatureIchorPerSec(CreatureType.LEECH_CLERK) +
+          totalCreatureIchorPerSec(CreatureType.WEEPING_LAMP)
+      val graftRate =
+        graftedTendrils * OrganBalance.GRAFT_ICHOR_PER_SEC * scarMultiplier * gazeMultiplier
+      return creaturesRate + graftRate
     }
 
   val stillnessPerSecond: Double
     get() {
-      val lampMultiplier =
-        if (SpecimenJar.ALMOST_A_NAME in ownedJars) OrganBalance.ALMOST_A_NAME_MULTIPLIER else 1.0
       val lampStillness =
         if (isStillnessActive) {
-          creatureCount(CreatureType.WEEPING_LAMP) *
-            OrganBalance.LAMP_STILLNESS_PER_SEC *
-            lampMultiplier
+          creatureCount(CreatureType.WEEPING_LAMP) * effectiveLampStillnessPerSec()
         } else {
           0.0
         }
-      val graftStillness = graftedTendrils * OrganBalance.GRAFT_STILLNESS_PER_SEC
-      return (lampStillness + graftStillness) * gazeMultiplier
+      val graftStillness =
+        graftedTendrils *
+          OrganBalance.GRAFT_STILLNESS_PER_SEC *
+          scarStillnessMultiplier *
+          gazeMultiplier
+      return lampStillness + graftStillness
     }
 
   val isApparatusUnlocked: Boolean
@@ -211,8 +234,9 @@ object OrganBalance {
   const val GRAFT_LEECH_COST: Int = 2
   const val GRAFT_ICHOR_PER_SEC: Double = 18.0
   const val GRAFT_STILLNESS_PER_SEC: Double = 0.7
-  const val EXCISION_ICHOR_THRESHOLD: Long = 150_000L
+  const val EXCISION_ICHOR_THRESHOLD: Long = 210_000L
   const val SCAR_TISSUE_BONUS_PER_UNIT: Double = 0.75
+  const val SCAR_STILLNESS_BONUS_PER_UNIT: Double = 0.25
   const val FIRST_ANOMALY_DELAY_SEC: Double = 14.0
   const val ANOMALY_SPAWN_INTERVAL_SEC: Double = 26.0
   const val MAX_ACTIVE_ANOMALIES: Int = 3

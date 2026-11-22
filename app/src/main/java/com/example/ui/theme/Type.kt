@@ -89,6 +89,14 @@ val BleakTypography =
         lineHeight = 20.sp,
         letterSpacing = 0.3.sp,
       ),
+    bodySmall =
+      TextStyle(
+        fontFamily = BleakMonoFontFamily,
+        fontWeight = FontWeight.Normal,
+        fontSize = 12.sp,
+        lineHeight = 17.sp,
+        letterSpacing = 0.25.sp,
+      ),
     labelLarge =
       TextStyle(
         fontFamily = BleakMonoFontFamily,

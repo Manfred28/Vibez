@@ -9,9 +9,10 @@ Before designing, modifying, or implementing **any** new feature, UI change, mec
    - Features should respect the **Escalation Curve (Phases 0–4)** so unease, weirdness, and emotional weight intensify as the player progresses.
    - Verify your design against the **Mandatory Feature Alignment Checklist** in `/GAME_DESIGN_BIBLE.md` before writing code.
 
-2. **Keep all dialogues strictly separated and progress-bound.**
+2. **Keep all dialogues strictly separated and progress-bound (and follow `/skills/story-writing/SKILL.md`).**
+   - Before writing or editing any story/dialogue fragments, **read `/skills/story-writing/SKILL.md`** and audit all existing entries in `/app/src/main/assets/dialogues.json` to preserve continuity and avoid contradictions.
    - Store all dialogue/narrative entries in `/app/src/main/assets/dialogues.json` (never hardcoded in Composables, ViewModels, or `strings.xml`).
-   - Every dialogue entry must bind to a progression condition (such as counter threshold, phase, or milestone) and reflect the escalating tone of its phase.
+   - Every dialogue entry must bind to a progression condition (such as counter threshold, phase, cycle, or milestone) and reflect the escalating tone of its phase.
 
 3. **Cover all behavior thoroughly with automated tests (Mandatory).**
    - Every new or changed behavior must have meaningful automated test coverage before being considered done:

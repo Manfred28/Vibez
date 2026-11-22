@@ -1,0 +1,1223 @@
+@font-face {
+  font-family: 'JetBrains Mono';
+  src: url('./assets/jetbrains_mono.ttf') format('truetype');
+  font-weight: 100 800;
+  font-style: normal;
+  font-display: swap;
+}
+
+:root {
+  --void-abyss: #0a0b0b;
+  --sunken-slate: #111313;
+  --apparatus-surface: #171a19;
+  --chitin-surface: #1f2321;
+  --hairline-ash: #2c312f;
+  --fracture-outline: #3e4441;
+
+  --bleached-bone: #c8cbc3;
+  --weathered-ash: #838881;
+  --faded-soot: #555a56;
+  --abyss-ink: #0d0e0e;
+
+  --pale-lichen: #8d988a;
+  --lichen-shadow: #232924;
+  --bile-olive: #6b705c;
+  --bile-shadow: #21241e;
+  --dried-clot: #7b4a4a;
+  --clot-shadow: #28191a;
+  --bruised-violet: #4c4352;
+  --dread-error: #8f5252;
+  --dread-error-container: #2e1a1a;
+
+  --aura-primary: rgba(141, 152, 138, 0.09);
+  --aura-grotesque: rgba(107, 112, 92, 0.04);
+  --hairline: var(--hairline-ash);
+  --scanline-alpha: 0.04;
+}
+
+body[data-phase='1'] {
+  --aura-primary: rgba(107, 112, 92, 0.12);
+  --aura-grotesque: rgba(123, 74, 74, 0.06);
+  --scanline-alpha: 0.06;
+}
+
+body[data-phase='2'] {
+  --aura-primary: rgba(123, 74, 74, 0.15);
+  --aura-grotesque: rgba(107, 112, 92, 0.09);
+  --hairline: var(--fracture-outline);
+  --scanline-alpha: 0.08;
+}
+
+body[data-phase='3'] {
+  --aura-primary: rgba(76, 67, 82, 0.17);
+  --aura-grotesque: rgba(123, 74, 74, 0.12);
+  --hairline: var(--fracture-outline);
+  --scanline-alpha: 0.10;
+}
+
+body[data-phase='4'] {
+  --aura-primary: rgba(76, 67, 82, 0.22);
+  --aura-grotesque: rgba(123, 74, 74, 0.16);
+  --hairline: rgba(123, 74, 74, 0.45);
+  --scanline-alpha: 0.13;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  min-height: 100%;
+  background-color: var(--void-abyss);
+  color: var(--bleached-bone);
+  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+
+body {
+  position: relative;
+  background-image:
+    radial-gradient(circle at 52% 40%, var(--aura-primary), transparent 62%),
+    radial-gradient(circle at 22% 18%, var(--aura-grotesque), transparent 52%);
+  background-attachment: fixed;
+}
+
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 40;
+  background-image: repeating-linear-gradient(
+    to bottom,
+    rgba(200, 203, 195, var(--scanline-alpha)) 0px,
+    rgba(200, 203, 195, var(--scanline-alpha)) 1px,
+    transparent 1px,
+    transparent 10px
+  );
+}
+
+button {
+  font-family: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: not-allowed;
+}
+
+button:focus-visible {
+  outline: 1.5px solid var(--pale-lichen);
+  outline-offset: 2px;
+}
+
+.app-shell {
+  width: 100%;
+  max-width: 620px;
+  margin: 0 auto;
+  padding: 14px 16px 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  position: relative;
+  z-index: 1;
+}
+
+/* Subtle institutional landing strip */
+.landing-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--hairline);
+}
+
+.landing-identity {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.landing-icon {
+  width: 22px;
+  height: 22px;
+  border-radius: 3px;
+  border: 1px solid var(--fracture-outline);
+  background: var(--sunken-slate);
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.landing-title {
+  margin: 0;
+  font-size: 11px;
+  letter-spacing: 1.4px;
+  text-transform: uppercase;
+  color: var(--bleached-bone);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.landing-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.mini-btn {
+  min-height: 32px;
+  padding: 4px 8px;
+  font-size: 10px;
+  letter-spacing: 1px;
+  background: var(--sunken-slate);
+  border: 1px solid var(--hairline);
+  border-radius: 2px;
+  color: var(--weathered-ash);
+  transition: border-color 140ms ease, color 140ms ease, background-color 140ms ease;
+}
+
+.mini-btn:hover {
+  border-color: var(--fracture-outline);
+  color: var(--bleached-bone);
+}
+
+.mini-btn--danger {
+  color: var(--dried-clot);
+  border-color: rgba(123, 74, 74, 0.55);
+}
+
+.mini-btn--danger:hover {
+  background: var(--clot-shadow);
+  color: var(--bleached-bone);
+}
+
+/* Phase telemetry header */
+.telemetry-header {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.telemetry-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.phase-label {
+  font-size: 11.5px;
+  letter-spacing: 1.4px;
+  color: var(--weathered-ash);
+}
+
+.phase-badge {
+  font-size: 10.5px;
+  letter-spacing: 1.2px;
+  color: var(--dried-clot);
+}
+
+.cycle-status {
+  font-size: 11px;
+  letter-spacing: 1.1px;
+  color: var(--pale-lichen);
+}
+
+.scar-passive-status {
+  font-size: 11.5px;
+  color: var(--weathered-ash);
+  letter-spacing: 0.4px;
+}
+
+.progress-track {
+  width: 100%;
+  height: 2.5px;
+  background: var(--hairline);
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  width: 0%;
+  background: var(--pale-lichen);
+  transition: width 160ms linear, background-color 240ms ease;
+}
+
+.progress-fill--deep {
+  background: var(--dried-clot);
+}
+
+.threshold-status {
+  font-size: 10.5px;
+  letter-spacing: 1px;
+  color: rgba(131, 136, 129, 0.85);
+}
+
+.threshold-status--ready {
+  color: var(--dried-clot);
+}
+
+/* Chamber Canvas */
+.chamber-card {
+  position: relative;
+  width: 100%;
+  height: 332px;
+  background: rgba(17, 19, 19, 0.88);
+  border: 1px solid var(--hairline);
+  border-radius: 3px;
+  overflow: hidden;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.chamber-backdrop-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.chamber-foreground {
+  position: relative;
+  z-index: 2;
+  height: 100%;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.counter-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+}
+
+.ichor-top-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.ichor-label {
+  font-size: 12px;
+  letter-spacing: 1.6px;
+  color: var(--weathered-ash);
+}
+
+.ichor-rate {
+  font-size: 11.5px;
+  letter-spacing: 0.9px;
+  color: var(--pale-lichen);
+}
+
+.counter-glass-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.counter-glass-plate {
+  position: relative;
+  min-width: 112px;
+  padding: 6px 32px;
+  background: rgba(10, 11, 11, 0.65);
+  border: 1px solid rgba(44, 49, 47, 0.78);
+  border-radius: 2px;
+  background-image: linear-gradient(
+    135deg,
+    rgba(200, 203, 195, 0.06),
+    transparent 55%,
+    rgba(141, 152, 138, 0.04)
+  );
+  transition: border-color 240ms ease;
+}
+
+.counter-glass-plate--grazed {
+  border-color: rgba(107, 112, 92, 0.7);
+}
+
+.counter-value {
+  display: block;
+  font-size: 48px;
+  line-height: 1.05;
+  font-weight: 500;
+  letter-spacing: 1px;
+  color: var(--bleached-bone);
+  text-align: center;
+  transition: transform 90ms ease-out;
+}
+
+.counter-value--medium {
+  font-size: 40px;
+}
+
+.counter-value--compact {
+  font-size: 32px;
+}
+
+.counter-value--recoil {
+  transform: scale(0.95);
+}
+
+.leech-overlay-canvas {
+  position: absolute;
+  inset: -4px -22px;
+  width: calc(100% + 44px);
+  height: calc(100% + 8px);
+  pointer-events: none;
+}
+
+.status-pills-row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+  min-height: 15px;
+}
+
+.status-tag {
+  font-size: 10.5px;
+  letter-spacing: 0.9px;
+  color: var(--weathered-ash);
+}
+
+.status-tag--stillness {
+  color: var(--bile-olive);
+}
+
+.status-tag--stillness-active {
+  color: var(--pale-lichen);
+}
+
+.status-tag--gaze {
+  color: var(--dried-clot);
+}
+
+/* Valve & Suture-Hands Arena */
+.valve-arena {
+  position: relative;
+  width: 228px;
+  height: 204px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.valve-hands-canvas {
+  position: absolute;
+  width: 228px;
+  height: 228px;
+  pointer-events: none;
+  z-index: 3;
+}
+
+.valve-well {
+  position: relative;
+  width: 132px;
+  height: 138px;
+  z-index: 2;
+}
+
+.valve-shadow-base {
+  position: absolute;
+  top: 6px;
+  left: 0;
+  width: 132px;
+  height: 132px;
+  border-radius: 50%;
+  background: var(--void-abyss);
+  border: 1px solid var(--hairline-ash);
+}
+
+.valve-button {
+  position: relative;
+  width: 132px;
+  height: 132px;
+  padding: 0;
+  border-radius: 50%;
+  border: 1.5px solid var(--fracture-outline);
+  background: var(--chitin-surface);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  transition: transform 80ms ease, border-color 120ms ease;
+}
+
+.valve-button:hover {
+  border-color: var(--pale-lichen);
+}
+
+.valve-button:active,
+.valve-button.is-pressed {
+  transform: translateY(5px) scale(0.96);
+  border-color: var(--dried-clot);
+}
+
+.valve-art-img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0.88;
+  pointer-events: none;
+}
+
+.valve-vignette {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle, rgba(10, 11, 11, 0.62) 0%, rgba(10, 11, 11, 0.28) 100%);
+  pointer-events: none;
+}
+
+.valve-yield-text {
+  position: relative;
+  z-index: 1;
+  font-size: 28px;
+  font-weight: 500;
+  color: var(--bleached-bone);
+}
+
+.valve-sub-label {
+  position: relative;
+  z-index: 1;
+  font-size: 11px;
+  letter-spacing: 1.8px;
+  color: rgba(200, 203, 195, 0.85);
+}
+
+.residue-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 5;
+}
+
+.residue-float {
+  position: absolute;
+  left: 50%;
+  top: 46%;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--pale-lichen);
+  pointer-events: none;
+  animation: residue-rise 680ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+@keyframes residue-rise {
+  0% {
+    opacity: 0.78;
+    transform: translate(calc(-50% + var(--drift-x, 0px)), -44px);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(calc(-50% + var(--drift-x, 0px)), -118px);
+  }
+}
+
+/* Interactive Wall Anomalies */
+.anomaly-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 6;
+}
+
+.anomaly-node {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  width: 62px;
+  height: 62px;
+  padding: 4px;
+  border-radius: 3px;
+  background: rgba(10, 11, 11, 0.92);
+  border: 1px solid rgba(200, 203, 195, 0.65);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  pointer-events: auto;
+  transition: transform 120ms ease, background-color 120ms ease;
+}
+
+.anomaly-node:hover {
+  transform: translate(-50%, -50%) scale(1.06);
+  background: var(--sunken-slate);
+}
+
+.anomaly-node--glass_eye {
+  border-color: rgba(141, 152, 138, 0.72);
+  color: var(--pale-lichen);
+}
+
+.anomaly-node--swollen_nodule {
+  border-color: rgba(123, 74, 74, 0.78);
+  color: var(--dried-clot);
+}
+
+.anomaly-glyph {
+  width: 30px;
+  height: 30px;
+  pointer-events: none;
+}
+
+.anomaly-label {
+  font-size: 9px;
+  letter-spacing: 1px;
+}
+
+/* Apparatus Deck */
+.deck-panel {
+  background: rgba(17, 19, 19, 0.92);
+  border: 1px solid var(--hairline);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.deck-tabs {
+  display: flex;
+  border-bottom: 1px solid var(--hairline);
+}
+
+.deck-tab {
+  flex: 1;
+  min-height: 44px;
+  padding: 10px 8px;
+  background: var(--sunken-slate);
+  border: none;
+  border-right: 1px solid var(--hairline);
+  font-size: 11px;
+  letter-spacing: 1px;
+  color: var(--weathered-ash);
+  text-align: center;
+  transition: background-color 120ms ease, color 120ms ease;
+}
+
+.deck-tab:last-child {
+  border-right: none;
+}
+
+.deck-tab.is-active {
+  background: var(--chitin-surface);
+  color: var(--bleached-bone);
+}
+
+.deck-tab--excision {
+  color: var(--dried-clot);
+}
+
+.deck-tab--excision.is-active {
+  background: var(--clot-shadow);
+  color: var(--dried-clot);
+}
+
+.prestige-banner {
+  padding: 7px 12px;
+  background: rgba(40, 25, 26, 0.5);
+  border-bottom: 1px solid var(--hairline);
+  font-size: 11.5px;
+  color: rgba(200, 203, 195, 0.92);
+}
+
+.deck-content {
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* Wet-Lab Organism Specimen Dossier Card */
+.organism-card {
+  background: rgba(31, 35, 33, 0.92);
+  border: 1px solid var(--hairline-ash);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.organism-card--affordable {
+  border-color: var(--fracture-outline);
+}
+
+.organism-card--weeping {
+  border-color: rgba(141, 152, 138, 0.72);
+}
+
+.organism-card--dormant {
+  background: var(--void-abyss);
+}
+
+.organism-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 10px;
+  background: rgba(10, 11, 11, 0.52);
+  border-bottom: 1px solid rgba(44, 49, 47, 0.85);
+}
+
+.organism-title-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.organism-code {
+  font-size: 10px;
+  letter-spacing: 1px;
+  color: var(--weathered-ash);
+  flex-shrink: 0;
+}
+
+.organism-name {
+  font-size: 12.5px;
+  letter-spacing: 0.6px;
+  color: var(--bleached-bone);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.organism-status-badge {
+  flex-shrink: 0;
+  padding: 2px 6px;
+  font-size: 9px;
+  letter-spacing: 0.9px;
+  border-radius: 2px;
+  border: 1px solid var(--hairline-ash);
+  background: var(--sunken-slate);
+  color: var(--weathered-ash);
+}
+
+.organism-status-badge--active {
+  background: rgba(33, 36, 30, 0.78);
+  border-color: var(--fracture-outline);
+  color: var(--bleached-bone);
+}
+
+.organism-status-badge--weeping {
+  background: rgba(141, 152, 138, 0.22);
+  border-color: rgba(141, 152, 138, 0.82);
+  color: var(--pale-lichen);
+}
+
+.organism-body {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px;
+}
+
+.specimen-viewport {
+  position: relative;
+  width: 64px;
+  height: 64px;
+  flex-shrink: 0;
+  border-radius: 2px;
+  background: var(--void-abyss);
+  border: 1px solid var(--fracture-outline);
+  overflow: hidden;
+}
+
+.specimen-viewport--dim {
+  border-color: var(--hairline-ash);
+}
+
+.specimen-viewport--weeping {
+  border-color: rgba(141, 152, 138, 0.85);
+}
+
+.specimen-viewport img,
+.specimen-viewport canvas {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.specimen-viewport--dim img,
+.specimen-viewport--dim canvas {
+  opacity: 0.56;
+}
+
+.specimen-viewport::before,
+.specimen-viewport::after {
+  content: '';
+  position: absolute;
+  width: 6px;
+  height: 6px;
+  pointer-events: none;
+  border-color: rgba(200, 203, 195, 0.36);
+  border-style: solid;
+}
+
+.specimen-viewport::before {
+  top: 3px;
+  left: 3px;
+  border-width: 1px 0 0 1px;
+}
+
+.specimen-viewport::after {
+  bottom: 3px;
+  right: 3px;
+  border-width: 0 1px 1px 0;
+}
+
+.organism-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.organism-desc {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.42;
+  color: rgba(200, 203, 195, 0.92);
+}
+
+.organism-card--dormant .organism-desc {
+  color: var(--weathered-ash);
+}
+
+.organism-yield {
+  font-size: 10.5px;
+  letter-spacing: 0.5px;
+  color: var(--pale-lichen);
+}
+
+.organism-yield--idle {
+  color: var(--bile-olive);
+}
+
+.organism-stillness {
+  font-size: 10px;
+  letter-spacing: 0.5px;
+  color: var(--weathered-ash);
+}
+
+.organism-stillness--active {
+  color: var(--pale-lichen);
+}
+
+.cultivate-btn {
+  min-width: 92px;
+  min-height: 48px;
+  padding: 7px 10px;
+  border-radius: 2px;
+  border: 1px solid var(--hairline-ash);
+  background: rgba(17, 19, 19, 0.72);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  flex-shrink: 0;
+  transition: border-color 120ms ease, background-color 120ms ease;
+}
+
+.cultivate-btn:not(:disabled) {
+  background: rgba(10, 11, 11, 0.88);
+  border-color: rgba(141, 152, 138, 0.72);
+}
+
+.cultivate-btn:not(:disabled):hover {
+  background: var(--lichen-shadow);
+}
+
+.cultivate-kicker {
+  font-size: 9px;
+  letter-spacing: 1px;
+  color: var(--weathered-ash);
+}
+
+.cultivate-btn:not(:disabled) .cultivate-kicker {
+  color: rgba(200, 203, 195, 0.88);
+}
+
+.cultivate-cost {
+  font-size: 11px;
+  letter-spacing: 0.5px;
+  color: var(--weathered-ash);
+}
+
+.cultivate-btn:not(:disabled) .cultivate-cost {
+  color: var(--pale-lichen);
+}
+
+.afford-bar {
+  width: 100%;
+  height: 2.5px;
+  background: rgba(10, 11, 11, 0.78);
+}
+
+.afford-bar-fill {
+  height: 100%;
+  background: rgba(123, 74, 74, 0.7);
+  transition: width 140ms linear;
+}
+
+.afford-bar-fill--ready {
+  background: var(--pale-lichen);
+}
+
+/* Generic Deck Action Rows (Jars & Graft) */
+.deck-row {
+  width: 100%;
+  min-height: 54px;
+  padding: 10px 12px;
+  border-radius: 2px;
+  border: 1px solid var(--hairline-ash);
+  background: var(--void-abyss);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  text-align: left;
+  transition: border-color 120ms ease, background-color 120ms ease;
+}
+
+.deck-row:not(:disabled) {
+  background: var(--chitin-surface);
+  border-color: var(--fracture-outline);
+}
+
+.deck-row:not(:disabled):hover {
+  border-color: var(--pale-lichen);
+}
+
+.deck-row--accent:not(:disabled) {
+  background: rgba(40, 25, 26, 0.75);
+  border-color: var(--dried-clot);
+}
+
+.deck-row-text {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.deck-row-title {
+  font-size: 12.5px;
+  letter-spacing: 0.7px;
+  color: var(--bleached-bone);
+}
+
+.deck-row-sub {
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--weathered-ash);
+}
+
+.deck-row:not(:disabled) .deck-row-sub {
+  color: rgba(200, 203, 195, 0.9);
+}
+
+.deck-row-pill {
+  flex-shrink: 0;
+  padding: 5px 8px;
+  font-size: 10.5px;
+  letter-spacing: 0.7px;
+  border-radius: 2px;
+  border: 1px solid var(--hairline-ash);
+  background: var(--sunken-slate);
+  color: var(--weathered-ash);
+}
+
+.deck-row:not(:disabled) .deck-row-pill {
+  border-color: rgba(141, 152, 138, 0.6);
+  background: rgba(10, 11, 11, 0.72);
+  color: var(--pale-lichen);
+}
+
+.deck-row--accent .deck-row-pill {
+  border-color: var(--dried-clot);
+  background: var(--clot-shadow);
+  color: var(--bleached-bone);
+}
+
+.deck-divider {
+  height: 1px;
+  background: var(--hairline);
+  margin: 2px 0;
+}
+
+.locked-hint {
+  font-size: 10.5px;
+  letter-spacing: 1px;
+  color: var(--weathered-ash);
+  padding: 4px 0;
+}
+
+/* Excision Ritual Panel */
+.excision-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.excision-title {
+  margin: 0;
+  font-size: 14px;
+  letter-spacing: 1.2px;
+  color: var(--dried-clot);
+}
+
+.excision-summary {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--weathered-ash);
+}
+
+.excision-reward {
+  font-size: 12.5px;
+  letter-spacing: 0.9px;
+  color: var(--bleached-bone);
+}
+
+.excision-btn-row {
+  display: flex;
+  gap: 8px;
+}
+
+.excision-btn {
+  min-height: 46px;
+  padding: 10px 14px;
+  border-radius: 2px;
+  font-size: 12px;
+  letter-spacing: 1.1px;
+}
+
+.excision-btn--arm {
+  width: 100%;
+  background: var(--clot-shadow);
+  border: 1px solid var(--dried-clot);
+  color: var(--bleached-bone);
+}
+
+.excision-btn--cancel {
+  flex: 1;
+  background: var(--chitin-surface);
+  border: 1px solid var(--fracture-outline);
+  color: var(--weathered-ash);
+}
+
+.excision-btn--confirm {
+  flex: 2;
+  background: var(--dread-error-container);
+  border: 1.5px solid var(--dread-error);
+  color: var(--bleached-bone);
+}
+
+/* Transmission Ledger */
+.ledger-panel {
+  background: rgba(17, 19, 19, 0.94);
+  border: 1px solid var(--hairline);
+  border-radius: 3px;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ledger-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.ledger-speaker {
+  font-size: 11.5px;
+  letter-spacing: 1.2px;
+  color: var(--weathered-ash);
+}
+
+.ledger-speaker--active {
+  color: var(--pale-lichen);
+}
+
+.archive-pill {
+  min-height: 36px;
+  padding: 5px 9px;
+  background: var(--chitin-surface);
+  border: 1px solid var(--hairline-ash);
+  border-radius: 2px;
+  font-size: 10.5px;
+  letter-spacing: 0.9px;
+  color: var(--weathered-ash);
+}
+
+.archive-pill--has-notes {
+  color: var(--dried-clot);
+}
+
+.ledger-divider {
+  height: 1px;
+  background: var(--hairline);
+}
+
+.ledger-body {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.58;
+  color: var(--bleached-bone);
+  white-space: pre-line;
+}
+
+.ledger-body--idle {
+  color: rgba(131, 136, 129, 0.72);
+}
+
+/* Footer note */
+.landing-footer {
+  margin-top: 4px;
+  padding-top: 10px;
+  border-top: 1px solid var(--hairline-ash);
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 6px;
+  font-size: 10px;
+  letter-spacing: 0.6px;
+  color: var(--faded-soot);
+}
+
+/* Archive & Reset Modals */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(6, 7, 7, 0.82);
+  z-index: 60;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 14px;
+}
+
+.modal-backdrop[hidden] {
+  display: none;
+}
+
+.modal-sheet {
+  width: 100%;
+  max-width: 580px;
+  max-height: 82vh;
+  background: var(--sunken-slate);
+  border: 1px solid var(--fracture-outline);
+  border-radius: 3px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.modal-head {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--hairline);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.modal-title {
+  margin: 0;
+  font-size: 13px;
+  letter-spacing: 1.2px;
+  color: var(--pale-lichen);
+}
+
+.modal-body {
+  padding: 14px 16px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.archive-entry {
+  padding: 12px;
+  background: var(--void-abyss);
+  border: 1px solid var(--hairline);
+  border-radius: 2px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.archive-entry-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 11px;
+  letter-spacing: 1px;
+}
+
+.archive-entry-speaker {
+  color: var(--pale-lichen);
+}
+
+.archive-entry-mood {
+  color: var(--dried-clot);
+}
+
+.archive-entry-lines {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--bleached-bone);
+  white-space: pre-line;
+}
+
+@media (min-width: 700px) {
+  .app-shell {
+    padding-top: 24px;
+    padding-bottom: 44px;
+  }
+
+  .chamber-card {
+    height: 356px;
+  }
+
+  .modal-backdrop {
+    align-items: center;
+  }
+}
+
+@media (max-width: 420px) {
+  .organism-body {
+    flex-wrap: wrap;
+  }
+
+  .cultivate-btn {
+    width: 100%;
+    flex-direction: row;
+    justify-content: space-between;
+    padding: 8px 12px;
+    min-height: 44px;
+  }
+}
