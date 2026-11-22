@@ -1,8 +1,78 @@
 <resources>
     <string name="app_name">Tap Counter</string>
-    <string name="counter_label">COUNTER</string>
-    <string name="tap_button_plus_one">+1</string>
-    <string name="tap_button_action">TAP</string>
-    <string name="tap_button_content_description">Increase counter by one</string>
-    <string name="counter_value_content_description">Current counter value: %1$s</string>
+    <string name="phase_readout">PHASE %1$02d // %2$s</string>
+    <string name="cycle_readout">CYCLE %1$02d // SCAR TISSUE: %2$s</string>
+    <string name="ichor_label">ICHOR</string>
+    <string name="ichor_rate_format">%1$s /s</string>
+    <string name="stillness_readout">STILLNESS: %1$s</string>
+    <string name="stillness_active_tag">STILLNESS DRIPPING</string>
+    <string name="gaze_active_tag">EYE FOCUSED ×2 (%1$ds)</string>
+    <string name="valve_plus_format">+%1$s</string>
+    <string name="valve_action_label">VALVE</string>
+    <string name="valve_content_description">Press the recessed wall valve to extract ichor</string>
+    <string name="counter_value_content_description">Current ichor count: %1$s</string>
+    <string name="threshold_progress_format">NEXT FRACTURE: %1$s / %2$s</string>
+    <string name="threshold_excision_ready">OVERGROWTH CRITICAL // EXCISION READY</string>
+    <string name="threshold_endless_label">NO SUMMIT REMAINS</string>
+    <string name="default_phase_0_name">THE COUNTING ROOM</string>
+    <string name="default_phase_1_name">UNCANNY DRIFT</string>
+    <string name="default_phase_2_name">APPARATUS &amp; FLESH</string>
+    <string name="default_phase_3_name">COLLAPSE OF MEANING</string>
+    <string name="default_phase_4_name">THE ENDLESS HOLLOW</string>
+
+    <!-- Wall anomaly interactive objects -->
+    <string name="anomaly_tooth_label">PULL</string>
+    <string name="anomaly_tooth_cd">Pull pale tooth protruding from plaster crack</string>
+    <string name="anomaly_eye_label">WIPE</string>
+    <string name="anomaly_eye_cd">Wipe condensation from blinking glass eye</string>
+    <string name="anomaly_nodule_label">PROD</string>
+    <string name="anomaly_nodule_cd">Prod swollen nodule pulsing along fissure</string>
+
+    <!-- Apparatus deck tabs & organisms -->
+    <string name="tab_organisms">ORGANISMS</string>
+    <string name="tab_jars_graft">JARS &amp; GRAFT</string>
+    <string name="tab_excision">EXCISION</string>
+    <string name="cost_ichor_format">%1$s ICHOR</string>
+    <string name="cost_stillness_format">%1$s STILLNESS</string>
+    <string name="owned_count_format">[%1$d]</string>
+
+    <string name="creature_suture_name">SUTURE-HAND</string>
+    <string name="creature_suture_desc">Stitched appendage pressing valve (+1/s)</string>
+    <string name="creature_leech_name">LEECH-CLERK</string>
+    <string name="creature_leech_desc">Clings to counter glass, chewing total (+4/s)</string>
+    <string name="creature_lamp_name">WEEPING LAMP</string>
+    <string name="creature_lamp_desc">Sweats Stillness &amp; 2× Ichor while idle 3s (+6/s)</string>
+
+    <!-- Specimen jars & grafting -->
+    <string name="jar_dust_name">YESTERDAY\'S DUST</string>
+    <string name="jar_dust_effect">Valve extraction +3 base Ichor</string>
+    <string name="jar_breath_name">UNSPENT BREATH</string>
+    <string name="jar_breath_effect">Suture-Hands &amp; Leech-Clerks ×2</string>
+    <string name="jar_name_title">A NAME YOU ALMOST REMEMBER</string>
+    <string name="jar_name_effect">Weeping Lamps &amp; wall anomalies ×2.5</string>
+    <string name="jar_sealed_badge">SEALED</string>
+    <string name="jar_bottle_action">BOTTLE</string>
+
+    <string name="graft_title">GRAFTED CHOIR-TENDRIL</string>
+    <string name="graft_desc">Fuse 2 Suture-Hands + 2 Leech-Clerks (+28/s Ichor, +1.5/s Stillness)</string>
+    <string name="graft_action">GRAFT</string>
+    <string name="graft_locked_hint">UNLOCKS AT PHASE 03</string>
+
+    <!-- Excision / first reset ritual -->
+    <string name="excision_title">EXCISION // MOLTING</string>
+    <string name="excision_summary">Sever the overgrown organ back to bare tile. Retains Scar Tissue (+75% Ichor per unit) and reveals deeper notes.</string>
+    <string name="excision_reward_format">YIELD: +%1$s SCAR TISSUE</string>
+    <string name="excision_action_arm">EXCISE &amp; MOLT</string>
+    <string name="excision_action_confirm">CONFIRM SEVERANCE</string>
+    <string name="excision_action_cancel">HOLD</string>
+
+    <!-- Transmission ledger & archive -->
+    <string name="transmission_header_idle">// GROUT LEDGER: SILENT</string>
+    <string name="transmission_idle_body">AWAITING INPUT_</string>
+    <string name="transmission_speaker_format">// %1$s</string>
+    <string name="transmission_notes_count">ARCHIVE [%1$d]</string>
+    <string name="transmission_archive_title">// RECOVERED FRAGMENTS</string>
+    <string name="transmission_archive_empty">NO FRAGMENTS RECOVERED YET</string>
+    <string name="transmission_open_archive_cd">Open recovered notes archive</string>
+    <string name="transmission_phase_badge">P%1$d</string>
 </resources>

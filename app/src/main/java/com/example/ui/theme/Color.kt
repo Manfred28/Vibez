@@ -2,26 +2,29 @@ package com.example.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-// Kinetic Amber & Obsidian Palette (matches custom launcher icon #1B1B27)
-val ObsidianBg = Color(0xFF11111B)
-val ObsidianSurface = Color(0xFF1B1B27)
-val ObsidianSurfaceVariant = Color(0xFF262638)
-val ObsidianOutline = Color(0xFF3E3E56)
-val LightInk = Color(0xFFF8F7F4)
-val MutedInk = Color(0xFFB4B4C8)
+// Dark, desaturated surreal/grotesque/hopeless palette aligned with /GAME_DESIGN_BIBLE.md
 
-val AmberGold = Color(0xFFFFB300)
-val AmberGoldDeep = Color(0xFFE58E00)
-val CopperShadow = Color(0xFFB45309)
-val CopperShadowDark = Color(0xFFC26A00)
-val EmberAccent = Color(0xFFFF6B35)
-val EmberAccentDark = Color(0xFFEA580C)
-val AmberInk = Color(0xFF1F1600)
-val WarmWhite = Color(0xFFFFFFFF)
-val WarmCream = Color(0xFFFFF8E7)
+// Abyssal backgrounds & sunken institutional surfaces
+val VoidAbyss = Color(0xFF0A0B0B)
+val SunkenSlate = Color(0xFF111313)
+val ApparatusSurface = Color(0xFF171A19)
+val ChitinSurface = Color(0xFF1F2321)
+val HairlineAsh = Color(0xFF2C312F)
+val FractureOutline = Color(0xFF3E4441)
 
-val StonePaperBg = Color(0xFFFAF7F2)
-val StoneSurfaceVariant = Color(0xFFF0EBE1)
-val StoneOutline = Color(0xFFDCD5C7)
-val CharcoalInk = Color(0xFF18181B)
-val CharcoalMuted = Color(0xFF646473)
+// Drained bone & ash typography inks
+val BleachedBone = Color(0xFFC8CBC3)
+val WeatheredAsh = Color(0xFF838881)
+val FadedSoot = Color(0xFF555A56)
+val AbyssInk = Color(0xFF0D0E0E)
+
+// Desaturated organic & grotesque accents
+val PaleLichen = Color(0xFF8D988A)
+val LichenShadow = Color(0xFF232924)
+val BileOlive = Color(0xFF6B705C)
+val BileShadow = Color(0xFF21241E)
+val DriedClot = Color(0xFF7B4A4A)
+val ClotShadow = Color(0xFF28191A)
+val BruisedViolet = Color(0xFF4C4352)
+val DreadError = Color(0xFF8F5252)
+val DreadErrorContainer = Color(0xFF2E1A1A)

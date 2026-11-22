@@ -1,0 +1,266 @@
+{
+  "schemaVersion": 2,
+  "designReference": "GAME_DESIGN_BIBLE.md",
+  "description": "Patchy, ambiguous, progress-bound narrative fragments for 'The Tending of the Unnamed Organ'. Stored strictly separate from UI and game logic.",
+  "phases": [
+    {
+      "id": 0,
+      "name": "The Counting Room",
+      "intensity": "latent"
+    },
+    {
+      "id": 1,
+      "name": "Uncanny Drift",
+      "intensity": "uneasy"
+    },
+    {
+      "id": 2,
+      "name": "Apparatus & Flesh",
+      "intensity": "heavy"
+    },
+    {
+      "id": 3,
+      "name": "Collapse of Meaning",
+      "intensity": "dread"
+    },
+    {
+      "id": 4,
+      "name": "The Endless Hollow",
+      "intensity": "overwhelming"
+    }
+  ],
+  "entries": [
+    {
+      "id": "dlg_p0_first_press",
+      "phase": 0,
+      "mood": "clinical",
+      "trigger": {
+        "type": "counter_reached",
+        "threshold": 1
+      },
+      "once": true,
+      "speaker": "Intake Slip #01",
+      "lines": [
+        "One drop cleared the brass lip.",
+        "The tile stays cold, though something behind the grout shifted its weight."
+      ]
+    },
+    {
+      "id": "dlg_p0_suture_hand",
+      "phase": 0,
+      "mood": "uncanny",
+      "trigger": {
+        "type": "creature_owned",
+        "target": "suture_hand",
+        "threshold": 1
+      },
+      "once": true,
+      "speaker": "Damp Vent Note",
+      "lines": [
+        "It presses slower than you do, as if reluctant to wake what is listening.",
+        "The knuckles bear the same pale scar as your own left thumb."
+      ]
+    },
+    {
+      "id": "dlg_p1_cracked_grout",
+      "phase": 1,
+      "mood": "uncanny",
+      "trigger": {
+        "type": "counter_reached",
+        "threshold": 25
+      },
+      "once": true,
+      "speaker": "Previous Caretaker",
+      "lines": [
+        "Day 14 (or 41—the ink bled). The mortar is softening around the valve.",
+        "If white enamel begins pushing through the seams, pull it gently before it roots."
+      ]
+    },
+    {
+      "id": "dlg_p1_first_tooth",
+      "phase": 1,
+      "mood": "grotesque",
+      "trigger": {
+        "type": "anomaly_interacted",
+        "target": "pale_tooth",
+        "threshold": 1
+      },
+      "once": true,
+      "speaker": "Wall Seam",
+      "lines": [
+        "It came free with a wet click, hollow at the root.",
+        "Nothing in the chart explains why a room would grow molars."
+      ]
+    },
+    {
+      "id": "dlg_p1_leech_clerk",
+      "phase": 1,
+      "mood": "grotesque",
+      "trigger": {
+        "type": "creature_owned",
+        "target": "leech_clerk",
+        "threshold": 1
+      },
+      "once": true,
+      "speaker": "Ledger Margin",
+      "lines": [
+        "Blind, segmented, tireless. It clings to the glass over the tally and chews the figures upward.",
+        "Perhaps it is not helping you count. Perhaps it is grazing."
+      ]
+    },
+    {
+      "id": "dlg_p2_apparatus_flesh",
+      "phase": 2,
+      "mood": "heavy",
+      "trigger": {
+        "type": "counter_reached",
+        "threshold": 150
+      },
+      "once": true,
+      "speaker": "Redacted Chart",
+      "lines": [
+        "Patient / Facility boundary no longer distinguishable on survey.",
+        "Note to attendant: the valve is warm now. Do not mistake warmth for affection."
+      ]
+    },
+    {
+      "id": "dlg_p2_weeping_lamp",
+      "phase": 2,
+      "mood": "depressive",
+      "trigger": {
+        "type": "creature_owned",
+        "target": "weeping_lamp",
+        "threshold": 1
+      },
+      "once": true,
+      "speaker": "Ceiling Hook",
+      "lines": [
+        "When you finally let your hand fall away, the bulb begins to sweat.",
+        "Even your exhaustion has a harvest here."
+      ]
+    },
+    {
+      "id": "dlg_p2_stillness",
+      "phase": 2,
+      "mood": "depressive",
+      "trigger": {
+        "type": "stillness_reached",
+        "threshold": 5
+      },
+      "once": true,
+      "speaker": "Unaddressed Letter",
+      "lines": [
+        "I sat without touching the wall for an hour and watched the jars fill.",
+        "It is easier to stay still than to remember what I planned to do outside."
+      ]
+    },
+    {
+      "id": "dlg_p2_glass_eye",
+      "phase": 2,
+      "mood": "surreal",
+      "trigger": {
+        "type": "anomaly_interacted",
+        "target": "glass_eye",
+        "threshold": 1
+      },
+      "once": true,
+      "speaker": "Masonry Aperture",
+      "lines": [
+        "You wiped the grey condensation away, and the iris narrowed on your wrist.",
+        "Whatever is behind the brick did not recognize you—only the rhythm."
+      ]
+    },
+    {
+      "id": "dlg_p2_first_jar",
+      "phase": 2,
+      "mood": "existential",
+      "trigger": {
+        "type": "jar_bottled",
+        "threshold": 1
+      },
+      "once": true,
+      "speaker": "Incubation Shelf",
+      "lines": [
+        "Sealed under wax. The label fell off before you could finish reading the year.",
+        "Keeping a memory in brine does not make it yours again."
+      ]
+    },
+    {
+      "id": "dlg_p3_collapse_meaning",
+      "phase": 3,
+      "mood": "existential",
+      "trigger": {
+        "type": "counter_reached",
+        "threshold": 600
+      },
+      "once": true,
+      "speaker": "Eviction Notice (Undated)",
+      "lines": [
+        "The corridor behind your door was bricked over three winters ago.",
+        "You keep optimizing the drip as though a high enough tally might open a window."
+      ]
+    },
+    {
+      "id": "dlg_p3_nodule",
+      "phase": 3,
+      "mood": "grotesque",
+      "trigger": {
+        "type": "anomaly_interacted",
+        "target": "swollen_nodule",
+        "threshold": 1
+      },
+      "once": true,
+      "speaker": "Bruised Seam",
+      "lines": [
+        "It yielded without a sound, spilling lukewarm static down the grout.",
+        "The room did not flinch. Only you did."
+      ]
+    },
+    {
+      "id": "dlg_p3_first_graft",
+      "phase": 3,
+      "mood": "grotesque",
+      "trigger": {
+        "type": "creature_owned",
+        "target": "grafted_tendril",
+        "threshold": 1
+      },
+      "once": true,
+      "speaker": "Surgical Margin",
+      "lines": [
+        "Four small hungers stitched into one quieter throat.",
+        "Output improved. Something that used to tap in time with your heartbeat stopped."
+      ]
+    },
+    {
+      "id": "dlg_p4_overgrown",
+      "phase": 4,
+      "mood": "hopeless",
+      "trigger": {
+        "type": "counter_reached",
+        "threshold": 2000
+      },
+      "once": true,
+      "speaker": "The Unnamed Organ",
+      "lines": [
+        "The seams have swallowed the ceiling. There is no room left for anything else to grow.",
+        "Cut it back to the tile. You already know you will not leave while the knife is in your hand."
+      ]
+    },
+    {
+      "id": "dlg_cycle_1_excision",
+      "phase": 0,
+      "mood": "hopeless",
+      "trigger": {
+        "type": "excision_completed",
+        "threshold": 1
+      },
+      "once": true,
+      "speaker": "Intake Slip #01 (Overwritten)",
+      "lines": [
+        "The chamber is bare again, colder than before, except for the pale seam stitched across the tile.",
+        "Someone wrote your initials under the valve long before you arrived. Press again."
+      ]
+    }
+  ]
+}
