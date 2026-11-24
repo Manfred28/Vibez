@@ -3,6 +3,10 @@ package com.example.ui
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.example.audio.InMemoryAudioEngine
+import com.example.audio.OrganAudioEngine
+import com.example.audio.SoundActionHint
+import com.example.audio.SoundCueResolver
 import com.example.data.DialogueCatalog
 import com.example.data.DialogueRepository
 import com.example.data.OrganSaveRepository
@@ -28,13 +32,14 @@ import kotlinx.coroutines.launch
 
 /**
  * Unified ViewModel for Arc 1 (Chamber + 6 Excisions + Surgical Scar Tree), Arc 2 (Haunted
- * Investigator Desk), Arc 3 threshold, local persistence, and Dev Testing Console.
+ * Investigator Desk), Arc 3 threshold, procedural audio engine, local persistence, and Dev Console.
  */
 class OrganViewModel(
   dialogueRepository: DialogueRepository? = null,
   private val saveRepository: OrganSaveRepository? = null,
   autoTick: Boolean = true,
   private val tickIntervalMs: Long = 100L,
+  private val audioEngine: OrganAudioEngine = InMemoryAudioEngine(),
 ) : ViewModel() {
 
   private val catalog: DialogueCatalog =
@@ -53,11 +58,13 @@ class OrganViewModel(
       }
     )
   val uiState: StateFlow<OrganGameState> = _uiState.asStateFlow()
+  val isAudioMuted: StateFlow<Boolean> = audioEngine.isMuted
 
   private var secondsSinceLastAutosave: Double = 0.0
   private var hasUnsavedChanges: Boolean = false
 
   init {
+    audioEngine.updateAmbience(SoundCueResolver.computeAmbientProfile(_uiState.value))
     if (autoTick) {
       viewModelScope.launch {
         while (isActive) {
@@ -68,19 +75,43 @@ class OrganViewModel(
     }
   }
 
+  fun toggleAudioMuted() {
+    audioEngine.toggleMuted()
+  }
+
+  fun setAudioForegroundActive(active: Boolean) {
+    audioEngine.setForegroundActive(active)
+  }
+
+  private fun dispatchAudioTransition(
+    previous: OrganGameState,
+    updated: OrganGameState,
+    actionHint: SoundActionHint,
+  ) {
+    val cues = SoundCueResolver.resolveTransitionCues(previous, updated, actionHint)
+    if (cues.isNotEmpty()) {
+      audioEngine.playCues(cues, updated.phase)
+    }
+    audioEngine.updateAmbience(SoundCueResolver.computeAmbientProfile(updated))
+  }
+
   private fun mutate(
     persistImmediately: Boolean = true,
+    actionHint: SoundActionHint = SoundActionHint.TICK,
     transform: (OrganGameState) -> OrganGameState,
   ) {
     var changed = false
+    var previous: OrganGameState = _uiState.value
     var updated: OrganGameState = _uiState.value
     _uiState.update { current ->
+      previous = current
       val next = transform(current)
       changed = next !== current
       updated = next
       next
     }
     if (changed) {
+      dispatchAudioTransition(previous, updated, actionHint)
       if (persistImmediately) {
         secondsSinceLastAutosave = 0.0
         hasUnsavedChanges = false
@@ -93,14 +124,17 @@ class OrganViewModel(
 
   fun advanceTime(deltaSeconds: Double) {
     var changed = false
+    var previous: OrganGameState = _uiState.value
     var updated: OrganGameState = _uiState.value
     _uiState.update { current ->
+      previous = current
       val next = OrganGameEngine.tick(current, deltaSeconds, catalog)
       changed = next !== current
       updated = next
       next
     }
     if (changed) {
+      dispatchAudioTransition(previous, updated, SoundActionHint.TICK)
       hasUnsavedChanges = true
     }
     secondsSinceLastAutosave += deltaSeconds
@@ -118,110 +152,168 @@ class OrganViewModel(
       hasUnsavedChanges = false
       saveRepository?.save(_uiState.value)
     }
+    audioEngine.release()
     super.onCleared()
   }
 
   // --- Arc 1 Actions ---
-  fun pressValve() = mutate(persistImmediately = false) { OrganGameEngine.pressValve(it, catalog) }
+  fun pressValve() =
+    mutate(persistImmediately = false, actionHint = SoundActionHint.VALVE_PRESS) {
+      OrganGameEngine.pressValve(it, catalog)
+    }
 
   fun buyCreature(type: CreatureType) =
-    mutate { OrganGameEngine.buyCreature(it, type, catalog) }
+    mutate(actionHint = SoundActionHint.CREATURE_BUY) {
+      OrganGameEngine.buyCreature(it, type, catalog)
+    }
 
   fun bottleJar(jar: SpecimenJar) =
-    mutate { OrganGameEngine.bottleJar(it, jar, catalog) }
+    mutate(actionHint = SoundActionHint.JAR_BOTTLE) {
+      OrganGameEngine.bottleJar(it, jar, catalog)
+    }
 
-  fun performGraft() = mutate { OrganGameEngine.performGraft(it, catalog) }
+  fun performGraft() =
+    mutate(actionHint = SoundActionHint.GRAFT_PERFORM) {
+      OrganGameEngine.performGraft(it, catalog)
+    }
 
   fun performChoirLungGraft() =
-    mutate { OrganGameEngine.performChoirLungGraft(it, catalog) }
+    mutate(actionHint = SoundActionHint.GRAFT_PERFORM) {
+      OrganGameEngine.performChoirLungGraft(it, catalog)
+    }
 
   fun interactAnomaly(anomalyId: Long) =
-    mutate { OrganGameEngine.interactAnomaly(it, anomalyId, catalog) }
+    mutate(actionHint = SoundActionHint.ANOMALY_INTERACT) {
+      OrganGameEngine.interactAnomaly(it, anomalyId, catalog)
+    }
 
   fun unlockScarNode(node: ScarNodeId) =
-    mutate { OrganGameEngine.unlockScarNode(it, node, catalog) }
+    mutate(actionHint = SoundActionHint.SCAR_UNLOCK) {
+      OrganGameEngine.unlockScarNode(it, node, catalog)
+    }
 
   fun buyRepeatableScarGraft(graft: RepeatableScarGraft) =
-    mutate { OrganGameEngine.buyRepeatableScarGraft(it, graft, catalog) }
+    mutate(actionHint = SoundActionHint.SCAR_UNLOCK) {
+      OrganGameEngine.buyRepeatableScarGraft(it, graft, catalog)
+    }
 
-  fun toggleDrainSeal() = mutate { OrganGameEngine.toggleDrainSeal(it, catalog) }
+  fun toggleDrainSeal() =
+    mutate(actionHint = SoundActionHint.DRAIN_TOGGLE) {
+      OrganGameEngine.toggleDrainSeal(it, catalog)
+    }
 
-  fun dredgeSump() = mutate { OrganGameEngine.dredgeSump(it, catalog) }
+  fun dredgeSump() =
+    mutate(actionHint = SoundActionHint.SUMP_DREDGE) {
+      OrganGameEngine.dredgeSump(it, catalog)
+    }
 
   fun setEchoDiversion(percent: Int) =
-    mutate { OrganGameEngine.setEchoDiversion(it, percent, catalog) }
+    mutate(actionHint = SoundActionHint.ECHO_DIVERSION) {
+      OrganGameEngine.setEchoDiversion(it, percent, catalog)
+    }
 
-  fun activateValveClamp() = mutate { OrganGameEngine.activateValveClamp(it, catalog) }
+  fun activateValveClamp() =
+    mutate(actionHint = SoundActionHint.CLAMP_ENGAGE) {
+      OrganGameEngine.activateValveClamp(it, catalog)
+    }
 
   fun offerToThroat(line: CultDossierLine) =
-    mutate { OrganGameEngine.offerToThroat(it, line, catalog) }
+    mutate(actionHint = SoundActionHint.THROAT_OFFER) {
+      OrganGameEngine.offerToThroat(it, line, catalog)
+    }
 
-  fun performExcision() = mutate { OrganGameEngine.performExcision(it, catalog) }
+  fun performExcision() =
+    mutate(actionHint = SoundActionHint.EXCISION) {
+      OrganGameEngine.performExcision(it, catalog)
+    }
 
   fun performBreachToArc2() =
-    mutate { OrganGameEngine.performBreachToArc2(it, catalog) }
+    mutate(actionHint = SoundActionHint.BREACH_TO_ARC2) {
+      OrganGameEngine.performBreachToArc2(it, catalog)
+    }
 
   // --- Arc 2 Investigator Actions ---
   fun inspectCaseFile() =
-    mutate(persistImmediately = false) { Arc2InvestigatorEngine.inspectCaseFile(it, catalog) }
+    mutate(persistImmediately = false, actionHint = SoundActionHint.ARC2_STAMP) {
+      Arc2InvestigatorEngine.inspectCaseFile(it, catalog)
+    }
 
   fun recruitContact(contact: InvestigatorContact) =
-    mutate { Arc2InvestigatorEngine.recruitContact(it, contact, catalog) }
+    mutate(actionHint = SoundActionHint.ARC2_CONTACT) {
+      Arc2InvestigatorEngine.recruitContact(it, contact, catalog)
+    }
 
   fun pinDeduction(deduction: CaseDeduction) =
-    mutate { Arc2InvestigatorEngine.pinDeduction(it, deduction, catalog) }
+    mutate(actionHint = SoundActionHint.ARC2_DEDUCTION) {
+      Arc2InvestigatorEngine.pinDeduction(it, deduction, catalog)
+    }
 
   fun interactDeskAnomaly(anomalyId: Long) =
-    mutate { Arc2InvestigatorEngine.interactDeskAnomaly(it, anomalyId, catalog) }
+    mutate(actionHint = SoundActionHint.ARC2_DESK_ANOMALY) {
+      Arc2InvestigatorEngine.interactDeskAnomaly(it, anomalyId, catalog)
+    }
 
   fun connectNextChapter() =
-    mutate { Arc2InvestigatorEngine.connectNextChapter(it, catalog) }
+    mutate(actionHint = SoundActionHint.ARC2_CHAPTER) {
+      Arc2InvestigatorEngine.connectNextChapter(it, catalog)
+    }
 
   fun enterArc3Convergence() =
-    mutate { Arc2InvestigatorEngine.enterArc3Convergence(it, catalog) }
+    mutate(actionHint = SoundActionHint.ARC3_ENTER) {
+      Arc2InvestigatorEngine.enterArc3Convergence(it, catalog)
+    }
 
   // --- Dev Testing Console Actions ---
   fun devSetActiveArc(arc: GameArc) =
-    mutate { OrganDevEngine.setActiveArc(it, arc, catalog) }
+    mutate(actionHint = SoundActionHint.DEV) { OrganDevEngine.setActiveArc(it, arc, catalog) }
 
   fun devSetHighestMilestone(milestone: Int) =
-    mutate { OrganDevEngine.setHighestMilestone(it, milestone, catalog) }
+    mutate(actionHint = SoundActionHint.DEV) {
+      OrganDevEngine.setHighestMilestone(it, milestone, catalog)
+    }
 
   fun devAssignArc1Resources(
     ichor: Double? = null,
     stillness: Double? = null,
     availableScar: Long? = null,
-  ) = mutate {
+  ) = mutate(actionHint = SoundActionHint.DEV) {
     OrganDevEngine.assignArc1Resources(it, ichor, stillness, availableScar, catalog)
   }
 
   fun devSetAllScarNodes(unlockAll: Boolean) =
-    mutate { OrganDevEngine.setAllScarNodes(it, unlockAll, catalog) }
+    mutate(actionHint = SoundActionHint.DEV) {
+      OrganDevEngine.setAllScarNodes(it, unlockAll, catalog)
+    }
 
-  fun devSpawnWallAnomaly() = mutate { OrganDevEngine.spawnWallAnomaly(it) }
+  fun devSpawnWallAnomaly() =
+    mutate(actionHint = SoundActionHint.DEV) { OrganDevEngine.spawnWallAnomaly(it) }
 
   fun devAssignArc2Resources(
     leads: Double? = null,
     silence: Double? = null,
     complicity: Float? = null,
     completedChapters: Int? = null,
-  ) = mutate {
+  ) = mutate(actionHint = SoundActionHint.DEV) {
     OrganDevEngine.assignArc2Resources(it, leads, silence, complicity, completedChapters, catalog)
   }
 
-  fun devSpawnDeskAnomaly() = mutate { OrganDevEngine.spawnDeskAnomaly(it) }
+  fun devSpawnDeskAnomaly() =
+    mutate(actionHint = SoundActionHint.DEV) { OrganDevEngine.spawnDeskAnomaly(it) }
 
   fun devResetAll() {
     secondsSinceLastAutosave = 0.0
     hasUnsavedChanges = false
     saveRepository?.clear()
-    _uiState.value = OrganDevEngine.resetAll(catalog)
+    val fresh = OrganDevEngine.resetAll(catalog)
+    _uiState.value = fresh
+    audioEngine.updateAmbience(SoundCueResolver.computeAmbientProfile(fresh))
   }
 
   companion object {
     fun factory(
       dialogueRepository: DialogueRepository,
       saveRepository: OrganSaveRepository? = null,
+      audioEngineProvider: () -> OrganAudioEngine = { InMemoryAudioEngine() },
     ): ViewModelProvider.Factory =
       object : ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST")
@@ -232,6 +324,7 @@ class OrganViewModel(
           return OrganViewModel(
             dialogueRepository = dialogueRepository,
             saveRepository = saveRepository,
+            audioEngine = audioEngineProvider(),
           ) as T
         }
       }

@@ -102,6 +102,17 @@ import {
   unlockScarNode,
   valveClampDurationSec,
 } from '../src/engine.js';
+import { applyDripMotionProfile, computeDripMotionProfile } from '../src/ui.js';
+import {
+  AUDIO_MUTE_STORAGE_KEY,
+  SOUND_ACTION_HINTS,
+  SOUND_CUES,
+  computeAmbientProfile,
+  createWebAudioEngine,
+  readMutedPreference,
+  resolveTransitionCues,
+  writeMutedPreference,
+} from '../src/audio.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(__dirname, '..', '..');
@@ -119,6 +130,7 @@ test('GitHub Pages static bundle integrity and Android dialogues.json parity', (
     'src/engine.js',
     'src/chamberCanvas.js',
     'src/ui.js',
+    'src/audio.js',
     'src/app.js',
     'assets/dialogues.json',
     'assets/img_wall_phase1.jpg',
@@ -151,9 +163,10 @@ test('GitHub Pages static bundle integrity and Android dialogues.json parity', (
 
   // Verify index.html uses relative ./ paths so GitHub Pages subpaths work
   const html = fs.readFileSync(path.join(docsDir, 'index.html'), 'utf8');
-  assert.ok(html.includes('href="./styles.css?v=') || html.includes('href="./styles.css"'));
-  assert.ok(html.includes('src="./src/app.js?v=') || html.includes('src="./src/app.js"'));
+  assert.ok(html.includes('href="./styles.css?v=2.9"'));
+  assert.ok(html.includes('src="./src/app.js?v=2.9"'));
   assert.ok(html.includes('src="./assets/img_recessed_valve.jpg"'));
+  assert.ok(html.includes('id="audio-mute-btn"'), 'Web UI must include compact audio mute toggle');
   assert.ok(html.includes('id="open-dev-btn"'), 'Web UI must include Clinical Dev Console trigger');
   assert.ok(html.includes('id="arc2-shell"'), 'Web UI must include Arc 2 Investigator Desk shell');
   assert.ok(!html.includes('href="/styles.css"'), 'Avoid root-absolute asset paths that break GitHub Pages subpaths');
@@ -874,4 +887,193 @@ test('Arc 1 escape-to-plea narrative threads, scar_node_specific, repeatable_gra
   for (const cliche of ['crowbar', 'rescue code', 'blow the chamber open', 'night shift ran late']) {
     assert.ok(!allText.includes(cliche), `Unexpected escape-room cliché: ${cliche}`);
   }
+});
+
+test('.drip-card multi-layer parallax CSS, randomized delay intervals, and safe animationend handling', () => {
+  // Deterministic low vs high RNG seeds confirm non-uniform randomized delays & parallax bounds
+  const storyLow = computeDripMotionProfile('story', () => 0);
+  const storyHigh = computeDripMotionProfile('story', () => 1);
+  assert.equal(storyLow.kind, 'story');
+  assert.equal(storyLow.delayMs, 40);
+  assert.equal(storyHigh.delayMs, 280);
+  assert.ok(storyHigh.delayMs > storyLow.delayMs);
+  assert.ok(storyLow.durationSec >= 6.45 && storyHigh.durationSec <= 7.35);
+  assert.ok(storyLow.parallaxZ < storyHigh.parallaxZ);
+  assert.ok(storyLow.ribbonDelayMs > storyLow.delayMs);
+  assert.ok(storyLow.beadDelayMs > storyLow.delayMs);
+
+  const eventLow = computeDripMotionProfile('event', () => 0);
+  const eventHigh = computeDripMotionProfile('event', () => 1);
+  assert.equal(eventLow.kind, 'event');
+  assert.equal(eventLow.delayMs, 90);
+  assert.equal(eventHigh.delayMs, 540);
+  assert.ok(eventHigh.delayMs > storyHigh.delayMs, 'Event lane should have wider delay jitter than priority Story lane');
+  assert.ok(eventHigh.parallaxZ < 0, 'Event drips stay recessed on a deeper Z-plane behind Story drips');
+
+  // Out-of-range / NaN RNG values clamp safely without producing NaN CSS variables
+  const clamped = computeDripMotionProfile('story', () => Number.NaN);
+  assert.ok(Number.isFinite(clamped.delayMs) && Number.isFinite(clamped.parallaxZ));
+
+  const applied = new Map();
+  const mockCard = {
+    style: {
+      setProperty(name, value) {
+        applied.set(name, value);
+      },
+    },
+  };
+  applyDripMotionProfile(mockCard, storyHigh);
+  for (const cssVar of [
+    '--drip-delay',
+    '--drip-duration',
+    '--drip-drift-x',
+    '--drip-drift-mid-x',
+    '--drip-parallax-z',
+    '--drip-scale',
+    '--drip-tilt',
+    '--drip-ribbon-lag',
+    '--drip-ribbon-delay',
+    '--drip-bead-delay',
+    '--drip-bead-duration',
+    '--drip-bubble-parallax-x',
+    '--drip-bubble-parallax-y',
+    '--drip-bubble-delay',
+  ]) {
+    assert.ok(applied.has(cssVar), `Missing CSS custom property ${cssVar}`);
+    assert.ok(!String(applied.get(cssVar)).includes('NaN'), `NaN detected in ${cssVar}`);
+  }
+
+  // Verify docs/styles.css defines 3D parallax container, both fill-mode, viscous keyframes, and reduced motion
+  const css = fs.readFileSync(path.join(docsDir, 'styles.css'), 'utf8');
+  assert.ok(css.includes('perspective: 760px;'));
+  assert.ok(css.includes('transform-style: preserve-3d;'));
+  assert.ok(css.includes('var(--drip-delay, 0ms) both;'));
+  assert.ok(css.includes('@keyframes drip-ribbon-seep'));
+  assert.ok(css.includes('@keyframes drip-bead-swell'));
+  assert.ok(css.includes('@keyframes drip-bubble-parallax'));
+  assert.ok(css.includes('@media (prefers-reduced-motion: reduce)'));
+
+  // Verify ui.js ignores bubbled child animationend events so ribbon/bubble animations never kill .drip-card early
+  const uiSrc = fs.readFileSync(path.join(docsDir, 'src', 'ui.js'), 'utf8');
+  assert.ok(uiSrc.includes('if (event.target !== card) return;'));
+});
+
+test('Web procedural audio cue resolver, ambient profile escalation, and independent mute persistence match Android 1:1', () => {
+  assert.equal(Object.keys(SOUND_CUES).length, 26);
+
+  const start = initialState(realCatalog);
+
+  // Failed unaffordable buy stays silent
+  const failedBuy = buyCreature(start, CREATURE_TYPES.SUTURE_HAND.id, realCatalog);
+  assert.deepEqual(
+    resolveTransitionCues(start, failedBuy, SOUND_ACTION_HINTS.CREATURE_BUY),
+    [],
+  );
+
+  // First valve press emits VALVE_PRESS + STORY_DRIP
+  const afterTap = pressValve(start, realCatalog);
+  assert.deepEqual(
+    resolveTransitionCues(start, afterTap, SOUND_ACTION_HINTS.VALVE_PRESS),
+    [SOUND_CUES.VALVE_PRESS, SOUND_CUES.STORY_DRIP],
+  );
+
+  // Dev console mutations emit zero cues
+  const devState = devAssignArc1Resources(start, { ichor: 500000 }, realCatalog);
+  assert.deepEqual(resolveTransitionCues(start, devState, SOUND_ACTION_HINTS.DEV), []);
+
+  // Passive tick emits ECHO_PULSE, MARROW_BLOOM, and PHASE_SHIFT
+  const tickBase = {
+    ...start,
+    phase: 1,
+    ichor: 1599,
+    cycleLifetimeIchor: 1599,
+    highestExcisionMilestone: 4,
+    creatures: { [CREATURE_TYPES.SUTURE_HAND.id]: 4 },
+    echoDiversionPercent: 50,
+    echoChargeSeconds: ORGAN_BALANCE.ECHO_PULSE_INTERVAL_SEC - 0.1,
+    clampRemainingSeconds: 0.1,
+  };
+  const afterTick = tick(tickBase, 0.5, realCatalog);
+  const tickCues = resolveTransitionCues(tickBase, afterTick, SOUND_ACTION_HINTS.TICK);
+  assert.ok(tickCues.includes(SOUND_CUES.ECHO_PULSE));
+  assert.ok(tickCues.includes(SOUND_CUES.MARROW_BLOOM));
+  assert.ok(tickCues.includes(SOUND_CUES.PHASE_SHIFT));
+
+  // Excision VI Plead for Salvation -> PLEAD_SALVATION, Arc 2 Stamp -> ARC2_STAMP, Ch4 -> ARC2_FILE_ZERO, Arc 3 -> ARC3_ENTER
+  const readyPlea = {
+    ...start,
+    highestExcisionMilestone: 5,
+    ichor: 12000000000,
+    cycleLifetimeIchor: 12000000000,
+    phase: 4,
+  };
+  const arc2 = performBreachToArc2(readyPlea, realCatalog);
+  assert.deepEqual(
+    resolveTransitionCues(readyPlea, arc2, SOUND_ACTION_HINTS.BREACH_TO_ARC2),
+    [SOUND_CUES.PLEAD_SALVATION],
+  );
+
+  const stamped = inspectCaseFile(arc2, realCatalog);
+  assert.ok(
+    resolveTransitionCues(arc2, stamped, SOUND_ACTION_HINTS.ARC2_STAMP).includes(
+      SOUND_CUES.ARC2_STAMP,
+    ),
+  );
+
+  const ch3 = {
+    ...arc2,
+    arc2: { ...arc2.arc2, leads: 250000, lifetimeLeads: 250000, silence: 250, completedChapters: 3 },
+  };
+  const ch4 = connectNextChapter(ch3, realCatalog);
+  assert.deepEqual(
+    resolveTransitionCues(ch3, ch4, SOUND_ACTION_HINTS.ARC2_CHAPTER),
+    [SOUND_CUES.ARC2_FILE_ZERO],
+  );
+
+  const arc3 = enterArc3Convergence(ch4, realCatalog);
+  assert.ok(
+    resolveTransitionCues(ch4, arc3, SOUND_ACTION_HINTS.ARC3_ENTER).includes(SOUND_CUES.ARC3_ENTER),
+  );
+
+  // Ambient profile escalation across Phases 0..4, Stillness, Clamp, Arc 2, and Arc 3
+  const p0 = computeAmbientProfile(start);
+  const p4 = computeAmbientProfile({ ...start, phase: 4 });
+  const still = computeAmbientProfile({ ...start, phase: 2, isStillnessActive: true });
+  const active = computeAmbientProfile({ ...start, phase: 2, isStillnessActive: false });
+  const clamped = computeAmbientProfile({ ...start, phase: 4, clampRemainingSeconds: 5 });
+  const arc2Profile = computeAmbientProfile({
+    ...arc2,
+    arc2: { ...arc2.arc2, complicity: 0.75, isSilenceActive: true },
+  });
+  const arc3Profile = computeAmbientProfile(arc3);
+
+  assert.ok(p4.humGain > p0.humGain);
+  assert.ok(p4.fleshDepth > p0.fleshDepth);
+  assert.equal(p0.cardiacPulse, 0);
+  assert.ok(p4.cardiacPulse > 0.5);
+  assert.ok(still.dripRate > active.dripRate);
+  assert.ok(still.humGain < active.humGain);
+  assert.ok(clamped.clampTension > 0.8);
+  assert.ok(arc2Profile.rainMix > 0.7 && arc2Profile.complicityBleed >= 0.75);
+  assert.ok(arc3Profile.rainMix > 0.3 && arc3Profile.fleshDepth > 0.2);
+
+  // Mute preference defaults to unmuted (false), persists independently of game save, and works headlessly
+  const storeMap = new Map();
+  const mockStorage = {
+    getItem: (k) => (storeMap.has(k) ? storeMap.get(k) : null),
+    setItem: (k, v) => storeMap.set(k, String(v)),
+  };
+  assert.equal(readMutedPreference(mockStorage), false);
+  writeMutedPreference(true, mockStorage);
+  assert.equal(storeMap.get(AUDIO_MUTE_STORAGE_KEY), 'true');
+  assert.equal(readMutedPreference(mockStorage), true);
+
+  const webEngine = createWebAudioEngine({ storage: mockStorage });
+  assert.equal(webEngine.isMuted(), true);
+  assert.equal(webEngine.toggleMuted(), false);
+  assert.equal(storeMap.get(AUDIO_MUTE_STORAGE_KEY), 'false');
+  webEngine.playCues([SOUND_CUES.VALVE_PRESS], 0);
+  webEngine.updateAmbience(p4);
+  webEngine.setForegroundActive(false);
+  webEngine.dispose();
 });

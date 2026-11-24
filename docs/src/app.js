@@ -48,15 +48,21 @@ import {
   tick,
   toggleDrainSeal,
   unlockScarNode,
-} from './engine.js?v=2.7';
+} from './engine.js?v=2.9';
 import {
   drawChamberBackdrop,
   drawForegroundLampsAndSacrifice,
   drawInvestigatorDeskBackdrop,
   drawLeechClerks,
   drawValveAndHands,
-} from './chamberCanvas.js?v=2.7';
-import { createUiController } from './ui.js?v=2.7';
+} from './chamberCanvas.js?v=2.9';
+import { createUiController } from './ui.js?v=2.9';
+import {
+  SOUND_ACTION_HINTS,
+  computeAmbientProfile,
+  createWebAudioEngine,
+  resolveTransitionCues,
+} from './audio.js?v=2.9';
 
 const SAVE_STORAGE_KEY_V2 = 'unnamed_organ_save_v2';
 const SAVE_STORAGE_KEY_V1 = 'unnamed_organ_save_v1';
@@ -92,7 +98,7 @@ function clearSavedRaw() {
 
 async function loadDialogueCatalog() {
   try {
-    const response = await fetch('./assets/dialogues.json?v=2.7', { cache: 'no-cache' });
+    const response = await fetch('./assets/dialogues.json?v=2.9', { cache: 'no-cache' });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     return await response.json();
   } catch (err) {
@@ -131,10 +137,44 @@ async function main() {
   const closeDevBtn = document.getElementById('close-dev-btn');
   const devModal = document.getElementById('dev-modal');
 
+  const audioMuteBtn = document.getElementById('audio-mute-btn');
+  const audioMuteLabel = document.getElementById('audio-mute-label');
+
   const wipeSaveBtn = document.getElementById('wipe-save-btn');
   const resetModal = document.getElementById('reset-modal');
   const cancelResetBtn = document.getElementById('cancel-reset-btn');
   const confirmResetBtn = document.getElementById('confirm-reset-btn');
+
+  const audio = createWebAudioEngine();
+  audio.updateAmbience(computeAmbientProfile(state));
+
+  function syncAudioToggleUi() {
+    if (!audioMuteBtn) return;
+    const isMutedNow = audio.isMuted();
+    audioMuteBtn.classList.toggle('is-muted', isMutedNow);
+    audioMuteBtn.setAttribute('aria-pressed', isMutedNow ? 'true' : 'false');
+    audioMuteBtn.setAttribute(
+      'aria-label',
+      isMutedNow ? 'Unmute sound effects and room ambience' : 'Mute sound effects and room ambience',
+    );
+    if (audioMuteLabel) {
+      audioMuteLabel.textContent = isMutedNow ? 'MUTE' : 'SFX';
+    }
+  }
+  syncAudioToggleUi();
+
+  const unlockAudioOnce = () => {
+    audio.unlock();
+  };
+  window.addEventListener('pointerdown', unlockAudioOnce, { passive: true });
+  window.addEventListener('keydown', unlockAudioOnce, { passive: true });
+
+  if (audioMuteBtn) {
+    audioMuteBtn.addEventListener('click', () => {
+      audio.toggleMuted();
+      syncAudioToggleUi();
+    });
+  }
 
   let autosaveAccumulator = 0;
   let hasUnsavedChanges = false;
@@ -178,8 +218,20 @@ async function main() {
     }
   }
 
-  function applyState(next, { persist = true } = {}) {
+  function dispatchAudioTransition(prev, next, action) {
+    const cues = resolveTransitionCues(prev, next, action);
+    if (cues.length > 0) {
+      audio.playCues(cues, next.phase);
+    }
+    audio.updateAmbience(computeAmbientProfile(next));
+  }
+
+  function applyState(next, { persist = true, action = SOUND_ACTION_HINTS.DEV } = {}) {
+    const prev = state;
     state = next;
+    if (next !== prev) {
+      dispatchAudioTransition(prev, next, action);
+    }
     observeStateEvents(next);
     if (persist) {
       persistNow();
@@ -191,39 +243,49 @@ async function main() {
 
   const ui = createUiController({
     onBuyCreature(typeId) {
-      applyState(buyCreature(state, typeId, catalog));
+      applyState(buyCreature(state, typeId, catalog), { action: SOUND_ACTION_HINTS.CREATURE_BUY });
     },
     onBottleJar(jarId) {
-      applyState(bottleJar(state, jarId, catalog));
+      applyState(bottleJar(state, jarId, catalog), { action: SOUND_ACTION_HINTS.JAR_BOTTLE });
     },
     onPerformGraft() {
-      applyState(performGraft(state, catalog));
+      applyState(performGraft(state, catalog), { action: SOUND_ACTION_HINTS.GRAFT_PERFORM });
     },
     onPerformChoirLung() {
-      applyState(performChoirLungGraft(state, catalog));
+      applyState(performChoirLungGraft(state, catalog), {
+        action: SOUND_ACTION_HINTS.GRAFT_PERFORM,
+      });
     },
     onUnlockScarNode(nodeId) {
-      applyState(unlockScarNode(state, nodeId, catalog));
+      applyState(unlockScarNode(state, nodeId, catalog), {
+        action: SOUND_ACTION_HINTS.SCAR_UNLOCK,
+      });
     },
     onBuyRepeatableScarGraft(graftId) {
-      applyState(buyRepeatableScarGraft(state, graftId, catalog));
+      applyState(buyRepeatableScarGraft(state, graftId, catalog), {
+        action: SOUND_ACTION_HINTS.SCAR_UNLOCK,
+      });
     },
     onToggleDrainSeal() {
-      applyState(toggleDrainSeal(state, catalog));
+      applyState(toggleDrainSeal(state, catalog), { action: SOUND_ACTION_HINTS.DRAIN_TOGGLE });
     },
     onDredgeSump() {
-      applyState(dredgeSump(state, catalog));
+      applyState(dredgeSump(state, catalog), { action: SOUND_ACTION_HINTS.SUMP_DREDGE });
       ui.triggerEventDrip('Something wet and cold comes up from beneath the grate.', 'SUMP');
     },
     onSetEchoDiversion(pct) {
-      applyState(setEchoDiversion(state, pct, catalog));
+      applyState(setEchoDiversion(state, pct, catalog), {
+        action: SOUND_ACTION_HINTS.ECHO_DIVERSION,
+      });
     },
     onActivateValveClamp() {
-      applyState(activateValveClamp(state, catalog));
+      applyState(activateValveClamp(state, catalog), { action: SOUND_ACTION_HINTS.CLAMP_ENGAGE });
       ui.triggerEventDrip('The iron bolts shut; pressure thickens behind the tiles.', 'CLAMP');
     },
     onOfferToThroat(lineId) {
-      applyState(offerToThroat(state, lineId, catalog));
+      applyState(offerToThroat(state, lineId, catalog), {
+        action: SOUND_ACTION_HINTS.THROAT_OFFER,
+      });
     },
     onInteractAnomaly(anomalyId) {
       const anomaly = state.activeAnomalies.find((a) => a.id === anomalyId);
@@ -233,28 +295,38 @@ async function main() {
           ui.triggerEventDrip(meta.dripLine, 'CHAMBER');
         }
       }
-      applyState(interactAnomaly(state, anomalyId, catalog));
+      applyState(interactAnomaly(state, anomalyId, catalog), {
+        action: SOUND_ACTION_HINTS.ANOMALY_INTERACT,
+      });
     },
     onPerformExcision() {
-      applyState(performExcision(state, catalog));
+      applyState(performExcision(state, catalog), { action: SOUND_ACTION_HINTS.EXCISION });
       window.scrollTo({ top: 0, behavior: 'smooth' });
     },
     onPerformBreachToArc2() {
-      applyState(performBreachToArc2(state, catalog));
+      applyState(performBreachToArc2(state, catalog), {
+        action: SOUND_ACTION_HINTS.BREACH_TO_ARC2,
+      });
       window.scrollTo({ top: 0, behavior: 'smooth' });
     },
     onRecruitContact(contactId) {
-      applyState(recruitContact(state, contactId, catalog));
+      applyState(recruitContact(state, contactId, catalog), {
+        action: SOUND_ACTION_HINTS.ARC2_CONTACT,
+      });
     },
     onPinDeduction(deductionId) {
-      applyState(pinDeduction(state, deductionId, catalog));
+      applyState(pinDeduction(state, deductionId, catalog), {
+        action: SOUND_ACTION_HINTS.ARC2_DEDUCTION,
+      });
     },
     onInteractDeskAnomaly(anomalyId) {
-      applyState(interactDeskAnomaly(state, anomalyId, catalog));
+      applyState(interactDeskAnomaly(state, anomalyId, catalog), {
+        action: SOUND_ACTION_HINTS.ARC2_DESK_ANOMALY,
+      });
       ui.triggerEventDrip('Another damp slip pinned to the margin.', 'CASE DESK');
     },
     onConnectNextChapter() {
-      applyState(connectNextChapter(state, catalog));
+      applyState(connectNextChapter(state, catalog), { action: SOUND_ACTION_HINTS.ARC2_CHAPTER });
     },
     onRequestRender() {
       ui.render(state);
@@ -264,22 +336,32 @@ async function main() {
   function triggerValvePress() {
     if (state.activeArc !== GAME_ARCS.ARC_1_CHAMBER) return;
     if (state.clampRemainingSeconds > 0) return;
+    audio.unlock();
     valveAngleDeg = (valveAngleDeg + 24) % 360000;
     const yieldLabel = formatCompactDecimal(manualTapYield(state));
-    applyState(pressValve(state, catalog), { persist: false });
+    applyState(pressValve(state, catalog), {
+      persist: false,
+      action: SOUND_ACTION_HINTS.VALVE_PRESS,
+    });
     ui.spawnResidue(yieldLabel);
   }
 
   function triggerCaseInspect() {
     if (state.activeArc !== GAME_ARCS.ARC_2_INVESTIGATION) return;
+    audio.unlock();
     const yieldLabel = formatCompactDecimal(arc2InspectYield(state.arc2));
-    applyState(inspectCaseFile(state, catalog), { persist: false });
+    applyState(inspectCaseFile(state, catalog), {
+      persist: false,
+      action: SOUND_ACTION_HINTS.ARC2_STAMP,
+    });
     ui.spawnArc2Residue(yieldLabel);
   }
 
   valveBtn.addEventListener('click', triggerValvePress);
   inspectCaseBtn.addEventListener('click', triggerCaseInspect);
-  enterArc3Btn.addEventListener('click', () => applyState(enterArc3Convergence(state, catalog)));
+  enterArc3Btn.addEventListener('click', () =>
+    applyState(enterArc3Convergence(state, catalog), { action: SOUND_ACTION_HINTS.ARC3_ENTER }),
+  );
   arc3BackDeskBtn.addEventListener('click', () =>
     applyState(devSetActiveArc(state, GAME_ARCS.ARC_2_INVESTIGATION, catalog)),
   );
@@ -409,6 +491,7 @@ async function main() {
   confirmResetBtn.addEventListener('click', () => {
     clearSavedRaw();
     state = initialState(catalog);
+    audio.updateAmbience(computeAmbientProfile(state));
     ui.resetViewState();
     ui.render(state);
     resetModal.hidden = true;
@@ -448,9 +531,11 @@ async function main() {
     lastTickTime = now;
     if (dt <= 0) return;
 
+    const prev = state;
     const next = tick(state, dt, catalog);
     if (next !== state) {
       state = next;
+      dispatchAudioTransition(prev, next, SOUND_ACTION_HINTS.TICK);
       observeStateEvents(next);
       hasUnsavedChanges = true;
     }
@@ -466,6 +551,7 @@ async function main() {
   window.addEventListener('beforeunload', persistNow);
   window.addEventListener('pagehide', persistNow);
   document.addEventListener('visibilitychange', () => {
+    audio.setForegroundActive(!document.hidden);
     if (document.hidden) flushIfDirty();
   });
 

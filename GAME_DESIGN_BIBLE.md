@@ -39,6 +39,7 @@ The app should feel **surreal, grotesque, weird, and out of this world**.
   - Sealing/venting the **Floor Drain Grate** and tapping **Dredged Relics** to inspect their thematic notes, routing **Neighbor Aperture Echoes**, engaging the **Valve Clamp** for 4-anomaly **Marrow Blooms**, and feeding colonies to **The Ossified Throat**.
   - Unsealing **Evidence Envelopes**, wiping **Fogged Spectacles**, untangling **Red String**, and playing **Reel-to-Reel Tapes** on the Arc 2 Investigator Desk.
 - **Tactile Weight:** Haptics, springs, and animations feel heavy, reluctant, breathing, or unnervingly alive.
+- **Procedural Damp-Iron & Seepage Soundscape (Android + Web Parity):** Zero-asset synthesized foley and phase-escalating room ambience (`SoundCueResolver` + `ProceduralFoleySynth` on Android; Web Audio `audio.js` on Web) built strictly around damp mechanical iron, wet seepage, enamel snaps, organic clicks, muffled neighbor knocks, wooden case stamps, and quiet fluorescent hum—never arcade beeps, melodic fanfare, or jumpscares. Room ambience escalates subtly across Phases 0–4 (60Hz ballast hum → wet condensation drips → peristaltic low-mid rumble → Phase 4 cardiac double-beat) and shifts in Arc 2 to rain-streaked precinct stillness with Complicity grout bleed. Controlled by a compact top-bar `[SFX]`/`[MUTE]` toggle (unmuted by default, persisted locally independently of save wipes, and auto-suspended when backgrounded).
 
 ### What to Avoid
 - Generic "happy mobile clicker" polish (rainbow coins, cheerful badges, upbeat motivational copy).

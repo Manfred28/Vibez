@@ -4,6 +4,7 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -27,6 +28,7 @@ import androidx.compose.ui.unit.dp
 import com.example.R
 import com.example.game.GameArc
 import com.example.game.OrganGameState
+import com.example.ui.components.AudioMuteTogglePill
 import com.example.ui.components.FragmentArchiveSheet
 import com.example.ui.components.PinnedLedgerBottomBar
 
@@ -36,6 +38,8 @@ fun Arc3ConvergenceScreen(
   state: OrganGameState,
   onSwitchArc: (GameArc) -> Unit,
   onOpenDevTools: () -> Unit,
+  isAudioMuted: Boolean = false,
+  onToggleAudioMute: () -> Unit = {},
   modifier: Modifier = Modifier,
 ) {
   val colorScheme = MaterialTheme.colorScheme
@@ -71,11 +75,23 @@ fun Arc3ConvergenceScreen(
           modifier = Modifier.fillMaxWidth().padding(20.dp),
           verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-          Text(
-            text = stringResource(R.string.arc3_title),
-            style = MaterialTheme.typography.titleMedium,
-            color = colorScheme.tertiary,
-          )
+          Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+          ) {
+            Text(
+              text = stringResource(R.string.arc3_title),
+              style = MaterialTheme.typography.titleMedium,
+              color = colorScheme.tertiary,
+              modifier = Modifier.weight(1f),
+            )
+            AudioMuteTogglePill(
+              isMuted = isAudioMuted,
+              onToggle = onToggleAudioMute,
+              emphasized = true,
+            )
+          }
           Text(
             text = stringResource(R.string.arc3_subtitle),
             style = MaterialTheme.typography.bodyMedium,

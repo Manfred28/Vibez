@@ -257,11 +257,15 @@
     <string name="arc3_return_chamber">INSPECT ARC 1 CHAMBER</string>
     <string name="arc3_return_desk">INSPECT ARC 2 DESK</string>
 
-    <!-- Clinical Dev Console -->
+    <!-- Clinical Dev Console & Audio Control -->
     <string name="dev_button_label">DEV</string>
     <string name="dev_button_cd">Open developer testing console</string>
     <string name="dev_modal_title">// CLINICAL DEV CONSOLE</string>
     <string name="dev_modal_close">CLOSE</string>
+    <string name="audio_sfx_label">SFX</string>
+    <string name="audio_mute_label">MUTE</string>
+    <string name="audio_mute_cd">Mute sound effects and room ambience</string>
+    <string name="audio_unmute_cd">Unmute sound effects and room ambience</string>
 
     <!-- Transmission ledger & archive -->
     <string name="transmission_header_idle">// GROUT LEDGER: SILENT</string>

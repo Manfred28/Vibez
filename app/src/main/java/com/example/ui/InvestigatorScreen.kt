@@ -49,6 +49,7 @@ import com.example.game.InvestigationChapter
 import com.example.game.InvestigatorContact
 import com.example.game.InvestigatorDeckTab
 import com.example.game.OrganGameState
+import com.example.ui.components.AudioMuteTogglePill
 import com.example.ui.components.DevToolsTriggerPill
 import com.example.ui.components.FragmentArchiveSheet
 import com.example.ui.components.InvestigatorDeskCanvas
@@ -68,6 +69,8 @@ fun InvestigatorScreen(
   onConnectNextChapter: () -> Unit,
   onEnterArc3: () -> Unit,
   onOpenDevTools: () -> Unit,
+  isAudioMuted: Boolean = false,
+  onToggleAudioMute: () -> Unit = {},
   modifier: Modifier = Modifier,
 ) {
   val colorScheme = MaterialTheme.colorScheme
@@ -141,7 +144,17 @@ fun InvestigatorScreen(
               color = colorScheme.onSurfaceVariant,
               modifier = Modifier.weight(1f).testTag("arc2_phase_header"),
             )
-            DevToolsTriggerPill(onClick = onOpenDevTools, emphasized = true)
+            Row(
+              horizontalArrangement = Arrangement.spacedBy(6.dp),
+              verticalAlignment = Alignment.CenterVertically,
+            ) {
+              AudioMuteTogglePill(
+                isMuted = isAudioMuted,
+                onToggle = onToggleAudioMute,
+                emphasized = true,
+              )
+              DevToolsTriggerPill(onClick = onOpenDevTools, emphasized = true)
+            }
           }
           Spacer(modifier = Modifier.height(4.dp))
           Text(

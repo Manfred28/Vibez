@@ -28,13 +28,18 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.VolumeOff
+import androidx.compose.material.icons.automirrored.rounded.VolumeUp
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Surface
@@ -116,6 +121,70 @@ fun DevToolsTriggerPill(
           vertical = if (emphasized) 4.dp else 3.dp,
         ),
     )
+  }
+}
+
+/** Shared compact [SFX]/[MUTE] header toggle with >=48dp touch target and accessibility semantics. */
+@Composable
+fun AudioMuteTogglePill(
+  isMuted: Boolean,
+  onToggle: () -> Unit,
+  modifier: Modifier = Modifier,
+  emphasized: Boolean = false,
+) {
+  val colorScheme = MaterialTheme.colorScheme
+  val cd =
+    stringResource(if (isMuted) R.string.audio_unmute_cd else R.string.audio_mute_cd)
+  val label =
+    stringResource(if (isMuted) R.string.audio_mute_label else R.string.audio_sfx_label)
+  val contentColor =
+    when {
+      isMuted -> colorScheme.onSurfaceVariant.copy(alpha = 0.65f)
+      emphasized -> colorScheme.primary
+      else -> colorScheme.onSurfaceVariant
+    }
+  val borderColor =
+    if (isMuted) colorScheme.outlineVariant.copy(alpha = 0.7f) else colorScheme.outlineVariant
+
+  Surface(
+    modifier =
+      modifier
+        .minimumInteractiveComponentSize()
+        .testTag("audio_mute_toggle")
+        .semantics { contentDescription = cd }
+        .clickable(role = Role.Button, onClick = onToggle),
+    shape = MaterialTheme.shapes.extraSmall,
+    color =
+      when {
+        isMuted -> colorScheme.surfaceContainerLowest
+        emphasized -> colorScheme.surfaceVariant
+        else -> colorScheme.surfaceVariant.copy(alpha = 0.72f)
+      },
+    border = BorderStroke(1.dp, borderColor),
+  ) {
+    Row(
+      modifier =
+        Modifier.padding(
+          horizontal = if (emphasized) 8.dp else 7.dp,
+          vertical = if (emphasized) 4.dp else 3.dp,
+        ),
+      horizontalArrangement = Arrangement.spacedBy(4.dp),
+      verticalAlignment = Alignment.CenterVertically,
+    ) {
+      Icon(
+        imageVector =
+          if (isMuted) Icons.AutoMirrored.Rounded.VolumeOff
+          else Icons.AutoMirrored.Rounded.VolumeUp,
+        contentDescription = null,
+        tint = contentColor,
+        modifier = Modifier.size(13.dp),
+      )
+      Text(
+        text = label,
+        style = MaterialTheme.typography.labelSmall,
+        color = contentColor,
+      )
+    }
   }
 }
 

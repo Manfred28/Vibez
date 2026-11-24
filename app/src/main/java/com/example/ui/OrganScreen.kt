@@ -27,6 +27,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -43,9 +44,14 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.R
+import com.example.audio.AndroidOrganAudioEngine
+import com.example.audio.SharedPreferencesAudioPreferenceStore
 import com.example.data.AssetDialogueRepository
 import com.example.data.SharedPreferencesOrganSaveRepository
 import com.example.game.CreatureType
@@ -58,6 +64,7 @@ import com.example.game.RepeatableScarGraft
 import com.example.game.ScarNodeId
 import com.example.game.SpecimenJar
 import com.example.ui.components.ApparatusDeck
+import com.example.ui.components.AudioMuteTogglePill
 import com.example.ui.components.ChamberCanvas
 import com.example.ui.components.DevToolsTriggerPill
 import com.example.ui.components.DevToolsModal
@@ -78,13 +85,34 @@ fun OrganRoute(modifier: Modifier = Modifier, viewModel: OrganViewModel? = null)
             OrganViewModel.factory(
               dialogueRepository = AssetDialogueRepository(appContext),
               saveRepository = SharedPreferencesOrganSaveRepository(appContext),
+              audioEngineProvider = {
+                AndroidOrganAudioEngine(SharedPreferencesAudioPreferenceStore(appContext))
+              },
             )
           }
         viewModel(factory = factory)
       }
 
   val uiState by resolvedViewModel.uiState.collectAsStateWithLifecycle()
+  val isAudioMuted by resolvedViewModel.isAudioMuted.collectAsStateWithLifecycle()
   var devToolsVisible by remember { mutableStateOf(false) }
+
+  val lifecycleOwner = LocalLifecycleOwner.current
+  DisposableEffect(lifecycleOwner, resolvedViewModel) {
+    val observer = LifecycleEventObserver { _, event ->
+      when (event) {
+        Lifecycle.Event.ON_RESUME -> resolvedViewModel.setAudioForegroundActive(true)
+        Lifecycle.Event.ON_PAUSE, Lifecycle.Event.ON_STOP ->
+          resolvedViewModel.setAudioForegroundActive(false)
+        else -> Unit
+      }
+    }
+    lifecycleOwner.lifecycle.addObserver(observer)
+    onDispose {
+      lifecycleOwner.lifecycle.removeObserver(observer)
+      resolvedViewModel.setAudioForegroundActive(false)
+    }
+  }
 
   val isInvestigator = uiState.activeArc == GameArc.ARC_2_INVESTIGATION
   val themePhase =
@@ -115,6 +143,8 @@ fun OrganRoute(modifier: Modifier = Modifier, viewModel: OrganViewModel? = null)
           onOfferToThroat = resolvedViewModel::offerToThroat,
           onPerformBreachToArc2 = resolvedViewModel::performBreachToArc2,
           onOpenDevTools = { devToolsVisible = true },
+          isAudioMuted = isAudioMuted,
+          onToggleAudioMute = resolvedViewModel::toggleAudioMuted,
           modifier = modifier,
         )
       GameArc.ARC_2_INVESTIGATION ->
@@ -127,6 +157,8 @@ fun OrganRoute(modifier: Modifier = Modifier, viewModel: OrganViewModel? = null)
           onConnectNextChapter = resolvedViewModel::connectNextChapter,
           onEnterArc3 = resolvedViewModel::enterArc3Convergence,
           onOpenDevTools = { devToolsVisible = true },
+          isAudioMuted = isAudioMuted,
+          onToggleAudioMute = resolvedViewModel::toggleAudioMuted,
           modifier = modifier,
         )
       GameArc.ARC_3_CONVERGENCE ->
@@ -134,6 +166,8 @@ fun OrganRoute(modifier: Modifier = Modifier, viewModel: OrganViewModel? = null)
           state = uiState,
           onSwitchArc = resolvedViewModel::devSetActiveArc,
           onOpenDevTools = { devToolsVisible = true },
+          isAudioMuted = isAudioMuted,
+          onToggleAudioMute = resolvedViewModel::toggleAudioMuted,
           modifier = modifier,
         )
     }
@@ -175,6 +209,8 @@ fun OrganScreen(
   onOfferToThroat: (CultDossierLine) -> Unit = {},
   onPerformBreachToArc2: () -> Unit = {},
   onOpenDevTools: () -> Unit = {},
+  isAudioMuted: Boolean = false,
+  onToggleAudioMute: () -> Unit = {},
   modifier: Modifier = Modifier,
 ) {
   val colorScheme = MaterialTheme.colorScheme
@@ -294,6 +330,8 @@ fun OrganScreen(
           state = state,
           phaseTitle = phaseTitle,
           onOpenDevTools = onOpenDevTools,
+          isAudioMuted = isAudioMuted,
+          onToggleAudioMute = onToggleAudioMute,
         )
 
         ChamberCanvas(
@@ -366,6 +404,8 @@ private fun PhaseTelemetryHeader(
   state: OrganGameState,
   phaseTitle: String,
   onOpenDevTools: () -> Unit,
+  isAudioMuted: Boolean,
+  onToggleAudioMute: () -> Unit,
   modifier: Modifier = Modifier,
 ) {
   val colorScheme = MaterialTheme.colorScheme
@@ -402,7 +442,7 @@ private fun PhaseTelemetryHeader(
         modifier = Modifier.weight(1f).testTag("phase_header"),
       )
       Row(
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
         verticalAlignment = Alignment.CenterVertically,
       ) {
         Text(
@@ -410,6 +450,7 @@ private fun PhaseTelemetryHeader(
           style = MaterialTheme.typography.labelSmall,
           color = colorScheme.tertiary,
         )
+        AudioMuteTogglePill(isMuted = isAudioMuted, onToggle = onToggleAudioMute)
         DevToolsTriggerPill(onClick = onOpenDevTools)
       }
     }

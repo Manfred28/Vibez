@@ -810,4 +810,49 @@ class OrganScreenBehaviorTest {
       .assertIsDisplayed()
       .assertTextEquals(arc2PleaEntry.lines.joinToString("\n"))
   }
+
+  @Test
+  fun audioMuteToggle_startsUnmutedTogglesStateAndRemainsAccessibleAcrossArcs() {
+    val viewModel = createViewModel()
+    composeTestRule.setContent { OrganRoute(viewModel = viewModel) }
+    composeTestRule.waitForIdle()
+
+    // Starts unmuted by default on Arc 1 header
+    assertEquals(false, viewModel.isAudioMuted.value)
+    composeTestRule
+      .onNodeWithTag("audio_mute_toggle")
+      .assertIsDisplayed()
+      .assert(hasClickAction())
+      .assertContentDescriptionEquals("Mute sound effects and room ambience")
+    composeTestRule.onNodeWithText("SFX").assertIsDisplayed()
+
+    // Tap to mute -> updates state, label, and accessibility description
+    composeTestRule.onNodeWithTag("audio_mute_toggle").performClick()
+    composeTestRule.waitForIdle()
+    assertEquals(true, viewModel.isAudioMuted.value)
+    composeTestRule
+      .onNodeWithTag("audio_mute_toggle")
+      .assertContentDescriptionEquals("Unmute sound effects and room ambience")
+    composeTestRule.onNodeWithText("MUTE").assertIsDisplayed()
+
+    // Remains visible and synced across Arc 2 Investigator Desk and Arc 3 Convergence
+    composeTestRule.runOnIdle { viewModel.devSetActiveArc(com.example.game.GameArc.ARC_2_INVESTIGATION) }
+    composeTestRule.waitForIdle()
+    composeTestRule
+      .onNodeWithTag("audio_mute_toggle")
+      .assertIsDisplayed()
+      .assertContentDescriptionEquals("Unmute sound effects and room ambience")
+
+    composeTestRule.runOnIdle { viewModel.devSetActiveArc(com.example.game.GameArc.ARC_3_CONVERGENCE) }
+    composeTestRule.waitForIdle()
+    composeTestRule
+      .onNodeWithTag("audio_mute_toggle")
+      .assertIsDisplayed()
+      .performClick()
+    composeTestRule.waitForIdle()
+    assertEquals(false, viewModel.isAudioMuted.value)
+    composeTestRule
+      .onNodeWithTag("audio_mute_toggle")
+      .assertContentDescriptionEquals("Mute sound effects and room ambience")
+  }
 }
