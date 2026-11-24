@@ -28,6 +28,7 @@ Before drafting a single new line:
      - **Stillness & Unaddressed Letter:** Sitting untouched while Weeping Lamps sweat and specimen jars fill; forgetting what was planned outside (`dlg_p2_weeping_lamp`, `dlg_p2_stillness`, `dlg_p2_first_jar`).
      - **The Masonry Eye & Rhythm:** Something behind the brick recognizes the rhythm, not the person (`dlg_p2_glass_eye`).
      - **Initials Under the Valve:** Written long before the player arrived, discovered after Excision (`dlg_cycle_1_excision`).
+     - **Arc 1 Surreal Drift (Leaving ↔ Acceptance → *Plead for Salvation*):** Arc 1 moves along an **ontological axis**, never a literal prison-break plot. Cycle 0 opens with the hazy assumption you only stepped in briefly before going home, then discovers mortar older than your arrival. Excisions I–V dissolve the boundary between leaving and belonging: circular sump plumbing returning relics dated tomorrow (M2), shared scarred-thumb cadence across the hairline seam (M3), clamping the valve to remember the smell of rain and feeling shameful relief when the warm plaster heals shut (M4), and *Rite of the Quiet Vessel* Clauses I–IV framing tenancy as calm municipal routine (M5). Excision VI (**Plead for Salvation**) sits on the knife-edge between praying to be pulled out and asking forgiveness for wanting to stay—cutting directly into Arc 2's rain-streaked Case Folder #14-B as if one half of the Caretaker stepped outside to inspect what remained, preserving complete ambiguity until *File #00*.
 
 ---
 
@@ -44,12 +45,16 @@ Every new fragment must deliberately choose **one** of two narrative roles:
 
 ---
 
-## 3. Anti-Contradiction Guardrails
+## 3. Surreal Overarching Direction & Anti-Cliché Guardrails
 
-Patchy, ambiguous storytelling thrives on **gaps**, not sloppy continuity errors.
+Patchy, ambiguous storytelling thrives on **gaps** and **ontological drift**, never locked-room thriller logistics or sloppy continuity errors.
 
-- **DO:** Use redacted dates, water-stained words, contradictory institutional jargon ("Patient / Facility"), and subjective doubt (*"perhaps"*, *"you think"*).
+- **Move Along an Internal Axis, Not a Prison-Break Axis:** Overarching momentum comes from the thinning line between *wanting to leave* and *having always belonged to the room* (temporary errand → strange familiarity → circular remnants → shared cadence → shameful relief in warmth → ambiguous surrender/plea).
+- **Keep Two Readings Alive Simultaneously:** Every major milestone should hold both readings in tension: *(A)* an outside world still exists and you are reaching toward it, AND *(B)* you have always belonged to the chamber and "outside" is a comforting story you rehearse while tending the valve.
+- **Bureaucratic Calm Over Thriller Urgency:** Prefer calm, municipal, damp, dream-wrong gestures (setting a smooth key politely by brick, listening to finished silence, writing a name in grey wax) over action-horror verbs.
+- **DO:** Use redacted dates, water-stained words, contradictory institutional jargon ("Patient / Facility"), circular time (pages dated tomorrow), and subjective doubt (*"perhaps"*, *"you think"*, *"unable to tell"*).
 - **DO NOT:**
+  - Use literal escape-room / survival-horror clichés: rattling locked doorknobs, climbing vents for air, tapping Morse code SOS, hoping for crowbars, hauling on jail bars, trying to blow walls open, or literal "message-in-a-bottle" storm-pipe logistics.
   - Contradict established physical facts (e.g., do not mention looking out a window, walking down an open hallway after the door was bricked over, or the valve suddenly being made of gold/plastic).
   - Contradict established mechanic rules (e.g., Weeping Lamps harvest Stillness when idle, not when tapping rapidly; Excision resets the chamber back to bare scarred tile, not a new building).
   - Resolve the core mystery cleanly ("Project 9 was an experiment by Dr. X..."). Always leave room for interpretation.
@@ -81,11 +86,22 @@ Match diction, rhythm, and emotional weight strictly to the entry's `phase` and 
 - **Supported Trigger Types:**
   - `counter_reached` (`threshold`: Cycle lifetime Ichor)
   - `cycle_counter_reached` (`target`: minimum cycle as integer string e.g. `"1"`, `threshold`: Cycle lifetime Ichor)
-  - `creature_owned` (`target`: `suture_hand` | `leech_clerk` | `weeping_lamp` | `grafted_tendril`, `threshold`)
-  - `anomaly_interacted` (`target`: `pale_tooth` | `glass_eye` | `swollen_nodule`, `threshold`)
+  - `creature_owned` (`target`: `suture_hand` | `leech_clerk` | `weeping_lamp` | `sump_siphon` | `grafted_tendril` | `choir_lung`, `threshold`)
+  - `anomaly_interacted` (`target`: `pale_tooth` | `glass_eye` | `swollen_nodule` | `chitin_rib`, `threshold`)
   - `stillness_reached` (`threshold`: Cycle lifetime Stillness)
-  - `jar_bottled` (`threshold`: count of owned Specimen Jars)
+  - `jar_bottled` (`threshold`: count of owned Specimen Jars `1..6`)
   - `excision_completed` (`threshold`: completed Excision cycle count)
+  - `excision_milestone_reached` (`threshold`: `highestExcisionMilestone` `1..6`)
+  - `scar_node_unlocked` (`threshold`: unlocked Scar Tree node count `1..16`)
+  - `scar_node_specific` (`target`: exact `ScarNodeId.id`, `threshold`: `1`)
+  - `repeatable_graft_total` (`threshold`: sum of ranks across all Repeatable Surgical Grafts)
+  - `relic_dredged` (`threshold`: lifetime dredged relics count)
+  - `echo_routed` (`threshold`: Neighbor Aperture echo pulse count)
+  - `marrow_bloom` (`threshold`: Valve Clamp Marrow Bloom count)
+  - `dossier_line_unredacted` (`threshold`: unsealed *Rite of the Quiet Vessel* clauses `1..4`)
+  - `arc_entered` (`target`: `arc_2` | `arc_3`, `threshold`: `1`)
+  - `case_chapter_completed` (`threshold`: Arc 2 chapters `1..4`)
+  - `desk_anomaly_interacted` (`target`: `evidence_envelope` | `fogged_spectacles` | `red_string` | `reel_tape`, `threshold`)
 
 ---
 

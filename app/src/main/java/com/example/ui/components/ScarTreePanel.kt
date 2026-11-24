@@ -34,19 +34,21 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.R
 import com.example.game.OrganGameState
+import com.example.game.RepeatableScarGraft
 import com.example.game.ScarNodeId
 import com.example.ui.theme.BleakTheme
 import java.text.NumberFormat
 
 /**
- * Interactive 3-branch Scar Tissue Surgical Skill Tree unlocked after Excision I.
- * Renders a surgical suture chart connecting Root -> Suture / Stillness / Marrow tiers,
- * paired with a detail & confirmation card so every node is accessible on compact phones.
+ * Interactive 5-tier 3-branch Scar Tissue Surgical Skill Tree + Repeatable Surgical Grafts
+ * unlocked after Excision I. Renders a stitched suture chart connecting Root -> Suture /
+ * Stillness / Marrow (5 tiers each), paired with a cryptic inspection card and repeatable sinks.
  */
 @Composable
 fun ScarTreePanel(
   state: OrganGameState,
   onUnlockNode: (ScarNodeId) -> Unit,
+  onBuyRepeatableGraft: (RepeatableScarGraft) -> Unit = {},
   modifier: Modifier = Modifier,
 ) {
   val colorScheme = MaterialTheme.colorScheme
@@ -86,7 +88,7 @@ fun ScarTreePanel(
       modifier = Modifier.testTag("scar_wallet_status"),
     )
 
-    // Surgical suture graph: Root -> 3 branches x 3 tiers
+    // Surgical suture graph: Root -> 3 branches x 5 tiers
     Box(modifier = Modifier.fillMaxWidth()) {
       Canvas(modifier = Modifier.matchParentSize()) {
         val threadColor = colorScheme.outline.copy(alpha = 0.65f)
@@ -113,7 +115,7 @@ fun ScarTreePanel(
             strokeWidth = if (active) 2.dp.toPx() else 1.2.dp.toPx(),
             pathEffect = if (active) null else dashed,
           )
-          // Vertical spine connecting Tier 1 -> Tier 2 -> Tier 3
+          // Vertical spine connecting Tier 1 -> Tier 5
           drawLine(
             color = threadColor.copy(alpha = 0.55f),
             start = target,
@@ -148,6 +150,8 @@ fun ScarTreePanel(
                 ScarNodeId.CALLOUSED_PALM,
                 ScarNodeId.TWIN_STITCH,
                 ScarNodeId.COLONY_INERTIA,
+                ScarNodeId.MEMBRANE_RECALL,
+                ScarNodeId.PERPETUAL_SEAM,
               ),
             state = state,
             selectedNode = selectedNode,
@@ -161,6 +165,8 @@ fun ScarTreePanel(
                 ScarNodeId.SHORTER_SILENCE,
                 ScarNodeId.WAX_SEALED_MEMORY,
                 ScarNodeId.DEEP_WEEPING,
+                ScarNodeId.HOLLOW_LUNG_CHOIR,
+                ScarNodeId.CATATONIC_TIDE,
               ),
             state = state,
             selectedNode = selectedNode,
@@ -173,6 +179,8 @@ fun ScarTreePanel(
               listOf(
                 ScarNodeId.SOFTENED_MORTAR,
                 ScarNodeId.AUTO_TENDRIL_SUTURE,
+                ScarNodeId.ECHO_OSSUARY,
+                ScarNodeId.BLOOM_INCISION,
                 ScarNodeId.BONE_RESONANCE,
               ),
             state = state,
@@ -264,6 +272,94 @@ fun ScarTreePanel(
             textAlign = TextAlign.Center,
             modifier = Modifier.fillMaxWidth().padding(vertical = 10.dp),
           )
+        }
+      }
+    }
+
+    HorizontalDivider(color = atmosphere.hairline, thickness = 1.dp)
+
+    // Repeatable Surgical Grafts Tray
+    Column(
+      modifier = Modifier.fillMaxWidth().testTag("repeatable_scar_grafts_section"),
+      verticalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+      Text(
+        text = stringResource(R.string.scar_repeatables_title),
+        style = MaterialTheme.typography.labelSmall.copy(letterSpacing = 1.sp),
+        color = colorScheme.onSurfaceVariant,
+      )
+
+      if (!state.isRepeatableGraftsUnlocked) {
+        Text(
+          text = stringResource(R.string.scar_repeatables_locked),
+          style = MaterialTheme.typography.bodySmall,
+          color = colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
+          modifier = Modifier.testTag("repeatable_grafts_locked_hint"),
+        )
+      } else {
+        RepeatableScarGraft.entries.forEach { graft ->
+          val rank = state.repeatableRank(graft)
+          val cost = state.repeatableCost(graft)
+          val canBuy = state.canBuyRepeatableGraft(graft)
+
+          Surface(
+            modifier =
+              Modifier.fillMaxWidth()
+                .minimumInteractiveComponentSize()
+                .testTag("repeatable_graft_${graft.id}")
+                .clickable(enabled = canBuy, role = Role.Button) { onBuyRepeatableGraft(graft) },
+            shape = MaterialTheme.shapes.extraSmall,
+            color =
+              if (canBuy) colorScheme.surfaceVariant
+              else colorScheme.surfaceContainerLowest,
+            border =
+              BorderStroke(
+                width = 1.dp,
+                color = if (canBuy) colorScheme.primary else colorScheme.outlineVariant,
+              ),
+          ) {
+            Row(
+              modifier = Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 9.dp),
+              horizontalArrangement = Arrangement.SpaceBetween,
+              verticalAlignment = Alignment.CenterVertically,
+            ) {
+              Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
+                Text(
+                  text =
+                    "${repeatableGraftName(graft)} · ${
+                      stringResource(R.string.scar_repeatable_rank_format, rank)
+                    }",
+                  style = MaterialTheme.typography.labelMedium,
+                  color =
+                    if (canBuy) colorScheme.onBackground
+                    else colorScheme.onBackground.copy(alpha = 0.8f),
+                )
+                Text(
+                  text = repeatableGraftDesc(graft),
+                  style = MaterialTheme.typography.bodySmall,
+                  color = colorScheme.onSurfaceVariant,
+                )
+              }
+              Surface(
+                shape = MaterialTheme.shapes.extraSmall,
+                color =
+                  if (canBuy) colorScheme.primaryContainer
+                  else colorScheme.surface,
+                border =
+                  BorderStroke(
+                    width = 1.dp,
+                    color = if (canBuy) colorScheme.primary else colorScheme.outlineVariant,
+                  ),
+              ) {
+                Text(
+                  text = stringResource(R.string.scar_repeatable_action_format, nf.format(cost)),
+                  style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.5.sp),
+                  color = if (canBuy) colorScheme.primary else colorScheme.onSurfaceVariant,
+                  modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
+                )
+              }
+            }
+          }
         }
       }
     }
@@ -372,11 +468,17 @@ private fun scarNodeName(node: ScarNodeId): String =
     ScarNodeId.CALLOUSED_PALM -> stringResource(R.string.scar_node_calloused_palm_name)
     ScarNodeId.TWIN_STITCH -> stringResource(R.string.scar_node_twin_stitch_name)
     ScarNodeId.COLONY_INERTIA -> stringResource(R.string.scar_node_colony_inertia_name)
+    ScarNodeId.MEMBRANE_RECALL -> stringResource(R.string.scar_node_membrane_recall_name)
+    ScarNodeId.PERPETUAL_SEAM -> stringResource(R.string.scar_node_perpetual_seam_name)
     ScarNodeId.SHORTER_SILENCE -> stringResource(R.string.scar_node_shorter_silence_name)
     ScarNodeId.WAX_SEALED_MEMORY -> stringResource(R.string.scar_node_wax_sealed_memory_name)
     ScarNodeId.DEEP_WEEPING -> stringResource(R.string.scar_node_deep_weeping_name)
+    ScarNodeId.HOLLOW_LUNG_CHOIR -> stringResource(R.string.scar_node_hollow_lung_choir_name)
+    ScarNodeId.CATATONIC_TIDE -> stringResource(R.string.scar_node_catatonic_tide_name)
     ScarNodeId.SOFTENED_MORTAR -> stringResource(R.string.scar_node_softened_mortar_name)
     ScarNodeId.AUTO_TENDRIL_SUTURE -> stringResource(R.string.scar_node_auto_tendril_suture_name)
+    ScarNodeId.ECHO_OSSUARY -> stringResource(R.string.scar_node_echo_ossuary_name)
+    ScarNodeId.BLOOM_INCISION -> stringResource(R.string.scar_node_bloom_incision_name)
     ScarNodeId.BONE_RESONANCE -> stringResource(R.string.scar_node_bone_resonance_name)
   }
 
@@ -387,10 +489,32 @@ private fun scarNodeDesc(node: ScarNodeId): String =
     ScarNodeId.CALLOUSED_PALM -> stringResource(R.string.scar_node_calloused_palm_desc)
     ScarNodeId.TWIN_STITCH -> stringResource(R.string.scar_node_twin_stitch_desc)
     ScarNodeId.COLONY_INERTIA -> stringResource(R.string.scar_node_colony_inertia_desc)
+    ScarNodeId.MEMBRANE_RECALL -> stringResource(R.string.scar_node_membrane_recall_desc)
+    ScarNodeId.PERPETUAL_SEAM -> stringResource(R.string.scar_node_perpetual_seam_desc)
     ScarNodeId.SHORTER_SILENCE -> stringResource(R.string.scar_node_shorter_silence_desc)
     ScarNodeId.WAX_SEALED_MEMORY -> stringResource(R.string.scar_node_wax_sealed_memory_desc)
     ScarNodeId.DEEP_WEEPING -> stringResource(R.string.scar_node_deep_weeping_desc)
+    ScarNodeId.HOLLOW_LUNG_CHOIR -> stringResource(R.string.scar_node_hollow_lung_choir_desc)
+    ScarNodeId.CATATONIC_TIDE -> stringResource(R.string.scar_node_catatonic_tide_desc)
     ScarNodeId.SOFTENED_MORTAR -> stringResource(R.string.scar_node_softened_mortar_desc)
     ScarNodeId.AUTO_TENDRIL_SUTURE -> stringResource(R.string.scar_node_auto_tendril_suture_desc)
+    ScarNodeId.ECHO_OSSUARY -> stringResource(R.string.scar_node_echo_ossuary_desc)
+    ScarNodeId.BLOOM_INCISION -> stringResource(R.string.scar_node_bloom_incision_desc)
     ScarNodeId.BONE_RESONANCE -> stringResource(R.string.scar_node_bone_resonance_desc)
+  }
+
+@Composable
+private fun repeatableGraftName(graft: RepeatableScarGraft): String =
+  when (graft) {
+    RepeatableScarGraft.KELOID_THICKENING -> stringResource(R.string.scar_repeatable_keloid_name)
+    RepeatableScarGraft.SEDIMENT_WELL -> stringResource(R.string.scar_repeatable_sediment_name)
+    RepeatableScarGraft.SCAR_HARVEST_HOOK -> stringResource(R.string.scar_repeatable_hook_name)
+  }
+
+@Composable
+private fun repeatableGraftDesc(graft: RepeatableScarGraft): String =
+  when (graft) {
+    RepeatableScarGraft.KELOID_THICKENING -> stringResource(R.string.scar_repeatable_keloid_desc)
+    RepeatableScarGraft.SEDIMENT_WELL -> stringResource(R.string.scar_repeatable_sediment_desc)
+    RepeatableScarGraft.SCAR_HARVEST_HOOK -> stringResource(R.string.scar_repeatable_hook_desc)
   }

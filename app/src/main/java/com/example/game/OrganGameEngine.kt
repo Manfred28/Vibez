@@ -2,6 +2,7 @@ package com.example.game
 
 import com.example.data.DialogueCatalog
 import com.example.data.EscalationCurve
+import kotlin.math.floor
 import kotlin.math.max
 import kotlin.math.min
 
@@ -68,29 +69,49 @@ object OrganGameEngine {
     val nextGraftCooldown = max(0.0, state.graftCooldownRemainingSeconds - deltaSeconds)
     val nextLungCooldown = max(0.0, state.choirLungCooldownRemainingSeconds - deltaSeconds)
 
-    // Excision II: Drain Grate pressure buildup when sealed
+    // Suture Tier 5: Perpetual Seam auto-ratchets valve turns without breaking Stillness
+    val autoValveActive = state.hasNode(ScarNodeId.PERPETUAL_SEAM) && !state.isValveClamped
+    val autoValveCharge =
+      if (autoValveActive) state.autoValveChargeSeconds + deltaSeconds
+      else state.autoValveChargeSeconds
+    val autoValveTurns =
+      if (autoValveActive) floor(autoValveCharge / OrganBalance.PERPETUAL_SEAM_INTERVAL_SEC).toInt()
+      else 0
+    val nextAutoValveCharge =
+      if (autoValveActive) {
+        autoValveCharge - autoValveTurns * OrganBalance.PERPETUAL_SEAM_INTERVAL_SEC
+      } else {
+        autoValveCharge
+      }
+    val autoValveIchor =
+      if (autoValveTurns > 0) autoValveTurns * preProductionState.manualTapYield else 0.0
+
+    // Excision II: Drain Grate pressure buildup when sealed (amplified by Echo Ossuary)
     val nextDrainPressure =
       if (state.highestExcisionMilestone >= 2 && state.drainSealed) {
         val siphonAssist = state.creatureCount(CreatureType.SUMP_SIPHON) * 1.5
-        min(100.0, state.drainPressure + (4.0 + siphonAssist) * deltaSeconds)
+        val ossuarySpeed = if (state.hasNode(ScarNodeId.ECHO_OSSUARY)) 1.45 else 1.0
+        min(100.0, state.drainPressure + (4.0 + siphonAssist) * ossuarySpeed * deltaSeconds)
       } else {
         max(0.0, state.drainPressure - 2.0 * deltaSeconds)
       }
 
     // Excision III: Neighbor Aperture periodic Resonance Echo charge tracking
+    val echoInterval = state.echoPulseIntervalSec
     val echoActive = state.highestExcisionMilestone >= 3 && state.echoDiversionPercent > 0
     val chargedEcho = if (echoActive) state.echoChargeSeconds + deltaSeconds else state.echoChargeSeconds
-    val echoPulseReady = echoActive && chargedEcho >= OrganBalance.ECHO_PULSE_INTERVAL_SEC
+    val echoPulseReady = echoActive && chargedEcho >= echoInterval
 
     // Excision IV: Valve Clamp countdown
     val clampWasActive = state.clampRemainingSeconds > 0.0
     val remainingClamp =
       if (clampWasActive) max(0.0, state.clampRemainingSeconds - deltaSeconds) else 0.0
 
+    val totalCycleIchorGain = gainedIchor + autoValveIchor
     var nextState =
       state.copy(
-        ichor = state.ichor + gainedIchor,
-        cycleLifetimeIchor = state.cycleLifetimeIchor + gainedIchor,
+        ichor = state.ichor + totalCycleIchorGain,
+        cycleLifetimeIchor = state.cycleLifetimeIchor + totalCycleIchorGain,
         stillness = state.stillness + gainedStillness,
         cycleLifetimeStillness = state.cycleLifetimeStillness + gainedStillness,
         secondsSinceLastTap = nextIdleSec,
@@ -99,20 +120,28 @@ object OrganGameEngine {
         marrowBloomRemainingSeconds = nextBloom,
         graftCooldownRemainingSeconds = nextGraftCooldown,
         choirLungCooldownRemainingSeconds = nextLungCooldown,
+        autoValveChargeSeconds = nextAutoValveCharge,
         drainPressure = nextDrainPressure,
         echoChargeSeconds = if (echoPulseReady) state.echoChargeSeconds else chargedEcho,
         clampRemainingSeconds = remainingClamp,
       )
 
     if (echoPulseReady) {
-      val echoMultiplier =
-        (nextState.echoDiversionPercent / 25.0) * 14.0 * nextState.boneResonanceBonus
-      val echoBurst = max(250.0, nextState.rawIchorPerSecond * echoMultiplier)
+      val baseEchoMultiplier =
+        when (nextState.echoDiversionPercent) {
+          25 -> 18.0
+          50 -> 30.0
+          else -> 0.0
+        }
+      val echoYieldBoost =
+        (if (nextState.hasNode(ScarNodeId.ECHO_OSSUARY)) 1.35 else 1.0) *
+          (if (nextState.hasNode(ScarNodeId.BONE_RESONANCE)) 1.25 else 1.0)
+      val echoBurst = max(250.0, nextState.rawIchorPerSecond * baseEchoMultiplier * echoYieldBoost)
       nextState =
         nextState.copy(
           ichor = nextState.ichor + echoBurst,
           cycleLifetimeIchor = nextState.cycleLifetimeIchor + echoBurst,
-          echoChargeSeconds = chargedEcho - OrganBalance.ECHO_PULSE_INTERVAL_SEC,
+          echoChargeSeconds = chargedEcho - echoInterval,
           echoPulsesTriggered = nextState.echoPulsesTriggered + 1,
         )
     }
@@ -221,6 +250,23 @@ object OrganGameEngine {
     return finalizeProgression(updated, catalog)
   }
 
+  fun buyRepeatableScarGraft(
+    state: OrganGameState,
+    graft: RepeatableScarGraft,
+    catalog: DialogueCatalog,
+  ): OrganGameState {
+    if (!state.canBuyRepeatableGraft(graft)) return state
+    val cost = state.repeatableCost(graft)
+    val updatedRanks = state.repeatableScarRanks.toMutableMap()
+    updatedRanks[graft] = state.repeatableRank(graft) + 1
+    val updated =
+      state.copy(
+        availableScarTissue = state.availableScarTissue - cost,
+        repeatableScarRanks = updatedRanks,
+      )
+    return finalizeProgression(updated, catalog)
+  }
+
   fun toggleDrainSeal(state: OrganGameState, catalog: DialogueCatalog): OrganGameState {
     if (state.highestExcisionMilestone < 2) return state
     val updated = state.copy(drainSealed = !state.drainSealed)
@@ -260,7 +306,7 @@ object OrganGameEngine {
 
   fun activateValveClamp(state: OrganGameState, catalog: DialogueCatalog): OrganGameState {
     if (state.highestExcisionMilestone < 4 || state.isValveClamped) return state
-    val updated = state.copy(clampRemainingSeconds = OrganBalance.VALVE_CLAMP_DURATION_SEC)
+    val updated = state.copy(clampRemainingSeconds = state.valveClampDurationSec)
     return finalizeProgression(updated, catalog)
   }
 
@@ -376,18 +422,28 @@ object OrganGameEngine {
     if (!state.canExcise) return state
 
     val gainedScars = state.pendingScarTissue
-    val clearedMilestone =
-      ExcisionMilestone.entries
-        .filter { state.cycleLifetimeIchorDisplay >= it.massThreshold }
-        .maxOfOrNull { it.number } ?: state.highestExcisionMilestone
-    val newHighestMilestone = max(state.highestExcisionMilestone, clearedMilestone)
-
-    val startingCreatures =
-      if (state.hasNode(ScarNodeId.CALLOUSED_PALM)) {
-        mapOf(CreatureType.SUTURE_HAND to 3, CreatureType.LEECH_CLERK to 1)
+    // Strict anti-skip sequential lock: advance by at most +1 Excision Milestone per Excision
+    val nextMilestone = ExcisionMilestone.nextAfter(state.highestExcisionMilestone)
+    val newHighestMilestone =
+      if (nextMilestone != null && state.cycleLifetimeIchorDisplay >= nextMilestone.massThreshold) {
+        nextMilestone.number
       } else {
-        emptyMap()
+        state.highestExcisionMilestone
       }
+
+    val startingCreatures = buildMap {
+      if (state.hasNode(ScarNodeId.CALLOUSED_PALM)) {
+        put(CreatureType.SUTURE_HAND, 3)
+        put(CreatureType.LEECH_CLERK, 1)
+      }
+      if (state.hasNode(ScarNodeId.MEMBRANE_RECALL)) {
+        put(CreatureType.WEEPING_LAMP, 1)
+        if (newHighestMilestone >= 2) {
+          put(CreatureType.SUMP_SIPHON, 1)
+        }
+      }
+    }
+
     val resetState =
       OrganGameState(
         activeArc = GameArc.ARC_1_CHAMBER,
@@ -399,6 +455,7 @@ object OrganGameEngine {
         availableScarTissue = state.availableScarTissue + gainedScars,
         highestExcisionMilestone = newHighestMilestone,
         unlockedScarNodes = state.unlockedScarNodes,
+        repeatableScarRanks = state.repeatableScarRanks,
         cycle = state.cycle + 1,
         phase = 0,
         phaseName = catalog.phaseName(0),
@@ -409,6 +466,7 @@ object OrganGameEngine {
         choirLungs = 0,
         graftCooldownRemainingSeconds = 0.0,
         choirLungCooldownRemainingSeconds = 0.0,
+        autoValveChargeSeconds = 0.0,
         ownedJars = emptySet(),
         activeAnomalies = emptyList(),
         anomalyInteractions = emptyMap(),
@@ -440,18 +498,10 @@ object OrganGameEngine {
   /** Excision VI climax: cuts through the mortar and launches Arc 2 ("The Inquiry"). */
   fun performBreachToArc2(state: OrganGameState, catalog: DialogueCatalog): OrganGameState {
     if (!state.canBreachToArc2) return state
-    val gainedScars =
-      if (state.highestExcisionMilestone < 6) {
-        ExcisionMilestone.FINAL_SEVERANCE.firstClearScarBonus
-      } else {
-        0L
-      }
     val breached =
       state.copy(
         activeArc = GameArc.ARC_2_INVESTIGATION,
         highestExcisionMilestone = max(state.highestExcisionMilestone, 6),
-        scarTissue = state.scarTissue + gainedScars,
-        availableScarTissue = state.availableScarTissue + gainedScars,
       )
     return finalizeProgression(breached, catalog)
   }
@@ -478,8 +528,11 @@ object OrganGameEngine {
     val (x, y) = freeAnchors[((id - 1L) % freeAnchors.size).toInt()]
 
     val spawnInterval =
-      if (state.hasNode(ScarNodeId.SOFTENED_MORTAR)) OrganBalance.ANOMALY_SPAWN_INTERVAL_SEC / 2.0
-      else OrganBalance.ANOMALY_SPAWN_INTERVAL_SEC
+      if (state.hasNode(ScarNodeId.SOFTENED_MORTAR)) {
+        OrganBalance.ANOMALY_SPAWN_INTERVAL_SEC / OrganBalance.SOFTENED_MORTAR_SPEED_MULT
+      } else {
+        OrganBalance.ANOMALY_SPAWN_INTERVAL_SEC
+      }
 
     return state.copy(
       activeAnomalies = state.activeAnomalies + ActiveWallAnomaly(id, chosenType, x, y),
@@ -496,7 +549,7 @@ object OrganGameEngine {
   private fun triggerMarrowBloom(state: OrganGameState): OrganGameState {
     var bloomed =
       state.copy(
-        marrowBloomRemainingSeconds = OrganBalance.MARROW_BLOOM_DURATION_SEC,
+        marrowBloomRemainingSeconds = state.marrowBloomDurationSec,
         marrowBloomCount = state.marrowBloomCount + 1,
       )
     repeat(4) { bloomed = spawnImmediateWallAnomaly(bloomed, allowOverflow = true) }

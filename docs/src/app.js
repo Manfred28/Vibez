@@ -15,6 +15,7 @@ import {
   arc2InspectYield,
   bottleJar,
   buyCreature,
+  buyRepeatableScarGraft,
   connectNextChapter,
   creatureCount,
   deserializeState,
@@ -47,15 +48,15 @@ import {
   tick,
   toggleDrainSeal,
   unlockScarNode,
-} from './engine.js?v=2.4';
+} from './engine.js?v=2.7';
 import {
   drawChamberBackdrop,
   drawForegroundLampsAndSacrifice,
   drawInvestigatorDeskBackdrop,
   drawLeechClerks,
   drawValveAndHands,
-} from './chamberCanvas.js?v=2.4';
-import { createUiController } from './ui.js?v=2.4';
+} from './chamberCanvas.js?v=2.7';
+import { createUiController } from './ui.js?v=2.7';
 
 const SAVE_STORAGE_KEY_V2 = 'unnamed_organ_save_v2';
 const SAVE_STORAGE_KEY_V1 = 'unnamed_organ_save_v1';
@@ -91,7 +92,7 @@ function clearSavedRaw() {
 
 async function loadDialogueCatalog() {
   try {
-    const response = await fetch('./assets/dialogues.json?v=2.4', { cache: 'no-cache' });
+    const response = await fetch('./assets/dialogues.json?v=2.7', { cache: 'no-cache' });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     return await response.json();
   } catch (err) {
@@ -203,6 +204,9 @@ async function main() {
     },
     onUnlockScarNode(nodeId) {
       applyState(unlockScarNode(state, nodeId, catalog));
+    },
+    onBuyRepeatableScarGraft(graftId) {
+      applyState(buyRepeatableScarGraft(state, graftId, catalog));
     },
     onToggleDrainSeal() {
       applyState(toggleDrainSeal(state, catalog));

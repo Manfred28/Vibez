@@ -245,7 +245,7 @@ fun ChamberRitesPanel(
           if (state.isValveClamped) {
             stringResource(R.string.rite_clamp_active, ceil(state.clampRemainingSeconds).toInt())
           } else {
-            stringResource(R.string.rite_clamp_action)
+            stringResource(R.string.rite_clamp_action, state.valveClampDurationSec.toInt())
           }
         RiteButton(
           label = clampLabel,

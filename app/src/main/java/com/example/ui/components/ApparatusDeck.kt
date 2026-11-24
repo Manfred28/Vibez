@@ -35,6 +35,7 @@ import com.example.game.CreatureType
 import com.example.game.CultDossierLine
 import com.example.game.OrganDeckTab
 import com.example.game.OrganGameState
+import com.example.game.RepeatableScarGraft
 import com.example.game.ScarNodeId
 import com.example.game.SpecimenJar
 import com.example.ui.theme.BleakTheme
@@ -51,6 +52,7 @@ fun ApparatusDeck(
   onPerformGraft: () -> Unit,
   onPerformExcision: () -> Unit,
   onUnlockScarNode: (ScarNodeId) -> Unit = {},
+  onBuyRepeatableScarGraft: (RepeatableScarGraft) -> Unit = {},
   onToggleDrainSeal: () -> Unit = {},
   onDredgeSump: () -> Unit = {},
   onSetEchoDiversion: (Int) -> Unit = {},
@@ -142,7 +144,11 @@ fun ApparatusDeck(
               onPerformGraft = onPerformGraft,
             )
           OrganDeckTab.SCAR_TREE ->
-            ScarTreePanel(state = state, onUnlockNode = onUnlockScarNode)
+            ScarTreePanel(
+              state = state,
+              onUnlockNode = onUnlockScarNode,
+              onBuyRepeatableGraft = onBuyRepeatableScarGraft,
+            )
           OrganDeckTab.CHAMBER_RITES ->
             ChamberRitesPanel(
               state = state,
@@ -407,6 +413,14 @@ private fun ExcisionRitualPanel(
           color = colorScheme.primary,
         )
       }
+      if (state.hasExcessMilestoneMass) {
+        Text(
+          text = stringResource(R.string.excision_seam_hold_note),
+          style = MaterialTheme.typography.labelSmall,
+          color = colorScheme.onSurfaceVariant,
+          modifier = Modifier.testTag("excision_seam_hold_note"),
+        )
+      }
     }
 
     Text(
@@ -423,6 +437,21 @@ private fun ExcisionRitualPanel(
     Spacer(modifier = Modifier.height(2.dp))
 
     if (!armed) {
+      val armLabel =
+        when {
+          !state.canExcise -> stringResource(R.string.excision_action_arm)
+          state.canClearNextMilestone && state.nextExcisionMilestone != null ->
+            stringResource(
+              R.string.excision_action_arm_milestone,
+              state.nextExcisionMilestone!!.number,
+              numberFormat.format(state.pendingScarTissue),
+            )
+          else ->
+            stringResource(
+              R.string.excision_action_arm_farm,
+              numberFormat.format(state.pendingScarTissue),
+            )
+        }
       Surface(
         modifier =
           Modifier.fillMaxWidth()
@@ -440,7 +469,7 @@ private fun ExcisionRitualPanel(
           ),
       ) {
         Text(
-          text = stringResource(R.string.excision_action_arm),
+          text = armLabel,
           style = MaterialTheme.typography.labelLarge,
           color =
             if (state.canExcise) colorScheme.onTertiaryContainer

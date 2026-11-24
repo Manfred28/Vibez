@@ -56,6 +56,12 @@ internal object DialogueTriggerEvaluator {
       "excision_completed" -> state.cycle >= trigger.threshold
       "excision_milestone_reached" -> state.highestExcisionMilestone >= trigger.threshold
       "scar_node_unlocked" -> state.unlockedScarNodes.size >= trigger.threshold
+      "scar_node_specific" -> {
+        val node = ScarNodeId.byId(trigger.target ?: "")
+        node != null && node in state.unlockedScarNodes
+      }
+      "repeatable_graft_total" ->
+        state.repeatableScarRanks.values.sum().toLong() >= trigger.threshold
       "relic_dredged" -> state.lifetimeRelicsDredged >= trigger.threshold
       "echo_routed" -> state.echoPulsesTriggered >= trigger.threshold
       "marrow_bloom" -> state.marrowBloomCount >= trigger.threshold

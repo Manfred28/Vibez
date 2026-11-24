@@ -26,6 +26,8 @@ import com.example.game.DredgedRelic
 import com.example.game.OrganBalance
 import com.example.game.OrganGameEngine
 import com.example.game.OrganGameState
+import com.example.game.RepeatableScarGraft
+import com.example.game.ScarNodeId
 import com.example.game.SpecimenJar
 import com.example.game.WallAnomalyType
 import com.example.ui.OrganRoute
@@ -356,10 +358,10 @@ class OrganScreenBehaviorTest {
       .assertIsDisplayed()
       .assertTextEquals(excisionFragment.lines.joinToString("\n"))
 
-    // Reaching 75 Ichor in Cycle 1 unlocks the new prestige-bound handwriting fragment (45 * 1.70 = 76.5 >= 75)
+    // Reaching 75 Ichor in Cycle 1 unlocks the new prestige-bound handwriting fragment (50 * 1.5535 = 77.6 >= 75)
     val scarHandwritingFragment =
       catalog.entries.first { it.id == "dlg_cycle_1_scar_handwriting" }
-    repeat(45) { viewModel.pressValve() }
+    repeat(50) { viewModel.pressValve() }
     composeTestRule.waitForIdle()
 
     composeTestRule
@@ -611,7 +613,7 @@ class OrganScreenBehaviorTest {
   }
 
   @Test
-  fun stateSerializer_roundTripsGraftCooldownsAndLateTierSpecimenJars() {
+  fun stateSerializer_roundTripsGraftCooldownsLateJarsAndRepeatableRanksAndLoadsLegacyJson() {
     val context = ApplicationProvider.getApplicationContext<Context>()
     val catalog = AssetDialogueRepository(context).loadCatalog()
     val state =
@@ -624,6 +626,12 @@ class OrganScreenBehaviorTest {
         graftCooldownRemainingSeconds = 4.25,
         choirLungCooldownRemainingSeconds = 7.5,
         ownedJars = setOf(SpecimenJar.SALT_FROM_THE_GROUT, SpecimenJar.THE_UNCOUNTED_HOUR),
+        unlockedScarNodes = setOf(ScarNodeId.FIRST_INCISION, ScarNodeId.MEMBRANE_RECALL),
+        repeatableScarRanks =
+          mapOf(
+            RepeatableScarGraft.KELOID_THICKENING to 2,
+            RepeatableScarGraft.SCAR_HARVEST_HOOK to 1,
+          ),
       )
 
     val raw = OrganStateSerializer.serialize(state)
@@ -634,5 +642,172 @@ class OrganScreenBehaviorTest {
     assertEquals(7.5, restored.choirLungCooldownRemainingSeconds, 0.001)
     assertTrue(SpecimenJar.SALT_FROM_THE_GROUT in restored.ownedJars)
     assertTrue(SpecimenJar.THE_UNCOUNTED_HOUR in restored.ownedJars)
+    assertTrue(ScarNodeId.MEMBRANE_RECALL in restored.unlockedScarNodes)
+    assertEquals(2, restored.repeatableRank(RepeatableScarGraft.KELOID_THICKENING))
+    assertEquals(1, restored.repeatableRank(RepeatableScarGraft.SCAR_HARVEST_HOOK))
+
+    // Backwards compatibility: legacy JSON missing repeatableScarRanks loads safely with empty map
+    val legacyJson =
+      """{"version":2,"cycle":2,"highestExcisionMilestone":2,"scarTissue":6,"availableScarTissue":4,"ichor":500,"cycleLifetimeIchor":500}"""
+    val migrated = OrganStateSerializer.deserialize(legacyJson, catalog)
+    assertNotNull(migrated)
+    assertTrue(migrated!!.repeatableScarRanks.isEmpty())
+    assertEquals(2, migrated.highestExcisionMilestone)
+  }
+
+  @Test
+  fun scarTreePanel_rendersFiveTierNodesAndUnlocksRepeatableGraftsAfterFirstIncision() {
+    val context = ApplicationProvider.getApplicationContext<Context>()
+    val catalog = AssetDialogueRepository(context).loadCatalog()
+    var state by
+      mutableStateOf(
+        OrganGameEngine.initialState(catalog).copy(
+          cycle = 1,
+          highestExcisionMilestone = 1,
+          scarTissue = 20L,
+          availableScarTissue = 20L,
+        )
+      )
+
+    composeTestRule.setContent {
+      BleakTheme(phase = state.phase) {
+        OrganScreen(
+          state = state,
+          onPressValve = {},
+          onBuyCreature = {},
+          onBottleJar = {},
+          onPerformGraft = {},
+          onInteractAnomaly = {},
+          onPerformExcision = {},
+          onUnlockScarNode = { node -> state = OrganGameEngine.unlockScarNode(state, node, catalog) },
+          onBuyRepeatableScarGraft = { graft ->
+            state = OrganGameEngine.buyRepeatableScarGraft(state, graft, catalog)
+          },
+        )
+      }
+    }
+    composeTestRule.waitForIdle()
+
+    composeTestRule.onNodeWithTag("deck_tab_scar_tree").performScrollTo().performClick()
+    composeTestRule.waitForIdle()
+
+    // Tier 4 and Tier 5 nodes render across all 3 branches
+    composeTestRule.onNodeWithTag("scar_node_membrane_recall").performScrollTo().assertIsDisplayed()
+    composeTestRule.onNodeWithTag("scar_node_perpetual_seam").performScrollTo().assertIsDisplayed()
+    composeTestRule.onNodeWithTag("scar_node_hollow_lung_choir").performScrollTo().assertIsDisplayed()
+    composeTestRule.onNodeWithTag("scar_node_catatonic_tide").performScrollTo().assertIsDisplayed()
+    composeTestRule.onNodeWithTag("scar_node_bloom_incision").performScrollTo().assertIsDisplayed()
+    composeTestRule.onNodeWithTag("scar_node_bone_resonance").performScrollTo().assertIsDisplayed()
+
+    // Repeatable grafts start locked behind FIRST_INCISION
+    composeTestRule.onNodeWithTag("repeatable_scar_grafts_section").performScrollTo().assertIsDisplayed()
+    composeTestRule.onNodeWithTag("repeatable_grafts_locked_hint").performScrollTo().assertIsDisplayed()
+
+    // Suture FIRST_INCISION -> unlocks repeatable grafts tray and allows buying Keloid Thickening
+    composeTestRule.onNodeWithTag("suture_selected_node_button").performScrollTo().performClick()
+    composeTestRule.waitForIdle()
+    assertTrue(ScarNodeId.FIRST_INCISION in state.unlockedScarNodes)
+
+    composeTestRule.onNodeWithTag("repeatable_graft_keloid_thickening").performScrollTo().performClick()
+    composeTestRule.waitForIdle()
+    assertEquals(1, state.repeatableRank(RepeatableScarGraft.KELOID_THICKENING))
+    assertEquals(16L, state.availableScarTissue) // 20 - 1 (First Incision) - 3 (Keloid Rank 1)
+  }
+
+  @Test
+  fun excisionPanel_distinguishesFarmVsMilestonePushAndDisplaysAntiSkipSeamHoldNote() {
+    val context = ApplicationProvider.getApplicationContext<Context>()
+    val catalog = AssetDialogueRepository(context).loadCatalog()
+    var state by
+      mutableStateOf(
+        OrganGameEngine.initialState(catalog).copy(
+          cycle = 1,
+          highestExcisionMilestone = 1,
+          ichor = 300_000.0,
+          cycleLifetimeIchor = 300_000.0,
+          phase = 4,
+          phaseName = catalog.phaseName(4),
+        )
+      )
+
+    composeTestRule.setContent {
+      BleakTheme(phase = state.phase) {
+        OrganScreen(
+          state = state,
+          onPressValve = {},
+          onBuyCreature = {},
+          onBottleJar = {},
+          onPerformGraft = {},
+          onInteractAnomaly = {},
+          onPerformExcision = { state = OrganGameEngine.performExcision(state, catalog) },
+        )
+      }
+    }
+    composeTestRule.waitForIdle()
+
+    // Early Scar-farming run below M2 (1.8M) displays HARVEST SCARS EARLY button and no seam hold note
+    composeTestRule.onNodeWithTag("deck_tab_excision").performScrollTo().performClick()
+    composeTestRule.waitForIdle()
+    composeTestRule.onNodeWithText("HARVEST SCARS EARLY (+2)").performScrollTo().assertIsDisplayed()
+    composeTestRule.onNodeWithTag("excision_seam_hold_note").assertDoesNotExist()
+
+    // Jump to 20M Ichor (exceeds both M2 1.8M and M3 16M) -> displays SEVER EXCISION 2 + seam hold note
+    composeTestRule.runOnIdle {
+      state = state.copy(ichor = 20_000_000.0, cycleLifetimeIchor = 20_000_000.0)
+    }
+    composeTestRule.waitForIdle()
+    composeTestRule.onNodeWithTag("excision_seam_hold_note").performScrollTo().assertIsDisplayed()
+    composeTestRule.onNodeWithTag("excision_arm_button").performScrollTo().performClick()
+    composeTestRule.waitForIdle()
+    composeTestRule.onNodeWithTag("excision_confirm_button").performScrollTo().performClick()
+    composeTestRule.waitForIdle()
+
+    // Hard sequential cap: even with 20M mass, milestone advances strictly from M1 -> M2 (never skipping M2)
+    assertEquals(2, state.highestExcisionMilestone)
+  }
+
+  @Test
+  fun excisionSixPleadForSalvation_rendersReframedClimaxUiAndTransitionsToArc2CaseFile() {
+    val context = ApplicationProvider.getApplicationContext<Context>()
+    val catalog = AssetDialogueRepository(context).loadCatalog()
+    val arc2PleaEntry = catalog.entries.first { it.id == "dlg_arc2_entry" }
+    val viewModel = createViewModel()
+
+    // Prepare Excision V cleared + 12B cycle mass so Excision VI ("Plead for Salvation") opens cleanly
+    viewModel.devSetHighestMilestone(5)
+    viewModel.devAssignArc1Resources(ichor = 12_000_000_000.0)
+
+    composeTestRule.setContent { OrganRoute(viewModel = viewModel) }
+    composeTestRule.waitForIdle()
+
+    // Top threshold status reflects Plead for Salvation
+    composeTestRule
+      .onNodeWithTag("threshold_status")
+      .assertIsDisplayed()
+      .assertTextEquals("SEAM UNSEALED // PLEAD FOR SALVATION")
+
+    // Excision panel displays Excision VI Plead for Salvation heading and primary button
+    composeTestRule.onNodeWithTag("deck_tab_excision").performScrollTo().performClick()
+    composeTestRule.waitForIdle()
+
+    composeTestRule.onNodeWithText("EXCISION VI // PLEAD FOR SALVATION").performScrollTo().assertIsDisplayed()
+    composeTestRule
+      .onNodeWithTag("breach_to_arc2_button")
+      .performScrollTo()
+      .assertIsDisplayed()
+      .assertTextEquals("PLEAD FOR SALVATION")
+      .performClick()
+    composeTestRule.waitForIdle()
+
+    // Transitions directly into Arc 2 Investigator Desk with the received Case Folder #14-B distress plea
+    composeTestRule.onNodeWithTag("investigator_screen").assertIsDisplayed()
+    composeTestRule
+      .onNodeWithTag("dialogue_speaker")
+      .assertIsDisplayed()
+      .assertTextEquals("// ${arc2PleaEntry.speaker.uppercase()}")
+    composeTestRule
+      .onNodeWithTag("dialogue_body")
+      .assertIsDisplayed()
+      .assertTextEquals(arc2PleaEntry.lines.joinToString("\n"))
   }
 }

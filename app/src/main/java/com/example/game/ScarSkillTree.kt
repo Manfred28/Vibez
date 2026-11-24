@@ -9,7 +9,8 @@ enum class GameArc(val id: String) {
 
 /**
  * Six distinct Excision milestones spanning Arc 1. Each milestone requires permanent Scar Tissue
- * surgical upgrades to breach cleanly and unlocks one unmistakable chamber feature + narrative beat.
+ * surgical upgrades to breach cleanly, advances strictly +1 per Excision, and awards zero free
+ * bonus Scars so every Scar is earned along the smooth harvest curve.
  */
 enum class ExcisionMilestone(
   val number: Int,
@@ -20,38 +21,38 @@ enum class ExcisionMilestone(
   FIRST_SEVERANCE(
     number = 1,
     massThreshold = 210_000L,
-    firstClearScarBonus = 2L,
+    firstClearScarBonus = 0L,
     code = "EXCISION I // FIRST SEVERANCE",
   ),
   SUNKEN_DRAIN(
     number = 2,
-    massThreshold = 1_200_000L,
-    firstClearScarBonus = 5L,
+    massThreshold = 1_800_000L,
+    firstClearScarBonus = 0L,
     code = "EXCISION II // THE SUNKEN DRAIN",
   ),
   UNBRICKED_SEAM(
     number = 3,
-    massThreshold = 8_500_000L,
-    firstClearScarBonus = 9L,
+    massThreshold = 16_000_000L,
+    firstClearScarBonus = 0L,
     code = "EXCISION III // THE UNBRICKED SEAM",
   ),
   BREATH_HOLD(
     number = 4,
-    massThreshold = 60_000_000L,
-    firstClearScarBonus = 15L,
+    massThreshold = 140_000_000L,
+    firstClearScarBonus = 0L,
     code = "EXCISION IV // THE BREATH-HOLD",
   ),
   MEMBRANE_AUDIT(
     number = 5,
-    massThreshold = 450_000_000L,
-    firstClearScarBonus = 24L,
+    massThreshold = 1_250_000_000L,
+    firstClearScarBonus = 0L,
     code = "EXCISION V // THE MEMBRANE AUDIT",
   ),
   FINAL_SEVERANCE(
     number = 6,
-    massThreshold = 3_500_000_000L,
-    firstClearScarBonus = 40L,
-    code = "EXCISION VI // THE FINAL SEVERANCE",
+    massThreshold = 12_000_000_000L,
+    firstClearScarBonus = 0L,
+    code = "EXCISION VI // PLEAD FOR SALVATION",
   );
 
   companion object {
@@ -69,10 +70,10 @@ enum class ScarBranch(val id: String) {
 }
 
 /**
- * Branching Scar Tissue surgical skill tree unlocked after Excision I.
- * - SUTURE: compresses repeat runs toward 5-7 min by eliminating early-run friction.
- * - STILLNESS: deepens depressive idle mechanics, lowers Stillness costs & graft cooldowns, and amplifies Specimen Jars.
- * - MARROW: supercharges wall anomalies, automatic grafting, and high-tier chamber rites.
+ * Expanded 5-tier branching Scar Tissue surgical skill tree unlocked after Excision I.
+ * - SUTURE: compresses repeat runs by eliminating early-run friction and automating the valve.
+ * - STILLNESS: deepens depressive idle mechanics, lowers Stillness costs & graft cooldowns, and amplifies Lungs & Jars.
+ * - MARROW: supercharges wall anomalies, automatic grafting, Drain/Echo/Bloom rites, and Dossier resonance.
  */
 enum class ScarNodeId(
   val id: String,
@@ -88,6 +89,7 @@ enum class ScarNodeId(
     cost = 1L,
     prerequisite = null,
   ),
+  // SUTURE BRANCH (T1..T5)
   CALLOUSED_PALM(
     id = "calloused_palm",
     branch = ScarBranch.SUTURE,
@@ -106,9 +108,24 @@ enum class ScarNodeId(
     id = "colony_inertia",
     branch = ScarBranch.SUTURE,
     tier = 3,
-    cost = 12L,
+    cost = 11L,
     prerequisite = TWIN_STITCH,
   ),
+  MEMBRANE_RECALL(
+    id = "membrane_recall",
+    branch = ScarBranch.SUTURE,
+    tier = 4,
+    cost = 22L,
+    prerequisite = COLONY_INERTIA,
+  ),
+  PERPETUAL_SEAM(
+    id = "perpetual_seam",
+    branch = ScarBranch.SUTURE,
+    tier = 5,
+    cost = 45L,
+    prerequisite = MEMBRANE_RECALL,
+  ),
+  // STILLNESS BRANCH (T1..T5)
   SHORTER_SILENCE(
     id = "shorter_silence",
     branch = ScarBranch.STILLNESS,
@@ -127,9 +144,24 @@ enum class ScarNodeId(
     id = "deep_weeping",
     branch = ScarBranch.STILLNESS,
     tier = 3,
-    cost = 12L,
+    cost = 11L,
     prerequisite = WAX_SEALED_MEMORY,
   ),
+  HOLLOW_LUNG_CHOIR(
+    id = "hollow_lung_choir",
+    branch = ScarBranch.STILLNESS,
+    tier = 4,
+    cost = 22L,
+    prerequisite = DEEP_WEEPING,
+  ),
+  CATATONIC_TIDE(
+    id = "catatonic_tide",
+    branch = ScarBranch.STILLNESS,
+    tier = 5,
+    cost = 45L,
+    prerequisite = HOLLOW_LUNG_CHOIR,
+  ),
+  // MARROW BRANCH (T1..T5)
   SOFTENED_MORTAR(
     id = "softened_mortar",
     branch = ScarBranch.MARROW,
@@ -144,16 +176,60 @@ enum class ScarNodeId(
     cost = 6L,
     prerequisite = SOFTENED_MORTAR,
   ),
+  ECHO_OSSUARY(
+    id = "echo_ossuary",
+    branch = ScarBranch.MARROW,
+    tier = 3,
+    cost = 12L,
+    prerequisite = AUTO_TENDRIL_SUTURE,
+  ),
+  BLOOM_INCISION(
+    id = "bloom_incision",
+    branch = ScarBranch.MARROW,
+    tier = 4,
+    cost = 24L,
+    prerequisite = ECHO_OSSUARY,
+  ),
   BONE_RESONANCE(
     id = "bone_resonance",
     branch = ScarBranch.MARROW,
-    tier = 3,
-    cost = 14L,
-    prerequisite = AUTO_TENDRIL_SUTURE,
+    tier = 5,
+    cost = 48L,
+    prerequisite = BLOOM_INCISION,
   );
 
   companion object {
     fun byId(id: String): ScarNodeId? = entries.firstOrNull { it.id == id }
+  }
+}
+
+/**
+ * Repeatable Scar Tissue sinks unlocked once [ScarNodeId.FIRST_INCISION] is sutured.
+ * Gives every harvest cycle a permanent outlet and directly rewards Scar-farming runs.
+ */
+enum class RepeatableScarGraft(
+  val id: String,
+  val baseCost: Long,
+  val costGrowth: Double,
+) {
+  KELOID_THICKENING(
+    id = "keloid_thickening",
+    baseCost = 3L,
+    costGrowth = 1.45,
+  ),
+  SEDIMENT_WELL(
+    id = "sediment_well",
+    baseCost = 3L,
+    costGrowth = 1.45,
+  ),
+  SCAR_HARVEST_HOOK(
+    id = "scar_harvest_hook",
+    baseCost = 4L,
+    costGrowth = 1.55,
+  );
+
+  companion object {
+    fun byId(id: String): RepeatableScarGraft? = entries.firstOrNull { it.id == id }
   }
 }
 
@@ -165,18 +241,18 @@ enum class DredgedRelic(
 ) {
   PATIENT_WRISTBAND(
     id = "patient_wristband",
-    ichorMultiplier = 1.45,
-    stillnessMultiplier = 1.15,
+    ichorMultiplier = 1.28,
+    stillnessMultiplier = 1.12,
   ),
   BRASS_WARD_KEY(
     id = "brass_ward_key",
-    ichorMultiplier = 1.65,
-    stillnessMultiplier = 1.25,
+    ichorMultiplier = 1.35,
+    stillnessMultiplier = 1.18,
   ),
   BLEEDING_LOGBOOK(
     id = "bleeding_logbook",
-    ichorMultiplier = 1.90,
-    stillnessMultiplier = 1.40,
+    ichorMultiplier = 1.45,
+    stillnessMultiplier = 1.25,
   );
 
   companion object {
@@ -202,7 +278,7 @@ enum class CultDossierLine(
     siphonCost = 2,
     tendrilCost = 0,
     requiresJar = false,
-    ichorMultiplier = 2.4,
+    ichorMultiplier = 1.35,
   ),
   LINE_2_MEMORY_BRINE(
     id = "dossier_line_2",
@@ -210,7 +286,7 @@ enum class CultDossierLine(
     siphonCost = 3,
     tendrilCost = 1,
     requiresJar = true,
-    ichorMultiplier = 2.6,
+    ichorMultiplier = 1.40,
   ),
   LINE_3_BRICKED_INTAKE(
     id = "dossier_line_3",
@@ -218,7 +294,7 @@ enum class CultDossierLine(
     siphonCost = 4,
     tendrilCost = 2,
     requiresJar = true,
-    ichorMultiplier = 2.8,
+    ichorMultiplier = 1.45,
   ),
   LINE_4_QUIET_VESSEL(
     id = "dossier_line_4",
@@ -226,7 +302,7 @@ enum class CultDossierLine(
     siphonCost = 5,
     tendrilCost = 3,
     requiresJar = true,
-    ichorMultiplier = 3.2,
+    ichorMultiplier = 1.55,
   );
 
   companion object {

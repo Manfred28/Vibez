@@ -78,6 +78,7 @@ object OrganDevEngine {
     val adjusted =
       state.copy(
         unlockedScarNodes = if (unlockAll) ScarNodeId.entries.toSet() else emptySet(),
+        repeatableScarRanks = if (unlockAll) state.repeatableScarRanks else emptyMap(),
         highestExcisionMilestone =
           if (unlockAll) max(state.highestExcisionMilestone, 1)
           else state.highestExcisionMilestone,

@@ -2,6 +2,7 @@ package com.example.game
 
 import com.example.data.DialogueEntry
 import com.example.data.EscalationCurve
+import kotlin.math.ceil
 import kotlin.math.floor
 import kotlin.math.max
 import kotlin.math.pow
@@ -40,7 +41,7 @@ enum class CreatureType(
     id = "sump_siphon",
     baseCost = 28_000.0,
     costGrowth = 1.28,
-    baseIchorPerSec = 140.0,
+    baseIchorPerSec = 42.0,
     unlockIchorThreshold = 15_000L,
     requiredMilestone = 2,
   );
@@ -106,7 +107,7 @@ enum class OrganDeckTab {
 }
 
 /**
- * Unified immutable state spanning Arc 1 (Chamber + 6 Excisions + Surgical Scar Tree),
+ * Unified immutable state spanning Arc 1 (Chamber + 6 Excisions + 5-Tier Surgical Scar Tree),
  * Arc 2 (Haunted Investigator Desk), and Arc 3 (Convergence threshold hook).
  */
 data class OrganGameState(
@@ -117,10 +118,11 @@ data class OrganGameState(
   val cycleLifetimeStillness: Double = 0.0,
   // Lifetime Scar Tissue earned across all excisions (mirrors legacy scarTissue field)
   val scarTissue: Long = 0L,
-  // Spendable Scar Tissue available for suturing Surgical Skill Tree nodes
+  // Spendable Scar Tissue available for suturing Surgical Skill Tree nodes & repeatable grafts
   val availableScarTissue: Long = 0L,
   val highestExcisionMilestone: Int = 0,
   val unlockedScarNodes: Set<ScarNodeId> = emptySet(),
+  val repeatableScarRanks: Map<RepeatableScarGraft, Int> = emptyMap(),
   val cycle: Int = 0,
   val phase: Int = 0,
   val phaseName: String? = null,
@@ -131,6 +133,7 @@ data class OrganGameState(
   val choirLungs: Int = 0,
   val graftCooldownRemainingSeconds: Double = 0.0,
   val choirLungCooldownRemainingSeconds: Double = 0.0,
+  val autoValveChargeSeconds: Double = 0.0,
   val lastSacrificePulse: Long = 0L,
   val lastSacrificeKind: GraftSacrificeKind? = null,
   val ownedJars: Set<SpecimenJar> = emptySet(),
@@ -180,6 +183,17 @@ data class OrganGameState(
     return prereqOk && availableScarTissue >= node.cost
   }
 
+  fun repeatableRank(graft: RepeatableScarGraft): Int = repeatableScarRanks[graft] ?: 0
+
+  fun repeatableCost(graft: RepeatableScarGraft): Long =
+    ceil(graft.baseCost * graft.costGrowth.pow(repeatableRank(graft))).toLong().coerceAtLeast(1L)
+
+  val isRepeatableGraftsUnlocked: Boolean
+    get() = hasNode(ScarNodeId.FIRST_INCISION)
+
+  fun canBuyRepeatableGraft(graft: RepeatableScarGraft): Boolean =
+    isRepeatableGraftsUnlocked && availableScarTissue >= repeatableCost(graft)
+
   fun creatureCount(type: CreatureType): Int = creatures[type] ?: 0
 
   fun isCreatureUnlocked(type: CreatureType): Boolean {
@@ -192,7 +206,7 @@ data class OrganGameState(
   fun creatureCost(type: CreatureType): Long {
     val owned = creatureCount(type)
     val growth =
-      if (hasNode(ScarNodeId.COLONY_INERTIA)) max(1.14, type.costGrowth - 0.05)
+      if (hasNode(ScarNodeId.COLONY_INERTIA)) max(1.14, type.costGrowth - 0.04)
       else type.costGrowth
     return floor(type.baseCost * growth.pow(owned)).toLong()
   }
@@ -202,16 +216,26 @@ data class OrganGameState(
       if (hasNode(ScarNodeId.SHORTER_SILENCE)) OrganBalance.SHORTER_SILENCE_DELAY_SEC
       else OrganBalance.STILLNESS_IDLE_DELAY_SEC
 
-  val boneResonanceBonus: Double
-    get() = if (hasNode(ScarNodeId.BONE_RESONANCE)) 2.5 else 1.0
-
   val jarEffectBoost: Double
-    get() = if (hasNode(ScarNodeId.WAX_SEALED_MEMORY)) 1.6 else 1.0
+    get() =
+      1.0 +
+        (if (hasNode(ScarNodeId.WAX_SEALED_MEMORY)) 0.35 else 0.0) +
+        (if (hasNode(ScarNodeId.CATATONIC_TIDE)) 0.35 else 0.0)
+
+  val sedimentCostMultiplier: Double
+    get() =
+      max(
+        OrganBalance.SEDIMENT_WELL_COST_FLOOR,
+        OrganBalance.SEDIMENT_WELL_COST_FACTOR.pow(repeatableRank(RepeatableScarGraft.SEDIMENT_WELL)),
+      )
 
   val stillnessCostMultiplier: Double
-    get() =
-      if (hasNode(ScarNodeId.WAX_SEALED_MEMORY)) OrganBalance.WAX_STILLNESS_COST_MULTIPLIER
-      else 1.0
+    get() {
+      val waxMult =
+        if (hasNode(ScarNodeId.WAX_SEALED_MEMORY)) OrganBalance.WAX_STILLNESS_COST_MULTIPLIER
+        else 1.0
+      return waxMult * sedimentCostMultiplier
+    }
 
   val graftCooldownDurationSec: Double
     get() =
@@ -224,6 +248,21 @@ data class OrganGameState(
       OrganBalance.CHOIR_LUNG_COOLDOWN_SEC *
         if (hasNode(ScarNodeId.WAX_SEALED_MEMORY)) OrganBalance.WAX_GRAFT_COOLDOWN_MULTIPLIER
         else 1.0
+
+  val echoPulseIntervalSec: Double
+    get() =
+      if (hasNode(ScarNodeId.ECHO_OSSUARY)) OrganBalance.ECHO_OSSUARY_INTERVAL_SEC
+      else OrganBalance.ECHO_PULSE_INTERVAL_SEC
+
+  val valveClampDurationSec: Double
+    get() =
+      if (hasNode(ScarNodeId.BLOOM_INCISION)) OrganBalance.BLOOM_INCISION_CLAMP_DURATION_SEC
+      else OrganBalance.VALVE_CLAMP_DURATION_SEC
+
+  val marrowBloomDurationSec: Double
+    get() =
+      if (hasNode(ScarNodeId.BLOOM_INCISION)) OrganBalance.BLOOM_INCISION_DURATION_SEC
+      else OrganBalance.MARROW_BLOOM_DURATION_SEC
 
   fun isJarUnlocked(jar: SpecimenJar): Boolean {
     if (jar in ownedJars) return true
@@ -280,19 +319,31 @@ data class OrganGameState(
         1.0
       }
 
+  val keloidIchorMultiplier: Double
+    get() = 1.0 + repeatableRank(RepeatableScarGraft.KELOID_THICKENING) * OrganBalance.KELOID_ICHOR_PER_RANK
+
+  val sedimentStillnessMultiplier: Double
+    get() = 1.0 + repeatableRank(RepeatableScarGraft.SEDIMENT_WELL) * OrganBalance.SEDIMENT_STILLNESS_PER_RANK
+
+  val scarHarvestMultiplier: Double
+    get() = 1.0 + repeatableRank(RepeatableScarGraft.SCAR_HARVEST_HOOK) * OrganBalance.SCAR_HARVEST_HOOK_PER_RANK
+
+  val catatonicTideMultiplier: Double
+    get() = if (isStillnessActive && hasNode(ScarNodeId.CATATONIC_TIDE)) 1.75 else 1.0
+
   /**
-   * Permanent Scar multiplier combining baseline milestone/scar resonance with Surgical Tree
-   * core nodes. Equals 1.0 in fresh Cycle 0 so initial 15-minute pacing stays exact.
+   * Permanent Scar multiplier combining root-softcapped milestone/scar resonance with Surgical Tree
+   * core nodes and Keloid Thickening. Equals 1.0 in fresh Cycle 0 so initial 15-minute pacing stays exact.
    */
   val scarMultiplier: Double
     get() {
       val baseResonance =
         1.0 +
           highestExcisionMilestone * OrganBalance.MILESTONE_ICHOR_RESONANCE +
-          scarTissue * OrganBalance.SCAR_RESONANCE_PER_UNIT
-      val rootMult = if (hasNode(ScarNodeId.FIRST_INCISION)) 1.5 else 1.0
-      val boneMult = if (hasNode(ScarNodeId.BONE_RESONANCE)) 4.0 else 1.0
-      return baseResonance * rootMult * boneMult
+          sqrt(scarTissue.toDouble()) * OrganBalance.SCAR_RESONANCE_SQRT_FACTOR
+      val rootMult = if (hasNode(ScarNodeId.FIRST_INCISION)) 1.45 else 1.0
+      val boneMult = if (hasNode(ScarNodeId.BONE_RESONANCE)) 1.85 else 1.0
+      return baseResonance * rootMult * boneMult * keloidIchorMultiplier
     }
 
   val scarStillnessMultiplier: Double
@@ -300,17 +351,23 @@ data class OrganGameState(
       val baseResonance =
         1.0 +
           highestExcisionMilestone * OrganBalance.MILESTONE_STILLNESS_RESONANCE +
-          scarTissue * OrganBalance.SCAR_STILLNESS_RESONANCE_PER_UNIT
-      val rootMult = if (hasNode(ScarNodeId.FIRST_INCISION)) 1.25 else 1.0
-      val silenceMult = if (hasNode(ScarNodeId.SHORTER_SILENCE)) 1.6 else 1.0
-      return baseResonance * rootMult * silenceMult
+          sqrt(scarTissue.toDouble()) * OrganBalance.SCAR_STILLNESS_SQRT_FACTOR
+      val rootMult = if (hasNode(ScarNodeId.FIRST_INCISION)) 1.20 else 1.0
+      val silenceMult = if (hasNode(ScarNodeId.SHORTER_SILENCE)) 1.40 else 1.0
+      return baseResonance * rootMult * silenceMult * sedimentStillnessMultiplier
     }
+
+  val relicAmplifier: Double
+    get() =
+      (if (hasNode(ScarNodeId.ECHO_OSSUARY)) 1.45 else 1.0) *
+        (if (hasNode(ScarNodeId.BONE_RESONANCE)) 1.25 else 1.0)
 
   val relicIchorMultiplier: Double
     get() {
       var mult = 1.0
+      val amp = relicAmplifier
       dredgedRelics.forEach { relic ->
-        val effective = 1.0 + (relic.ichorMultiplier - 1.0) * boneResonanceBonus
+        val effective = 1.0 + (relic.ichorMultiplier - 1.0) * amp
         mult *= effective
       }
       return mult
@@ -326,7 +383,7 @@ data class OrganGameState(
   val dossierIchorMultiplier: Double
     get() {
       var mult = 1.0
-      val perLineBoost = if (hasNode(ScarNodeId.BONE_RESONANCE)) 1.35 else 1.0
+      val perLineBoost = if (hasNode(ScarNodeId.BONE_RESONANCE)) 1.12 else 1.0
       unredactedDossierLines.forEach { line -> mult *= line.ichorMultiplier * perLineBoost }
       return mult
     }
@@ -337,7 +394,8 @@ data class OrganGameState(
   val bloomMultiplier: Double
     get() =
       if (marrowBloomRemainingSeconds > 0.0) {
-        if (hasNode(ScarNodeId.BONE_RESONANCE)) 3.5 else OrganBalance.MARROW_BLOOM_MULTIPLIER
+        if (hasNode(ScarNodeId.BLOOM_INCISION)) OrganBalance.BLOOM_INCISION_MULTIPLIER
+        else OrganBalance.MARROW_BLOOM_MULTIPLIER
       } else {
         1.0
       }
@@ -350,14 +408,18 @@ data class OrganGameState(
         } else {
           1.0
         }
-      val mortarBoost = if (hasNode(ScarNodeId.SOFTENED_MORTAR)) 3.0 else 1.0
-      val echoBoost =
-        if (echoDiversionPercent > 0) {
-          1.0 + (echoDiversionPercent / 25.0) * 0.75 * boneResonanceBonus
-        } else {
-          1.0
+      val mortarBoost = if (hasNode(ScarNodeId.SOFTENED_MORTAR)) 1.8 else 1.0
+      val baseEchoBonus =
+        when (echoDiversionPercent) {
+          25 -> 0.35
+          50 -> 0.70
+          else -> 0.0
         }
-      return jarBoost * mortarBoost * echoBoost
+      val echoBoost =
+        1.0 + baseEchoBonus * (if (hasNode(ScarNodeId.BONE_RESONANCE)) 1.25 else 1.0)
+      val bloomAnomalyBoost =
+        if (marrowBloomRemainingSeconds > 0.0 && hasNode(ScarNodeId.BLOOM_INCISION)) 1.4 else 1.0
+      return jarBoost * mortarBoost * echoBoost * bloomAnomalyBoost
     }
 
   val manualTapYield: Double
@@ -369,13 +431,15 @@ data class OrganGameState(
           0.0
         }
       val toothBonus = (anomalyInteractions[WallAnomalyType.PALE_TOOTH] ?: 0) * 0.5
-      val palmMult = if (hasNode(ScarNodeId.CALLOUSED_PALM)) 2.2 else 1.0
-      val echoBurst = if (hasNode(ScarNodeId.TWIN_STITCH)) ichorPerSecond * 3.0 else 0.0
+      val palmMult = if (hasNode(ScarNodeId.CALLOUSED_PALM)) 1.8 else 1.0
+      val seamMult = if (hasNode(ScarNodeId.PERPETUAL_SEAM)) 1.8 else 1.0
+      val echoBurst = if (hasNode(ScarNodeId.TWIN_STITCH)) ichorPerSecond * 1.5 else 0.0
       return (1.0 + dustBonus + toothBonus) *
         scarMultiplier *
         relicIchorMultiplier *
         dossierIchorMultiplier *
-        palmMult + echoBurst
+        palmMult *
+        seamMult + echoBurst
     }
 
   val globalIchorMultiplier: Double
@@ -385,10 +449,12 @@ data class OrganGameState(
         dossierIchorMultiplier *
         gazeMultiplier *
         bloomMultiplier *
-        uncountedHourMultiplier
+        uncountedHourMultiplier *
+        catatonicTideMultiplier
 
   fun effectiveCreatureIchorPerSec(type: CreatureType): Double {
-    val inertiaMult = if (hasNode(ScarNodeId.COLONY_INERTIA)) 3.2 else 1.0
+    val inertiaMult = if (hasNode(ScarNodeId.COLONY_INERTIA)) 1.75 else 1.0
+    val seamMult = if (hasNode(ScarNodeId.PERPETUAL_SEAM)) 1.8 else 1.0
     val specimenMultiplier =
       when (type) {
         CreatureType.SUTURE_HAND,
@@ -399,7 +465,7 @@ data class OrganGameState(
             } else {
               1.0
             }
-          val twin = if (hasNode(ScarNodeId.TWIN_STITCH)) 2.5 else 1.0
+          val twin = if (hasNode(ScarNodeId.TWIN_STITCH)) 1.6 else 1.0
           breath * twin
         }
         CreatureType.WEEPING_LAMP -> {
@@ -411,22 +477,24 @@ data class OrganGameState(
             }
           val weepingSurge =
             when {
-              isStillnessActive -> 2.0
-              hasNode(ScarNodeId.DEEP_WEEPING) -> 1.4
+              isStillnessActive -> if (hasNode(ScarNodeId.HOLLOW_LUNG_CHOIR)) 2.4 else 2.0
+              hasNode(ScarNodeId.DEEP_WEEPING) -> 1.25
               else -> 1.0
             }
-          val deepMult = if (hasNode(ScarNodeId.DEEP_WEEPING)) 3.5 else 1.0
+          val deepMult = if (hasNode(ScarNodeId.DEEP_WEEPING)) 1.8 else 1.0
           nameJar * weepingSurge * deepMult
         }
         CreatureType.SUMP_SIPHON -> {
-          val autoMult = if (hasNode(ScarNodeId.AUTO_TENDRIL_SUTURE)) 3.0 else 1.0
+          val autoMult = if (hasNode(ScarNodeId.AUTO_TENDRIL_SUTURE)) 1.55 else 1.0
+          val recallMult = if (hasNode(ScarNodeId.MEMBRANE_RECALL)) 1.6 else 1.0
           val sealPenalty = if (drainSealed) 0.85 else 1.0
-          autoMult * sealPenalty
+          autoMult * recallMult * sealPenalty
         }
       }
     return type.baseIchorPerSec *
       specimenMultiplier *
       inertiaMult *
+      seamMult *
       groutSaltOrganismMultiplier *
       globalIchorMultiplier
   }
@@ -452,19 +520,26 @@ data class OrganGameState(
     get() {
       val creaturesRate =
         CreatureType.entries.sumOf { totalCreatureIchorPerSec(it) }
-      val graftNodeMult = if (hasNode(ScarNodeId.AUTO_TENDRIL_SUTURE)) 3.0 else 1.0
+      val graftNodeMult =
+        (if (hasNode(ScarNodeId.AUTO_TENDRIL_SUTURE)) 1.55 else 1.0) *
+          (if (hasNode(ScarNodeId.MEMBRANE_RECALL)) 1.6 else 1.0)
       val graftRate =
         graftedTendrils *
           OrganBalance.GRAFT_ICHOR_PER_SEC *
           graftNodeMult *
           borrowedPulseMultiplier *
           globalIchorMultiplier
-      val deepLungMult = if (hasNode(ScarNodeId.DEEP_WEEPING)) 3.5 else 1.0
-      val lungStillnessBoost = if (isStillnessActive) 2.0 else 1.0
+      val choirNodeMult = if (hasNode(ScarNodeId.HOLLOW_LUNG_CHOIR)) 1.85 else 1.0
+      val lungStillnessBoost =
+        if (isStillnessActive) {
+          if (hasNode(ScarNodeId.HOLLOW_LUNG_CHOIR)) 2.0 else 1.5
+        } else {
+          1.0
+        }
       val lungRate =
         choirLungs *
           OrganBalance.CHOIR_LUNG_ICHOR_PER_SEC *
-          deepLungMult *
+          choirNodeMult *
           lungStillnessBoost *
           borrowedPulseMultiplier *
           globalIchorMultiplier
@@ -495,16 +570,25 @@ data class OrganGameState(
           scarStillnessMultiplier *
           relicStillnessMultiplier *
           gazeMultiplier
+      val choirNodeMult = if (hasNode(ScarNodeId.HOLLOW_LUNG_CHOIR)) 1.85 else 1.0
+      val lungStillnessBoost =
+        if (isStillnessActive) {
+          if (hasNode(ScarNodeId.HOLLOW_LUNG_CHOIR)) 2.0 else 1.5
+        } else {
+          1.0
+        }
       val lungStillness =
         choirLungs *
           OrganBalance.CHOIR_LUNG_STILLNESS_PER_SEC *
+          choirNodeMult *
           scarStillnessMultiplier *
           relicStillnessMultiplier *
           gazeMultiplier *
-          (if (isStillnessActive) 1.5 else 1.0)
+          lungStillnessBoost
       return (lampStillness + graftStillness + lungStillness) *
         borrowedPulseMultiplier *
-        uncountedHourMultiplier
+        uncountedHourMultiplier *
+        catatonicTideMultiplier
     }
 
   val isApparatusUnlocked: Boolean
@@ -582,55 +666,95 @@ data class OrganGameState(
   val canExcise: Boolean
     get() = cycleLifetimeIchorDisplay >= OrganBalance.EXCISION_ICHOR_THRESHOLD
 
-  /** True when the current run's mass breaches the next one-time Excision Milestone (I..VI). */
+  /** True when the current run's mass breaches the next sequential Excision Milestone (I..VI). */
   val canClearNextMilestone: Boolean
     get() {
       val next = nextExcisionMilestone ?: return false
       return cycleLifetimeIchorDisplay >= next.massThreshold
     }
 
-  /** True when Milestone VI threshold is reached or cleared, opening the Breach Ritual into Arc 2. */
+  /**
+   * True when cycle mass crosses a milestone beyond the immediate next seam; the sequential +1
+   * cap still restricts this Excision to severing only [nextExcisionMilestone].
+   */
+  val hasExcessMilestoneMass: Boolean
+    get() {
+      if (!canClearNextMilestone) return false
+      val beyond = ExcisionMilestone.byNumber(highestExcisionMilestone + 2) ?: return false
+      return cycleLifetimeIchorDisplay >= beyond.massThreshold
+    }
+
+  /**
+   * True when Excision V is already cleared and Excision VI mass is met (or Excision VI is already
+   * cleared), opening the Breach Ritual into Arc 2 without allowing Excision V to be skipped.
+   */
   val canBreachToArc2: Boolean
     get() =
       highestExcisionMilestone >= 6 ||
-        cycleLifetimeIchorDisplay >= ExcisionMilestone.FINAL_SEVERANCE.massThreshold
+        (highestExcisionMilestone >= 5 &&
+          cycleLifetimeIchorDisplay >= ExcisionMilestone.FINAL_SEVERANCE.massThreshold)
+
+  private val minExcisionScarHarvest: Long
+    get() =
+      floor(OrganBalance.SCAR_CURVE_BASE_SCALE * scarHarvestMultiplier)
+        .toLong()
+        .coerceAtLeast(2L)
+
+  private fun scarHarvestForMass(mass: Double): Long {
+    if (mass < OrganBalance.EXCISION_ICHOR_THRESHOLD.toDouble()) return 0L
+    val ratio = mass / OrganBalance.EXCISION_ICHOR_THRESHOLD.toDouble()
+    val raw =
+      OrganBalance.SCAR_CURVE_BASE_SCALE *
+        ratio.pow(OrganBalance.SCAR_CURVE_EXPONENT) *
+        scarHarvestMultiplier
+    return floor(raw).toLong().coerceAtLeast(2L)
+  }
+
+  fun massRequiredForScarCount(targetScars: Long): Long {
+    if (targetScars <= 0L) return 0L
+    if (targetScars <= minExcisionScarHarvest) return OrganBalance.EXCISION_ICHOR_THRESHOLD
+    val denom = OrganBalance.SCAR_CURVE_BASE_SCALE * scarHarvestMultiplier
+    val ratio = (targetScars.toDouble() / denom).pow(1.0 / OrganBalance.SCAR_CURVE_EXPONENT)
+    var candidate =
+      max(
+        OrganBalance.EXCISION_ICHOR_THRESHOLD,
+        ceil(OrganBalance.EXCISION_ICHOR_THRESHOLD * ratio).toLong(),
+      )
+    while (scarHarvestForMass(candidate.toDouble()) < targetScars) {
+      candidate += 1L
+    }
+    return candidate
+  }
 
   val currentBaseScarHarvest: Long
-    get() =
-      if (!canExcise) 0L
-      else
-        floor(sqrt(cycleLifetimeIchor / OrganBalance.EXCISION_ICHOR_THRESHOLD.toDouble()))
-          .toLong()
-          .coerceAtLeast(1L)
+    get() = if (!canExcise) 0L else scarHarvestForMass(cycleLifetimeIchor)
 
   val nextBaseScarMassThreshold: Long
-    get() {
-      val nextBase = currentBaseScarHarvest + 1L
-      return nextBase * nextBase * OrganBalance.EXCISION_ICHOR_THRESHOLD
-    }
+    get() =
+      if (!canExcise) OrganBalance.EXCISION_ICHOR_THRESHOLD
+      else massRequiredForScarCount(currentBaseScarHarvest + 1L)
 
   val nextScarProgress: Float
     get() {
-      val prevBase = currentBaseScarHarvest
-      val prevMass = prevBase * prevBase * OrganBalance.EXCISION_ICHOR_THRESHOLD
+      if (!canExcise) {
+        return (cycleLifetimeIchor / OrganBalance.EXCISION_ICHOR_THRESHOLD.toDouble())
+          .toFloat()
+          .coerceIn(0f, 1f)
+      }
+      val prevMass =
+        if (currentBaseScarHarvest <= minExcisionScarHarvest) {
+          OrganBalance.EXCISION_ICHOR_THRESHOLD
+        } else {
+          massRequiredForScarCount(currentBaseScarHarvest)
+        }
       val nextMass = nextBaseScarMassThreshold
       val span = max(1L, nextMass - prevMass).toDouble()
       return ((cycleLifetimeIchor - prevMass.toDouble()) / span).toFloat().coerceIn(0f, 1f)
     }
 
-  /** Total Scar Tissue granted if excising right now (base harvest + any newly cleared milestone bonuses). */
+  /** Total Scar Tissue granted if excising right now (pure smooth harvest curve, zero milestone bonus). */
   val pendingScarTissue: Long
-    get() {
-      if (!canExcise) return 0L
-      val baseHarvest = currentBaseScarHarvest
-      val milestoneBonus =
-        ExcisionMilestone.entries
-          .filter {
-            it.number > highestExcisionMilestone && cycleLifetimeIchorDisplay >= it.massThreshold
-          }
-          .sumOf { it.firstClearScarBonus }
-      return baseHarvest + milestoneBonus
-    }
+    get() = currentBaseScarHarvest
 }
 
 object OrganBalance {
@@ -645,7 +769,7 @@ object OrganBalance {
   const val SALT_GROUT_BONUS: Double = 0.45
   const val BORROWED_PULSE_BONUS: Double = 0.55
   const val UNCOUNTED_HOUR_BONUS: Double = 0.75
-  const val WAX_STILLNESS_COST_MULTIPLIER: Double = 0.65
+  const val WAX_STILLNESS_COST_MULTIPLIER: Double = 0.70
   const val WAX_GRAFT_COOLDOWN_MULTIPLIER: Double = 0.50
   const val GRAFT_SUTURE_COST: Int = 2
   const val GRAFT_LEECH_COST: Int = 2
@@ -659,15 +783,24 @@ object OrganBalance {
   const val CHOIR_LUNG_BASE_STILLNESS_COST: Double = 180.0
   const val CHOIR_LUNG_STILLNESS_GROWTH: Double = 1.65
   const val CHOIR_LUNG_COOLDOWN_SEC: Double = 10.0
-  const val CHOIR_LUNG_ICHOR_PER_SEC: Double = 260.0
-  const val CHOIR_LUNG_STILLNESS_PER_SEC: Double = 4.5
+  const val CHOIR_LUNG_ICHOR_PER_SEC: Double = 160.0
+  const val CHOIR_LUNG_STILLNESS_PER_SEC: Double = 3.5
   const val EXCISION_ICHOR_THRESHOLD: Long = 210_000L
-  const val MILESTONE_ICHOR_RESONANCE: Double = 0.25
-  const val MILESTONE_STILLNESS_RESONANCE: Double = 0.20
-  const val SCAR_RESONANCE_PER_UNIT: Double = 0.15
-  const val SCAR_STILLNESS_RESONANCE_PER_UNIT: Double = 0.10
+  const val SCAR_CURVE_BASE_SCALE: Double = 2.0
+  const val SCAR_CURVE_EXPONENT: Double = 0.30
+  const val MILESTONE_ICHOR_RESONANCE: Double = 0.20
+  const val MILESTONE_STILLNESS_RESONANCE: Double = 0.15
+  const val SCAR_RESONANCE_SQRT_FACTOR: Double = 0.25
+  const val SCAR_STILLNESS_SQRT_FACTOR: Double = 0.18
+  const val KELOID_ICHOR_PER_RANK: Double = 0.18
+  const val SEDIMENT_STILLNESS_PER_RANK: Double = 0.16
+  const val SEDIMENT_WELL_COST_FACTOR: Double = 0.96
+  const val SEDIMENT_WELL_COST_FLOOR: Double = 0.68
+  const val SCAR_HARVEST_HOOK_PER_RANK: Double = 0.12
+  const val PERPETUAL_SEAM_INTERVAL_SEC: Double = 1.2
   const val FIRST_ANOMALY_DELAY_SEC: Double = 14.0
   const val ANOMALY_SPAWN_INTERVAL_SEC: Double = 26.0
+  const val SOFTENED_MORTAR_SPEED_MULT: Double = 1.6
   const val MAX_ACTIVE_ANOMALIES: Int = 3
   const val TOOTH_BASE_ICHOR_REWARD: Double = 25.0
   const val NODULE_BASE_ICHOR_REWARD: Double = 220.0
@@ -676,7 +809,11 @@ object OrganBalance {
   const val RIB_BASE_STILLNESS_REWARD: Double = 14.0
   const val RIB_GAZE_DURATION_SEC: Double = 6.0
   const val ECHO_PULSE_INTERVAL_SEC: Double = 12.0
+  const val ECHO_OSSUARY_INTERVAL_SEC: Double = 9.0
   const val VALVE_CLAMP_DURATION_SEC: Double = 20.0
+  const val BLOOM_INCISION_CLAMP_DURATION_SEC: Double = 15.0
   const val MARROW_BLOOM_DURATION_SEC: Double = 25.0
-  const val MARROW_BLOOM_MULTIPLIER: Double = 2.5
+  const val BLOOM_INCISION_DURATION_SEC: Double = 32.0
+  const val MARROW_BLOOM_MULTIPLIER: Double = 2.2
+  const val BLOOM_INCISION_MULTIPLIER: Double = 2.9
 }

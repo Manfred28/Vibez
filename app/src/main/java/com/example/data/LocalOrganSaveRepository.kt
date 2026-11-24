@@ -12,6 +12,7 @@ import com.example.game.InvestigatorContact
 import com.example.game.OrganBalance
 import com.example.game.OrganGameEngine
 import com.example.game.OrganGameState
+import com.example.game.RepeatableScarGraft
 import com.example.game.ScarNodeId
 import com.example.game.SpecimenJar
 import com.example.game.WallAnomalyType
@@ -64,6 +65,12 @@ object OrganStateSerializer {
     val nodesArr = JSONArray()
     state.unlockedScarNodes.forEach { nodesArr.put(it.id) }
     root.put("unlockedScarNodes", nodesArr)
+
+    val repeatablesObj = JSONObject()
+    state.repeatableScarRanks.forEach { (graft, rank) ->
+      if (rank > 0) repeatablesObj.put(graft.id, rank)
+    }
+    root.put("repeatableScarRanks", repeatablesObj)
 
     val relicsArr = JSONArray()
     state.dredgedRelics.forEach { relicsArr.put(it.id) }
@@ -133,6 +140,14 @@ object OrganStateSerializer {
       root.optJSONArray("unlockedScarNodes")?.let { arr ->
         for (i in 0 until arr.length()) {
           ScarNodeId.byId(arr.optString(i))?.let { unlockedNodes.add(it) }
+        }
+      }
+
+      val repeatableRanks = mutableMapOf<RepeatableScarGraft, Int>()
+      root.optJSONObject("repeatableScarRanks")?.let { obj ->
+        RepeatableScarGraft.entries.forEach { graft ->
+          val rank = obj.optInt(graft.id, 0)
+          if (rank > 0) repeatableRanks[graft] = rank
         }
       }
 
@@ -214,6 +229,7 @@ object OrganStateSerializer {
           availableScarTissue = root.optLong("availableScarTissue", 0L).coerceAtLeast(0L),
           highestExcisionMilestone = root.optInt("highestExcisionMilestone", 0).coerceIn(0, 6),
           unlockedScarNodes = unlockedNodes,
+          repeatableScarRanks = repeatableRanks,
           cycle = root.optInt("cycle", 0).coerceAtLeast(0),
           creatures = creatures,
           graftedTendrils = root.optInt("graftedTendrils", 0).coerceAtLeast(0),

@@ -15,6 +15,7 @@ import com.example.game.InvestigatorContact
 import com.example.game.OrganDevEngine
 import com.example.game.OrganGameEngine
 import com.example.game.OrganGameState
+import com.example.game.RepeatableScarGraft
 import com.example.game.ScarNodeId
 import com.example.game.SpecimenJar
 import kotlinx.coroutines.delay
@@ -139,6 +140,9 @@ class OrganViewModel(
 
   fun unlockScarNode(node: ScarNodeId) =
     mutate { OrganGameEngine.unlockScarNode(it, node, catalog) }
+
+  fun buyRepeatableScarGraft(graft: RepeatableScarGraft) =
+    mutate { OrganGameEngine.buyRepeatableScarGraft(it, graft, catalog) }
 
   fun toggleDrainSeal() = mutate { OrganGameEngine.toggleDrainSeal(it, catalog) }
 

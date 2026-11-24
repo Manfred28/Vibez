@@ -54,6 +54,7 @@ import com.example.game.ExcisionMilestone
 import com.example.game.GameArc
 import com.example.game.OrganDeckTab
 import com.example.game.OrganGameState
+import com.example.game.RepeatableScarGraft
 import com.example.game.ScarNodeId
 import com.example.game.SpecimenJar
 import com.example.ui.components.ApparatusDeck
@@ -105,6 +106,7 @@ fun OrganRoute(modifier: Modifier = Modifier, viewModel: OrganViewModel? = null)
           onInteractAnomaly = resolvedViewModel::interactAnomaly,
           onPerformExcision = resolvedViewModel::performExcision,
           onUnlockScarNode = resolvedViewModel::unlockScarNode,
+          onBuyRepeatableScarGraft = resolvedViewModel::buyRepeatableScarGraft,
           onToggleDrainSeal = resolvedViewModel::toggleDrainSeal,
           onDredgeSump = resolvedViewModel::dredgeSump,
           onSetEchoDiversion = resolvedViewModel::setEchoDiversion,
@@ -164,6 +166,7 @@ fun OrganScreen(
   onInteractAnomaly: (Long) -> Unit,
   onPerformExcision: () -> Unit,
   onUnlockScarNode: (ScarNodeId) -> Unit = {},
+  onBuyRepeatableScarGraft: (RepeatableScarGraft) -> Unit = {},
   onToggleDrainSeal: () -> Unit = {},
   onDredgeSump: () -> Unit = {},
   onSetEchoDiversion: (Int) -> Unit = {},
@@ -327,6 +330,7 @@ fun OrganScreen(
               onPerformExcision()
             },
             onUnlockScarNode = onUnlockScarNode,
+            onBuyRepeatableScarGraft = onBuyRepeatableScarGraft,
             onToggleDrainSeal = onToggleDrainSeal,
             onDredgeSump = onDredgeSump,
             onSetEchoDiversion = onSetEchoDiversion,

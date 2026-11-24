@@ -62,6 +62,8 @@ class DialogueAssetValidationTest {
         "excision_completed",
         "excision_milestone_reached",
         "scar_node_unlocked",
+        "scar_node_specific",
+        "repeatable_graft_total",
         "relic_dredged",
         "echo_routed",
         "marrow_bloom",
@@ -75,13 +77,14 @@ class DialogueAssetValidationTest {
         "cycle_counter_reached",
         "creature_owned",
         "anomaly_interacted",
+        "scar_node_specific",
         "arc_entered",
         "desk_anomaly_interacted",
       )
 
     val root = loadDialoguesJson()
     val entries = root.getJSONArray("entries")
-    assertTrue("dialogues.json must contain all Arc 1 + Excision I-VI + Arc 2 + Arc 3 fragments", entries.length() >= 45)
+    assertTrue("dialogues.json must contain full Arc 1 escape-to-plea + Excision I-VI + Arc 2 + Arc 3 fragments", entries.length() >= 70)
 
     val seenIds = mutableSetOf<String>()
     val counterThresholdByPhase = mutableMapOf<Int, Long>()
@@ -110,7 +113,11 @@ class DialogueAssetValidationTest {
       assertTrue("Threshold must be > 0 for $id", threshold > 0L)
 
       if (triggerType in targetedTypes) {
-        assertFalse("Trigger target required for $id", trigger.optString("target", "").isBlank())
+        val target = trigger.optString("target", "")
+        assertFalse("Trigger target required for $id", target.isBlank())
+        if (triggerType == "scar_node_specific") {
+          assertNotNull("Unknown ScarNodeId '$target' in $id", ScarNodeId.byId(target))
+        }
       }
       when (triggerType) {
         "counter_reached" -> {
@@ -206,8 +213,51 @@ class DialogueAssetValidationTest {
       },
     )
     assertNotNull("Expected excision_completed fragment", catalog.entries.firstOrNull { it.trigger.type == "excision_completed" })
+    assertNotNull("Expected repeat-farming excision_completed fragment", catalog.entries.firstOrNull { it.id == "dlg_excision_farm_cycles" })
+    assertNotNull("Expected mid-tree scar_node_unlocked fragment", catalog.entries.firstOrNull { it.id == "dlg_scar_mid_tree" })
+    assertNotNull("Expected deep-tree scar_node_unlocked fragment", catalog.entries.firstOrNull { it.id == "dlg_scar_deep_tree" })
     val postPrestigeEntries = catalog.entries.filter { it.trigger.type == "cycle_counter_reached" }
     assertTrue("Expected at least 2 Cycle 1+ prestige story fragments", postPrestigeEntries.size >= 2)
+
+    // Verify deep multi-step escape-to-plea threads across Relics, Echoes, Blooms, Jars, Scar branches & Repeatables
+    val relicThresholds = catalog.entries.filter { it.trigger.type == "relic_dredged" }.map { it.trigger.threshold }.toSet()
+    assertTrue("Expected Relic 1, 2, 3 narrative thread", setOf(1L, 2L, 3L).all { it in relicThresholds })
+    val echoThresholds = catalog.entries.filter { it.trigger.type == "echo_routed" }.map { it.trigger.threshold }.toSet()
+    assertTrue("Expected escalating Echo correspondence (1, 4, 12, 25)", setOf(1L, 4L, 12L, 25L).all { it in echoThresholds })
+    val bloomThresholds = catalog.entries.filter { it.trigger.type == "marrow_bloom" }.map { it.trigger.threshold }.toSet()
+    assertTrue("Expected escalating Marrow Bloom thread (1, 3, 6)", setOf(1L, 3L, 6L).all { it in bloomThresholds })
+    val specificNodes = catalog.entries.filter { it.trigger.type == "scar_node_specific" }.mapNotNull { it.trigger.target }.toSet()
+    assertTrue(
+      "Expected all 3 Scar Tree branch capstones to have dedicated fragments",
+      setOf("perpetual_seam", "catatonic_tide", "bone_resonance").all { it in specificNodes },
+    )
+    assertTrue(
+      "Expected Repeatable Surgical Graft narrative fragments",
+      catalog.entries.count { it.trigger.type == "repeatable_graft_total" } >= 2,
+    )
+    val pleaClimax = catalog.entries.first { it.id == "dlg_excision_m6_breach" }
+    val pleaText = pleaClimax.lines.joinToString(" ")
+    assertTrue(
+      "Excision VI climax must center on Plead for Salvation",
+      pleaText.contains("plea for salvation", ignoreCase = true),
+    )
+    assertTrue(
+      "Excision VI climax must hold the surreal thin line between leaving and acceptance/staying",
+      pleaText.contains("pulled out", ignoreCase = true) && pleaText.contains("stay", ignoreCase = true),
+    )
+    val arc2Entry = catalog.entries.first { it.id == "dlg_arc2_entry" }
+    assertTrue(
+      "Arc 2 entry must open on the received unsigned plea for salvation",
+      arc2Entry.lines.joinToString(" ").contains("plea for salvation", ignoreCase = true),
+    )
+    // Anti-cliché guardrail: prevent regression into literal locked-room thriller / prison-break tropes
+    val fullArchiveText = catalog.entries.joinToString("\n") { it.lines.joinToString(" ") }
+    listOf("crowbar", "rescue code", "blow the chamber open", "night shift ran late").forEach { forbiddenCliche ->
+      assertFalse(
+        "Surreal narrative archive must not regress into literal escape-room cliché '$forbiddenCliche'",
+        fullArchiveText.contains(forbiddenCliche, ignoreCase = true),
+      )
+    }
   }
 
   @Test

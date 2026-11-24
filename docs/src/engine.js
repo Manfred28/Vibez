@@ -19,44 +19,44 @@ export const EXCISION_MILESTONES = Object.freeze([
   Object.freeze({
     number: 1,
     massThreshold: 210000,
-    firstClearScarBonus: 2,
+    firstClearScarBonus: 0,
     code: 'EXCISION I // FIRST SEVERANCE',
-    unlockSummary: 'Unlocks the 3-branch Scar Tissue Surgical Skill Tree.',
+    unlockSummary: 'Unlocks the 5-tier Scar Tissue Surgical Skill Tree & Repeatable Grafts.',
   }),
   Object.freeze({
     number: 2,
-    massThreshold: 1200000,
-    firstClearScarBonus: 5,
+    massThreshold: 1800000,
+    firstClearScarBonus: 0,
     code: 'EXCISION II // THE SUNKEN DRAIN',
     unlockSummary: 'Unlocks Floor Drain Grate Sealing, Relic Dredging & Sump-Siphon.',
   }),
   Object.freeze({
     number: 3,
-    massThreshold: 8500000,
-    firstClearScarBonus: 9,
+    massThreshold: 16000000,
+    firstClearScarBonus: 0,
     code: 'EXCISION III // THE UNBRICKED SEAM',
-    unlockSummary: 'Unlocks Neighbor Aperture Echo Routing (0% / 25% / 50%) & 12s Echo Bursts.',
+    unlockSummary: 'Unlocks Neighbor Aperture Echo Routing (0% / 25% / 50%) & Echo Bursts.',
   }),
   Object.freeze({
     number: 4,
-    massThreshold: 60000000,
-    firstClearScarBonus: 15,
+    massThreshold: 140000000,
+    firstClearScarBonus: 0,
     code: 'EXCISION IV // THE BREATH-HOLD',
-    unlockSummary: 'Unlocks Valve Clamp (20s hold -> 4-anomaly Marrow Bloom) & Choir-Lung Grafting.',
+    unlockSummary: 'Unlocks Valve Clamp (Marrow Bloom) & Choir-Lung Grafting.',
   }),
   Object.freeze({
     number: 5,
-    massThreshold: 450000000,
-    firstClearScarBonus: 24,
+    massThreshold: 1250000000,
+    firstClearScarBonus: 0,
     code: 'EXCISION V // THE MEMBRANE AUDIT',
     unlockSummary: 'Unlocks The Ossified Throat & the 4-line Redacted Cult Dossier.',
   }),
   Object.freeze({
     number: 6,
-    massThreshold: 3500000000,
-    firstClearScarBonus: 40,
-    code: 'EXCISION VI // THE FINAL SEVERANCE',
-    unlockSummary: 'Opens the Breach Ritual — fracturing the masonry into Arc 2: The Inquiry.',
+    massThreshold: 12000000000,
+    firstClearScarBonus: 0,
+    code: 'EXCISION VI // PLEAD FOR SALVATION',
+    unlockSummary: 'Opens the last wet seam — send a desperate plea for salvation upward into Arc 2: The Inquiry.',
   }),
 ]);
 
@@ -70,6 +70,7 @@ export const SCAR_NODES = Object.freeze([
     name: 'FIRST INCISION',
     desc: 'The first mark remembers how to bleed; three paths open.',
   }),
+  // SUTURE BRANCH (T1..T5)
   Object.freeze({
     id: 'calloused_palm',
     branch: 'suture',
@@ -92,11 +93,30 @@ export const SCAR_NODES = Object.freeze([
     id: 'colony_inertia',
     branch: 'suture',
     tier: 3,
-    cost: 12,
+    cost: 11,
     prerequisite: 'twin_stitch',
     name: 'COLONY INERTIA',
     desc: 'The flesh multiplies with less persuasion.',
   }),
+  Object.freeze({
+    id: 'membrane_recall',
+    branch: 'suture',
+    tier: 4,
+    cost: 22,
+    prerequisite: 'colony_inertia',
+    name: 'MEMBRANE RECALL',
+    desc: 'A lamp and a sump-bladder already hang where you left them.',
+  }),
+  Object.freeze({
+    id: 'perpetual_seam',
+    branch: 'suture',
+    tier: 5,
+    cost: 45,
+    prerequisite: 'membrane_recall',
+    name: 'PERPETUAL SEAM',
+    desc: "The valve turns on its own without disturbing the room's quiet.",
+  }),
+  // STILLNESS BRANCH (T1..T5)
   Object.freeze({
     id: 'shorter_silence',
     branch: 'stillness',
@@ -119,11 +139,30 @@ export const SCAR_NODES = Object.freeze([
     id: 'deep_weeping',
     branch: 'stillness',
     tier: 3,
-    cost: 12,
+    cost: 11,
     prerequisite: 'wax_sealed_memory',
     name: 'DEEP WEEPING',
     desc: 'Even while you press the iron, the lamps keep weeping.',
   }),
+  Object.freeze({
+    id: 'hollow_lung_choir',
+    branch: 'stillness',
+    tier: 4,
+    cost: 22,
+    prerequisite: 'deep_weeping',
+    name: 'HOLLOW LUNG CHOIR',
+    desc: 'When the room goes still, the grafted lungs draw twice as deep.',
+  }),
+  Object.freeze({
+    id: 'catatonic_tide',
+    branch: 'stillness',
+    tier: 5,
+    cost: 45,
+    prerequisite: 'hollow_lung_choir',
+    name: 'CATATONIC TIDE',
+    desc: 'Stillness becomes a heavy tide carrying every jar and vein.',
+  }),
+  // MARROW BRANCH (T1..T5)
   Object.freeze({
     id: 'softened_mortar',
     branch: 'marrow',
@@ -143,13 +182,55 @@ export const SCAR_NODES = Object.freeze([
     desc: 'Spare hands and leeches braid themselves without your consent.',
   }),
   Object.freeze({
-    id: 'bone_resonance',
+    id: 'echo_ossuary',
     branch: 'marrow',
     tier: 3,
-    cost: 14,
+    cost: 12,
     prerequisite: 'auto_tendril_suture',
+    name: 'ECHO OSSUARY',
+    desc: 'The sump swells faster; the neighbor answers sooner and louder.',
+  }),
+  Object.freeze({
+    id: 'bloom_incision',
+    branch: 'marrow',
+    tier: 4,
+    cost: 24,
+    prerequisite: 'echo_ossuary',
+    name: 'BLOOM INCISION',
+    desc: 'The clamped wall splits sooner and bleeds wider through every fissure.',
+  }),
+  Object.freeze({
+    id: 'bone_resonance',
+    branch: 'marrow',
+    tier: 5,
+    cost: 48,
+    prerequisite: 'bloom_incision',
     name: 'BONE RESONANCE',
-    desc: 'The masonry hums in tune with your deeper rites.',
+    desc: 'The masonry hums in tune with every unsealed line and drowned relic.',
+  }),
+]);
+
+export const REPEATABLE_SCAR_GRAFTS = Object.freeze([
+  Object.freeze({
+    id: 'keloid_thickening',
+    baseCost: 3,
+    costGrowth: 1.45,
+    name: 'KELOID THICKENING',
+    desc: 'Layered scar ridges thicken every flow in the room.',
+  }),
+  Object.freeze({
+    id: 'sediment_well',
+    baseCost: 3,
+    costGrowth: 1.45,
+    name: 'SEDIMENT WELL',
+    desc: 'Quiet gathers thicker and asks less wax to bottle or bind.',
+  }),
+  Object.freeze({
+    id: 'scar_harvest_hook',
+    baseCost: 4,
+    costGrowth: 1.55,
+    name: 'SCAR-HARVEST HOOK',
+    desc: 'Curved steel brings up more scar tissue on every excision.',
   }),
 ]);
 
@@ -158,22 +239,22 @@ export const DREDGED_RELICS = Object.freeze([
     id: 'patient_wristband',
     name: 'WRISTBAND',
     hint: 'Sodden tag #14 — the valve pulls heavier from beneath the mortar.',
-    ichorMultiplier: 1.45,
-    stillnessMultiplier: 1.15,
+    ichorMultiplier: 1.28,
+    stillnessMultiplier: 1.12,
   }),
   Object.freeze({
     id: 'brass_ward_key',
     name: 'BRASS KEY',
     hint: 'Bent ward key — the room settles into quiet deeper than before.',
-    ichorMultiplier: 1.65,
-    stillnessMultiplier: 1.25,
+    ichorMultiplier: 1.35,
+    stillnessMultiplier: 1.18,
   }),
   Object.freeze({
     id: 'bleeding_logbook',
     name: 'LOGBOOK',
     hint: 'Bled-ink ledger — every tending thing works a fraction harder.',
-    ichorMultiplier: 1.9,
-    stillnessMultiplier: 1.4,
+    ichorMultiplier: 1.45,
+    stillnessMultiplier: 1.25,
   }),
 ]);
 
@@ -186,7 +267,7 @@ export const CULT_DOSSIER_LINES = Object.freeze([
     siphonCost: 2,
     tendrilCost: 0,
     requiresJar: false,
-    ichorMultiplier: 2.4,
+    ichorMultiplier: 1.35,
   }),
   Object.freeze({
     id: 'dossier_line_2',
@@ -196,7 +277,7 @@ export const CULT_DOSSIER_LINES = Object.freeze([
     siphonCost: 3,
     tendrilCost: 1,
     requiresJar: true,
-    ichorMultiplier: 2.6,
+    ichorMultiplier: 1.4,
   }),
   Object.freeze({
     id: 'dossier_line_3',
@@ -206,17 +287,17 @@ export const CULT_DOSSIER_LINES = Object.freeze([
     siphonCost: 4,
     tendrilCost: 2,
     requiresJar: true,
-    ichorMultiplier: 2.8,
+    ichorMultiplier: 1.45,
   }),
   Object.freeze({
     id: 'dossier_line_4',
     lineNumber: 4,
-    title: 'CLAUSE IV // REMEMBERING A DESK',
-    text: '"At critical mass, the mortar thins enough for the subject to remember a desk."',
+    title: 'CLAUSE IV // QUIET TENANCY',
+    text: '"An attendant who ceases to distinguish threshold from wall no longer requires egress. Leave one wet seam for petitions and rain."',
     siphonCost: 5,
     tendrilCost: 3,
     requiresJar: true,
-    ichorMultiplier: 3.2,
+    ichorMultiplier: 1.55,
   }),
 ]);
 
@@ -267,7 +348,7 @@ export const CREATURE_TYPES = Object.freeze({
     desc: 'Ribbed leather bladder pulling what settled beneath the tiles.',
     baseCost: 28000.0,
     costGrowth: 1.28,
-    baseIchorPerSec: 140.0,
+    baseIchorPerSec: 42.0,
     unlockIchorThreshold: 15000,
     requiredMilestone: 2,
     portrait: null,
@@ -521,7 +602,7 @@ export const ORGAN_BALANCE = Object.freeze({
   SALT_GROUT_BONUS: 0.45,
   BORROWED_PULSE_BONUS: 0.55,
   UNCOUNTED_HOUR_BONUS: 0.75,
-  WAX_STILLNESS_COST_MULTIPLIER: 0.65,
+  WAX_STILLNESS_COST_MULTIPLIER: 0.7,
   WAX_GRAFT_COOLDOWN_MULTIPLIER: 0.5,
   GRAFT_SUTURE_COST: 2,
   GRAFT_LEECH_COST: 2,
@@ -535,15 +616,24 @@ export const ORGAN_BALANCE = Object.freeze({
   CHOIR_LUNG_BASE_STILLNESS_COST: 180.0,
   CHOIR_LUNG_STILLNESS_GROWTH: 1.65,
   CHOIR_LUNG_COOLDOWN_SEC: 10.0,
-  CHOIR_LUNG_ICHOR_PER_SEC: 260.0,
-  CHOIR_LUNG_STILLNESS_PER_SEC: 4.5,
+  CHOIR_LUNG_ICHOR_PER_SEC: 160.0,
+  CHOIR_LUNG_STILLNESS_PER_SEC: 3.5,
   EXCISION_ICHOR_THRESHOLD: 210000,
-  MILESTONE_ICHOR_RESONANCE: 0.25,
-  MILESTONE_STILLNESS_RESONANCE: 0.2,
-  SCAR_RESONANCE_PER_UNIT: 0.15,
-  SCAR_STILLNESS_RESONANCE_PER_UNIT: 0.1,
+  SCAR_CURVE_BASE_SCALE: 2.0,
+  SCAR_CURVE_EXPONENT: 0.3,
+  MILESTONE_ICHOR_RESONANCE: 0.2,
+  MILESTONE_STILLNESS_RESONANCE: 0.15,
+  SCAR_RESONANCE_SQRT_FACTOR: 0.25,
+  SCAR_STILLNESS_SQRT_FACTOR: 0.18,
+  KELOID_ICHOR_PER_RANK: 0.18,
+  SEDIMENT_STILLNESS_PER_RANK: 0.16,
+  SEDIMENT_WELL_COST_FACTOR: 0.96,
+  SEDIMENT_WELL_COST_FLOOR: 0.68,
+  SCAR_HARVEST_HOOK_PER_RANK: 0.12,
+  PERPETUAL_SEAM_INTERVAL_SEC: 1.2,
   FIRST_ANOMALY_DELAY_SEC: 14.0,
   ANOMALY_SPAWN_INTERVAL_SEC: 26.0,
+  SOFTENED_MORTAR_SPEED_MULT: 1.6,
   MAX_ACTIVE_ANOMALIES: 3,
   TOOTH_BASE_ICHOR_REWARD: 25.0,
   NODULE_BASE_ICHOR_REWARD: 220.0,
@@ -552,9 +642,13 @@ export const ORGAN_BALANCE = Object.freeze({
   RIB_BASE_STILLNESS_REWARD: 14.0,
   RIB_GAZE_DURATION_SEC: 6.0,
   ECHO_PULSE_INTERVAL_SEC: 12.0,
+  ECHO_OSSUARY_INTERVAL_SEC: 9.0,
   VALVE_CLAMP_DURATION_SEC: 20.0,
+  BLOOM_INCISION_CLAMP_DURATION_SEC: 15.0,
   MARROW_BLOOM_DURATION_SEC: 25.0,
-  MARROW_BLOOM_MULTIPLIER: 2.5,
+  BLOOM_INCISION_DURATION_SEC: 32.0,
+  MARROW_BLOOM_MULTIPLIER: 2.2,
+  BLOOM_INCISION_MULTIPLIER: 2.9,
 });
 
 export const ARC2_BALANCE = Object.freeze({
@@ -666,6 +760,10 @@ export function scarNodeById(id) {
   return SCAR_NODES.find((n) => n.id === id) ?? null;
 }
 
+export function repeatableGraftById(id) {
+  return REPEATABLE_SCAR_GRAFTS.find((g) => g.id === id) ?? null;
+}
+
 export function dossierLineById(id) {
   return CULT_DOSSIER_LINES.find((l) => l.id === id) ?? null;
 }
@@ -689,6 +787,27 @@ export function canUnlockNode(state, nodeId) {
   return prereqOk && state.availableScarTissue >= node.cost;
 }
 
+export function repeatableRank(state, graftOrId) {
+  const id = typeof graftOrId === 'string' ? graftOrId : graftOrId?.id;
+  return state.repeatableScarRanks?.[id] ?? 0;
+}
+
+export function repeatableCost(state, graftOrId) {
+  const graft = typeof graftOrId === 'string' ? repeatableGraftById(graftOrId) : graftOrId;
+  if (!graft) return 0;
+  return Math.max(1, Math.ceil(graft.baseCost * Math.pow(graft.costGrowth, repeatableRank(state, graft.id))));
+}
+
+export function isRepeatableGraftsUnlocked(state) {
+  return hasNode(state, 'first_incision');
+}
+
+export function canBuyRepeatableGraft(state, graftOrId) {
+  const graft = typeof graftOrId === 'string' ? repeatableGraftById(graftOrId) : graftOrId;
+  if (!graft || !isRepeatableGraftsUnlocked(state)) return false;
+  return state.availableScarTissue >= repeatableCost(state, graft);
+}
+
 export function creatureCount(state, typeId) {
   return state.creatures?.[typeId] ?? 0;
 }
@@ -709,7 +828,7 @@ export function creatureCost(state, typeId) {
   if (!spec) return 0;
   const owned = creatureCount(state, spec.id);
   const growth = hasNode(state, 'colony_inertia')
-    ? Math.max(1.14, spec.costGrowth - 0.05)
+    ? Math.max(1.14, spec.costGrowth - 0.04)
     : spec.costGrowth;
   return Math.floor(spec.baseCost * Math.pow(growth, owned));
 }
@@ -720,16 +839,26 @@ export function stillnessIdleDelaySec(state) {
     : ORGAN_BALANCE.STILLNESS_IDLE_DELAY_SEC;
 }
 
-export function boneResonanceBonus(state) {
-  return hasNode(state, 'bone_resonance') ? 2.5 : 1.0;
+export function jarEffectBoost(state) {
+  return (
+    1.0 +
+    (hasNode(state, 'wax_sealed_memory') ? 0.35 : 0.0) +
+    (hasNode(state, 'catatonic_tide') ? 0.35 : 0.0)
+  );
 }
 
-export function jarEffectBoost(state) {
-  return hasNode(state, 'wax_sealed_memory') ? 1.6 : 1.0;
+export function sedimentCostMultiplier(state) {
+  return Math.max(
+    ORGAN_BALANCE.SEDIMENT_WELL_COST_FLOOR,
+    Math.pow(ORGAN_BALANCE.SEDIMENT_WELL_COST_FACTOR, repeatableRank(state, 'sediment_well')),
+  );
 }
 
 export function stillnessCostMultiplier(state) {
-  return hasNode(state, 'wax_sealed_memory') ? ORGAN_BALANCE.WAX_STILLNESS_COST_MULTIPLIER : 1.0;
+  const waxMult = hasNode(state, 'wax_sealed_memory')
+    ? ORGAN_BALANCE.WAX_STILLNESS_COST_MULTIPLIER
+    : 1.0;
+  return waxMult * sedimentCostMultiplier(state);
 }
 
 export function graftCooldownDurationSec(state) {
@@ -744,6 +873,24 @@ export function choirLungCooldownDurationSec(state) {
     ORGAN_BALANCE.CHOIR_LUNG_COOLDOWN_SEC *
     (hasNode(state, 'wax_sealed_memory') ? ORGAN_BALANCE.WAX_GRAFT_COOLDOWN_MULTIPLIER : 1.0)
   );
+}
+
+export function echoPulseIntervalSec(state) {
+  return hasNode(state, 'echo_ossuary')
+    ? ORGAN_BALANCE.ECHO_OSSUARY_INTERVAL_SEC
+    : ORGAN_BALANCE.ECHO_PULSE_INTERVAL_SEC;
+}
+
+export function valveClampDurationSec(state) {
+  return hasNode(state, 'bloom_incision')
+    ? ORGAN_BALANCE.BLOOM_INCISION_CLAMP_DURATION_SEC
+    : ORGAN_BALANCE.VALVE_CLAMP_DURATION_SEC;
+}
+
+export function marrowBloomDurationSec(state) {
+  return hasNode(state, 'bloom_incision')
+    ? ORGAN_BALANCE.BLOOM_INCISION_DURATION_SEC
+    : ORGAN_BALANCE.MARROW_BLOOM_DURATION_SEC;
 }
 
 export function isJarUnlocked(state, jarOrId) {
@@ -802,33 +949,53 @@ export function uncountedHourMultiplier(state) {
     : 1.0;
 }
 
+export function keloidIchorMultiplier(state) {
+  return 1.0 + repeatableRank(state, 'keloid_thickening') * ORGAN_BALANCE.KELOID_ICHOR_PER_RANK;
+}
+
+export function sedimentStillnessMultiplier(state) {
+  return 1.0 + repeatableRank(state, 'sediment_well') * ORGAN_BALANCE.SEDIMENT_STILLNESS_PER_RANK;
+}
+
+export function scarHarvestMultiplier(state) {
+  return 1.0 + repeatableRank(state, 'scar_harvest_hook') * ORGAN_BALANCE.SCAR_HARVEST_HOOK_PER_RANK;
+}
+
+export function catatonicTideMultiplier(state) {
+  return state.isStillnessActive && hasNode(state, 'catatonic_tide') ? 1.75 : 1.0;
+}
+
 export function scarMultiplier(state) {
   const baseResonance =
     1.0 +
     state.highestExcisionMilestone * ORGAN_BALANCE.MILESTONE_ICHOR_RESONANCE +
-    state.scarTissue * ORGAN_BALANCE.SCAR_RESONANCE_PER_UNIT;
-  const rootMult = hasNode(state, 'first_incision') ? 1.5 : 1.0;
-  const boneMult = hasNode(state, 'bone_resonance') ? 4.0 : 1.0;
-  return baseResonance * rootMult * boneMult;
+    Math.sqrt(state.scarTissue) * ORGAN_BALANCE.SCAR_RESONANCE_SQRT_FACTOR;
+  const rootMult = hasNode(state, 'first_incision') ? 1.45 : 1.0;
+  const boneMult = hasNode(state, 'bone_resonance') ? 1.85 : 1.0;
+  return baseResonance * rootMult * boneMult * keloidIchorMultiplier(state);
 }
 
 export function scarStillnessMultiplier(state) {
   const baseResonance =
     1.0 +
     state.highestExcisionMilestone * ORGAN_BALANCE.MILESTONE_STILLNESS_RESONANCE +
-    state.scarTissue * ORGAN_BALANCE.SCAR_STILLNESS_RESONANCE_PER_UNIT;
-  const rootMult = hasNode(state, 'first_incision') ? 1.25 : 1.0;
-  const silenceMult = hasNode(state, 'shorter_silence') ? 1.6 : 1.0;
-  return baseResonance * rootMult * silenceMult;
+    Math.sqrt(state.scarTissue) * ORGAN_BALANCE.SCAR_STILLNESS_SQRT_FACTOR;
+  const rootMult = hasNode(state, 'first_incision') ? 1.2 : 1.0;
+  const silenceMult = hasNode(state, 'shorter_silence') ? 1.4 : 1.0;
+  return baseResonance * rootMult * silenceMult * sedimentStillnessMultiplier(state);
+}
+
+export function relicAmplifier(state) {
+  return (hasNode(state, 'echo_ossuary') ? 1.45 : 1.0) * (hasNode(state, 'bone_resonance') ? 1.25 : 1.0);
 }
 
 export function relicIchorMultiplier(state) {
   let mult = 1.0;
-  const bone = boneResonanceBonus(state);
+  const amp = relicAmplifier(state);
   for (const id of state.dredgedRelics ?? []) {
     const relic = DREDGED_RELICS.find((r) => r.id === id);
     if (relic) {
-      mult *= 1.0 + (relic.ichorMultiplier - 1.0) * bone;
+      mult *= 1.0 + (relic.ichorMultiplier - 1.0) * amp;
     }
   }
   return mult;
@@ -845,7 +1012,7 @@ export function relicStillnessMultiplier(state) {
 
 export function dossierIchorMultiplier(state) {
   let mult = 1.0;
-  const perLineBoost = hasNode(state, 'bone_resonance') ? 1.35 : 1.0;
+  const perLineBoost = hasNode(state, 'bone_resonance') ? 1.12 : 1.0;
   for (const id of state.unredactedDossierLines ?? []) {
     const line = dossierLineById(id);
     if (line) mult *= line.ichorMultiplier * perLineBoost;
@@ -859,7 +1026,9 @@ export function gazeMultiplier(state) {
 
 export function bloomMultiplier(state) {
   if (state.marrowBloomRemainingSeconds > 0) {
-    return hasNode(state, 'bone_resonance') ? 3.5 : ORGAN_BALANCE.MARROW_BLOOM_MULTIPLIER;
+    return hasNode(state, 'bloom_incision')
+      ? ORGAN_BALANCE.BLOOM_INCISION_MULTIPLIER
+      : ORGAN_BALANCE.MARROW_BLOOM_MULTIPLIER;
   }
   return 1.0;
 }
@@ -868,12 +1037,13 @@ export function anomalyRewardMultiplier(state) {
   const jarBoost = state.ownedJars.includes(SPECIMEN_JARS.ALMOST_A_NAME.id)
     ? ORGAN_BALANCE.ALMOST_A_NAME_MULTIPLIER * jarEffectBoost(state)
     : 1.0;
-  const mortarBoost = hasNode(state, 'softened_mortar') ? 3.0 : 1.0;
-  const echoBoost =
-    state.echoDiversionPercent > 0
-      ? 1.0 + (state.echoDiversionPercent / 25.0) * 0.75 * boneResonanceBonus(state)
-      : 1.0;
-  return jarBoost * mortarBoost * echoBoost;
+  const mortarBoost = hasNode(state, 'softened_mortar') ? 1.8 : 1.0;
+  const baseEchoBonus =
+    state.echoDiversionPercent === 25 ? 0.35 : state.echoDiversionPercent === 50 ? 0.7 : 0.0;
+  const echoBoost = 1.0 + baseEchoBonus * (hasNode(state, 'bone_resonance') ? 1.25 : 1.0);
+  const bloomAnomalyBoost =
+    state.marrowBloomRemainingSeconds > 0 && hasNode(state, 'bloom_incision') ? 1.4 : 1.0;
+  return jarBoost * mortarBoost * echoBoost * bloomAnomalyBoost;
 }
 
 export function globalIchorMultiplier(state) {
@@ -883,14 +1053,16 @@ export function globalIchorMultiplier(state) {
     dossierIchorMultiplier(state) *
     gazeMultiplier(state) *
     bloomMultiplier(state) *
-    uncountedHourMultiplier(state)
+    uncountedHourMultiplier(state) *
+    catatonicTideMultiplier(state)
   );
 }
 
 export function effectiveCreatureIchorPerSec(state, typeId) {
   const spec = typeof typeId === 'string' ? creatureById(typeId) : typeId;
   if (!spec) return 0.0;
-  const inertiaMult = hasNode(state, 'colony_inertia') ? 3.2 : 1.0;
+  const inertiaMult = hasNode(state, 'colony_inertia') ? 1.75 : 1.0;
+  const seamMult = hasNode(state, 'perpetual_seam') ? 1.8 : 1.0;
   const jarPotency = jarEffectBoost(state);
 
   let specimenMultiplier = 1.0;
@@ -898,29 +1070,33 @@ export function effectiveCreatureIchorPerSec(state, typeId) {
     const breath = state.ownedJars.includes(SPECIMEN_JARS.UNSPENT_BREATH.id)
       ? ORGAN_BALANCE.UNSPENT_BREATH_MULTIPLIER * jarPotency
       : 1.0;
-    const twin = hasNode(state, 'twin_stitch') ? 2.5 : 1.0;
+    const twin = hasNode(state, 'twin_stitch') ? 1.6 : 1.0;
     specimenMultiplier = breath * twin;
   } else if (spec.id === CREATURE_TYPES.WEEPING_LAMP.id) {
     const nameJar = state.ownedJars.includes(SPECIMEN_JARS.ALMOST_A_NAME.id)
       ? ORGAN_BALANCE.ALMOST_A_NAME_MULTIPLIER * jarPotency
       : 1.0;
     const weepingSurge = state.isStillnessActive
-      ? 2.0
+      ? hasNode(state, 'hollow_lung_choir')
+        ? 2.4
+        : 2.0
       : hasNode(state, 'deep_weeping')
-        ? 1.4
+        ? 1.25
         : 1.0;
-    const deepMult = hasNode(state, 'deep_weeping') ? 3.5 : 1.0;
+    const deepMult = hasNode(state, 'deep_weeping') ? 1.8 : 1.0;
     specimenMultiplier = nameJar * weepingSurge * deepMult;
   } else if (spec.id === CREATURE_TYPES.SUMP_SIPHON.id) {
-    const autoMult = hasNode(state, 'auto_tendril_suture') ? 3.0 : 1.0;
+    const autoMult = hasNode(state, 'auto_tendril_suture') ? 1.55 : 1.0;
+    const recallMult = hasNode(state, 'membrane_recall') ? 1.6 : 1.0;
     const sealPenalty = state.drainSealed ? 0.85 : 1.0;
-    specimenMultiplier = autoMult * sealPenalty;
+    specimenMultiplier = autoMult * recallMult * sealPenalty;
   }
 
   return (
     spec.baseIchorPerSec *
     specimenMultiplier *
     inertiaMult *
+    seamMult *
     groutSaltOrganismMultiplier(state) *
     globalIchorMultiplier(state)
   );
@@ -949,7 +1125,9 @@ export function rawIchorPerSecond(state) {
   for (const spec of CREATURE_LIST) {
     creaturesRate += totalCreatureIchorPerSec(state, spec.id);
   }
-  const graftNodeMult = hasNode(state, 'auto_tendril_suture') ? 3.0 : 1.0;
+  const graftNodeMult =
+    (hasNode(state, 'auto_tendril_suture') ? 1.55 : 1.0) *
+    (hasNode(state, 'membrane_recall') ? 1.6 : 1.0);
   const pulseMult = borrowedPulseMultiplier(state);
   const graftRate =
     state.graftedTendrils *
@@ -957,12 +1135,16 @@ export function rawIchorPerSecond(state) {
     graftNodeMult *
     pulseMult *
     globalIchorMultiplier(state);
-  const deepLungMult = hasNode(state, 'deep_weeping') ? 3.5 : 1.0;
-  const lungStillnessBoost = state.isStillnessActive ? 2.0 : 1.0;
+  const choirNodeMult = hasNode(state, 'hollow_lung_choir') ? 1.85 : 1.0;
+  const lungStillnessBoost = state.isStillnessActive
+    ? hasNode(state, 'hollow_lung_choir')
+      ? 2.0
+      : 1.5
+    : 1.0;
   const lungRate =
     state.choirLungs *
     ORGAN_BALANCE.CHOIR_LUNG_ICHOR_PER_SEC *
-    deepLungMult *
+    choirNodeMult *
     lungStillnessBoost *
     pulseMult *
     globalIchorMultiplier(state);
@@ -980,14 +1162,16 @@ export function manualTapYield(state) {
     ? ORGAN_BALANCE.YESTERDAYS_DUST_TAP_BONUS * jarEffectBoost(state)
     : 0.0;
   const toothBonus = (state.anomalyInteractions?.pale_tooth ?? 0) * 0.5;
-  const palmMult = hasNode(state, 'calloused_palm') ? 2.2 : 1.0;
-  const echoBurst = hasNode(state, 'twin_stitch') ? ichorPerSecond(state) * 3.0 : 0.0;
+  const palmMult = hasNode(state, 'calloused_palm') ? 1.8 : 1.0;
+  const seamMult = hasNode(state, 'perpetual_seam') ? 1.8 : 1.0;
+  const echoBurst = hasNode(state, 'twin_stitch') ? ichorPerSecond(state) * 1.5 : 0.0;
   return (
     (1.0 + dustBonus + toothBonus) *
       scarMultiplier(state) *
       relicIchorMultiplier(state) *
       dossierIchorMultiplier(state) *
-      palmMult +
+      palmMult *
+      seamMult +
     echoBurst
   );
 }
@@ -1006,17 +1190,25 @@ export function stillnessPerSecond(state) {
     scarStillnessMultiplier(state) *
     relicStillnessMultiplier(state) *
     gazeMultiplier(state);
+  const choirNodeMult = hasNode(state, 'hollow_lung_choir') ? 1.85 : 1.0;
+  const lungStillnessBoost = state.isStillnessActive
+    ? hasNode(state, 'hollow_lung_choir')
+      ? 2.0
+      : 1.5
+    : 1.0;
   const lungStillness =
     state.choirLungs *
     ORGAN_BALANCE.CHOIR_LUNG_STILLNESS_PER_SEC *
+    choirNodeMult *
     scarStillnessMultiplier(state) *
     relicStillnessMultiplier(state) *
     gazeMultiplier(state) *
-    (state.isStillnessActive ? 1.5 : 1.0);
+    lungStillnessBoost;
   return (
     (lampStillness + graftStillness + lungStillness) *
     borrowedPulseMultiplier(state) *
-    uncountedHourMultiplier(state)
+    uncountedHourMultiplier(state) *
+    catatonicTideMultiplier(state)
   );
 }
 
@@ -1136,41 +1328,79 @@ export function canClearNextMilestone(state) {
   return cycleLifetimeIchorDisplay(state) >= next.massThreshold;
 }
 
+export function hasExcessMilestoneMass(state) {
+  if (!canClearNextMilestone(state)) return false;
+  const beyond = EXCISION_MILESTONES.find((m) => m.number === state.highestExcisionMilestone + 2);
+  if (!beyond) return false;
+  return cycleLifetimeIchorDisplay(state) >= beyond.massThreshold;
+}
+
 export function canBreachToArc2(state) {
   return (
     state.highestExcisionMilestone >= 6 ||
-    cycleLifetimeIchorDisplay(state) >= EXCISION_MILESTONES[5].massThreshold
+    (state.highestExcisionMilestone >= 5 &&
+      cycleLifetimeIchorDisplay(state) >= EXCISION_MILESTONES[5].massThreshold)
   );
+}
+
+function minExcisionScarHarvest(state) {
+  return Math.max(2, Math.floor(ORGAN_BALANCE.SCAR_CURVE_BASE_SCALE * scarHarvestMultiplier(state)));
+}
+
+function scarHarvestForMass(state, mass) {
+  if (mass < ORGAN_BALANCE.EXCISION_ICHOR_THRESHOLD) return 0;
+  const ratio = mass / ORGAN_BALANCE.EXCISION_ICHOR_THRESHOLD;
+  const raw =
+    ORGAN_BALANCE.SCAR_CURVE_BASE_SCALE *
+    Math.pow(ratio, ORGAN_BALANCE.SCAR_CURVE_EXPONENT) *
+    scarHarvestMultiplier(state);
+  return Math.max(2, Math.floor(raw));
+}
+
+export function massRequiredForScarCount(state, targetScars) {
+  if (targetScars <= 0) return 0;
+  if (targetScars <= minExcisionScarHarvest(state)) return ORGAN_BALANCE.EXCISION_ICHOR_THRESHOLD;
+  const denom = ORGAN_BALANCE.SCAR_CURVE_BASE_SCALE * scarHarvestMultiplier(state);
+  const ratio = Math.pow(targetScars / denom, 1.0 / ORGAN_BALANCE.SCAR_CURVE_EXPONENT);
+  let candidate = Math.max(
+    ORGAN_BALANCE.EXCISION_ICHOR_THRESHOLD,
+    Math.ceil(ORGAN_BALANCE.EXCISION_ICHOR_THRESHOLD * ratio),
+  );
+  while (scarHarvestForMass(state, candidate) < targetScars) {
+    candidate += 1;
+  }
+  return candidate;
 }
 
 export function currentBaseScarHarvest(state) {
   if (!canExcise(state)) return 0;
-  return Math.max(
-    1,
-    Math.floor(Math.sqrt(state.cycleLifetimeIchor / ORGAN_BALANCE.EXCISION_ICHOR_THRESHOLD)),
-  );
+  return scarHarvestForMass(state, state.cycleLifetimeIchor);
 }
 
 export function nextBaseScarMassThreshold(state) {
-  const nextBase = currentBaseScarHarvest(state) + 1;
-  return nextBase * nextBase * ORGAN_BALANCE.EXCISION_ICHOR_THRESHOLD;
+  if (!canExcise(state)) return ORGAN_BALANCE.EXCISION_ICHOR_THRESHOLD;
+  return massRequiredForScarCount(state, currentBaseScarHarvest(state) + 1);
 }
 
 export function nextScarProgress(state) {
-  const prevBase = currentBaseScarHarvest(state);
-  const prevMass = prevBase * prevBase * ORGAN_BALANCE.EXCISION_ICHOR_THRESHOLD;
+  if (!canExcise(state)) {
+    return Math.max(
+      0,
+      Math.min(1, state.cycleLifetimeIchor / ORGAN_BALANCE.EXCISION_ICHOR_THRESHOLD),
+    );
+  }
+  const current = currentBaseScarHarvest(state);
+  const prevMass =
+    current <= minExcisionScarHarvest(state)
+      ? ORGAN_BALANCE.EXCISION_ICHOR_THRESHOLD
+      : massRequiredForScarCount(state, current);
   const nextMass = nextBaseScarMassThreshold(state);
   const span = Math.max(1, nextMass - prevMass);
   return Math.max(0, Math.min(1, (state.cycleLifetimeIchor - prevMass) / span));
 }
 
 export function pendingScarTissue(state) {
-  if (!canExcise(state)) return 0;
-  const baseHarvest = currentBaseScarHarvest(state);
-  const milestoneBonus = EXCISION_MILESTONES.filter(
-    (m) => m.number > state.highestExcisionMilestone && cycleLifetimeIchorDisplay(state) >= m.massThreshold,
-  ).reduce((sum, m) => sum + m.firstClearScarBonus, 0);
-  return baseHarvest + milestoneBonus;
+  return currentBaseScarHarvest(state);
 }
 
 /* ==================== ARC 2 DERIVED HELPERS ==================== */
@@ -1251,6 +1481,7 @@ export function initialState(catalog) {
     availableScarTissue: 0,
     highestExcisionMilestone: 0,
     unlockedScarNodes: [],
+    repeatableScarRanks: {},
     cycle: 0,
     phase: 0,
     phaseName: phaseNameFromCatalog(catalog, 0),
@@ -1261,6 +1492,7 @@ export function initialState(catalog) {
     choirLungs: 0,
     graftCooldownRemainingSeconds: 0.0,
     choirLungCooldownRemainingSeconds: 0.0,
+    autoValveChargeSeconds: 0.0,
     lastSacrificePulse: 0,
     lastSacrificeKind: null,
     ownedJars: [],
@@ -1316,6 +1548,15 @@ function isTriggerSatisfied(state, entry) {
       return state.highestExcisionMilestone >= trigger.threshold;
     case 'scar_node_unlocked':
       return state.unlockedScarNodes.length >= trigger.threshold;
+    case 'scar_node_specific':
+      return Boolean(trigger.target) && hasNode(state, trigger.target);
+    case 'repeatable_graft_total': {
+      const totalRanks = Object.values(state.repeatableScarRanks ?? {}).reduce(
+        (sum, rank) => sum + (Number(rank) || 0),
+        0,
+      );
+      return totalRanks >= trigger.threshold;
+    }
     case 'relic_dredged':
       return state.lifetimeRelicsDredged >= trigger.threshold;
     case 'echo_routed':
@@ -1407,7 +1648,7 @@ export function spawnImmediateWallAnomaly(state, allowOverflow = false) {
   const [xFraction, yFraction] = anchors[(id - 1) % anchors.length];
 
   const spawnInterval = hasNode(state, 'softened_mortar')
-    ? ORGAN_BALANCE.ANOMALY_SPAWN_INTERVAL_SEC / 2.0
+    ? ORGAN_BALANCE.ANOMALY_SPAWN_INTERVAL_SEC / ORGAN_BALANCE.SOFTENED_MORTAR_SPEED_MULT
     : ORGAN_BALANCE.ANOMALY_SPAWN_INTERVAL_SEC;
 
   return {
@@ -1438,7 +1679,7 @@ function advanceAnomalySpawner(state, deltaSeconds) {
 function triggerMarrowBloom(state) {
   let bloomed = {
     ...state,
-    marrowBloomRemainingSeconds: ORGAN_BALANCE.MARROW_BLOOM_DURATION_SEC,
+    marrowBloomRemainingSeconds: marrowBloomDurationSec(state),
     marrowBloomCount: state.marrowBloomCount + 1,
   };
   for (let i = 0; i < 4; i += 1) {
@@ -1490,26 +1731,44 @@ export function tick(state, deltaSeconds, catalog) {
     (state.choirLungCooldownRemainingSeconds ?? 0.0) - deltaSeconds,
   );
 
+  // Suture Tier 5: Perpetual Seam auto-ratchets valve turns without breaking Stillness
+  const autoValveActive = hasNode(state, 'perpetual_seam') && !isValveClamped(state);
+  const autoValveCharge = autoValveActive
+    ? (state.autoValveChargeSeconds ?? 0.0) + deltaSeconds
+    : (state.autoValveChargeSeconds ?? 0.0);
+  const autoValveTurns = autoValveActive
+    ? Math.floor(autoValveCharge / ORGAN_BALANCE.PERPETUAL_SEAM_INTERVAL_SEC)
+    : 0;
+  const nextAutoValveCharge = autoValveActive
+    ? autoValveCharge - autoValveTurns * ORGAN_BALANCE.PERPETUAL_SEAM_INTERVAL_SEC
+    : autoValveCharge;
+  const autoValveIchor = autoValveTurns > 0 ? autoValveTurns * manualTapYield(preProduction) : 0.0;
+
+  const ossuarySpeed = hasNode(state, 'echo_ossuary') ? 1.45 : 1.0;
   const nextDrainPressure =
     state.highestExcisionMilestone >= 2 && state.drainSealed
       ? Math.min(
           100.0,
           state.drainPressure +
-            (4.0 + creatureCount(state, CREATURE_TYPES.SUMP_SIPHON.id) * 1.5) * deltaSeconds,
+            (4.0 + creatureCount(state, CREATURE_TYPES.SUMP_SIPHON.id) * 1.5) *
+              ossuarySpeed *
+              deltaSeconds,
         )
       : Math.max(0.0, state.drainPressure - 2.0 * deltaSeconds);
 
+  const echoInterval = echoPulseIntervalSec(state);
   const echoActive = state.highestExcisionMilestone >= 3 && state.echoDiversionPercent > 0;
   const chargedEcho = echoActive ? state.echoChargeSeconds + deltaSeconds : state.echoChargeSeconds;
-  const echoPulseReady = echoActive && chargedEcho >= ORGAN_BALANCE.ECHO_PULSE_INTERVAL_SEC;
+  const echoPulseReady = echoActive && chargedEcho >= echoInterval;
 
   const wasClamped = state.clampRemainingSeconds > 0.0;
   const nextClamp = wasClamped ? Math.max(0.0, state.clampRemainingSeconds - deltaSeconds) : 0.0;
 
+  const totalCycleIchorGain = gainedIchor + autoValveIchor;
   let nextState = {
     ...preProduction,
-    ichor: state.ichor + gainedIchor,
-    cycleLifetimeIchor: state.cycleLifetimeIchor + gainedIchor,
+    ichor: state.ichor + totalCycleIchorGain,
+    cycleLifetimeIchor: state.cycleLifetimeIchor + totalCycleIchorGain,
     stillness: state.stillness + gainedStillness,
     cycleLifetimeStillness: state.cycleLifetimeStillness + gainedStillness,
     secondsSinceLastTap: nextIdleSec,
@@ -1517,6 +1776,7 @@ export function tick(state, deltaSeconds, catalog) {
     marrowBloomRemainingSeconds: nextBloom,
     graftCooldownRemainingSeconds: nextGraftCooldown,
     choirLungCooldownRemainingSeconds: nextLungCooldown,
+    autoValveChargeSeconds: nextAutoValveCharge,
     drainPressure: nextDrainPressure,
     echoChargeSeconds: echoPulseReady ? state.echoChargeSeconds : chargedEcho,
     clampRemainingSeconds: nextClamp,
@@ -1524,13 +1784,24 @@ export function tick(state, deltaSeconds, catalog) {
 
   // Excision III: Neighbor Aperture Echo bursts
   if (echoPulseReady) {
-    const echoMult = (nextState.echoDiversionPercent / 25.0) * 14.0 * boneResonanceBonus(nextState);
-    const echoBurst = Math.max(250.0, rawIchorPerSecond(nextState) * echoMult);
+    const baseEchoMultiplier =
+      nextState.echoDiversionPercent === 25
+        ? 18.0
+        : nextState.echoDiversionPercent === 50
+          ? 30.0
+          : 0.0;
+    const echoYieldBoost =
+      (hasNode(nextState, 'echo_ossuary') ? 1.35 : 1.0) *
+      (hasNode(nextState, 'bone_resonance') ? 1.25 : 1.0);
+    const echoBurst = Math.max(
+      250.0,
+      rawIchorPerSecond(nextState) * baseEchoMultiplier * echoYieldBoost,
+    );
     nextState = {
       ...nextState,
       ichor: nextState.ichor + echoBurst,
       cycleLifetimeIchor: nextState.cycleLifetimeIchor + echoBurst,
-      echoChargeSeconds: chargedEcho - ORGAN_BALANCE.ECHO_PULSE_INTERVAL_SEC,
+      echoChargeSeconds: chargedEcho - echoInterval,
       echoPulsesTriggered: nextState.echoPulsesTriggered + 1,
     };
   }
@@ -1647,6 +1918,23 @@ export function unlockScarNode(state, nodeId, catalog) {
   );
 }
 
+export function buyRepeatableScarGraft(state, graftId, catalog) {
+  const graft = typeof graftId === 'string' ? repeatableGraftById(graftId) : graftId;
+  if (!graft || !canBuyRepeatableGraft(state, graft)) return state;
+  const cost = repeatableCost(state, graft);
+  return finalizeProgression(
+    {
+      ...state,
+      availableScarTissue: state.availableScarTissue - cost,
+      repeatableScarRanks: {
+        ...(state.repeatableScarRanks ?? {}),
+        [graft.id]: repeatableRank(state, graft.id) + 1,
+      },
+    },
+    catalog,
+  );
+}
+
 export function toggleDrainSeal(state, catalog) {
   if (state.highestExcisionMilestone < 2) return state;
   return finalizeProgression({ ...state, drainSealed: !state.drainSealed }, catalog);
@@ -1679,7 +1967,7 @@ export function setEchoDiversion(state, percent, catalog) {
 export function activateValveClamp(state, catalog) {
   if (state.highestExcisionMilestone < 4 || isValveClamped(state)) return state;
   return finalizeProgression(
-    { ...state, clampRemainingSeconds: ORGAN_BALANCE.VALVE_CLAMP_DURATION_SEC },
+    { ...state, clampRemainingSeconds: valveClampDurationSec(state) },
     catalog,
   );
 }
@@ -1777,14 +2065,24 @@ export function interactAnomaly(state, anomalyId, catalog) {
 export function performExcision(state, catalog) {
   if (!canExcise(state)) return state;
   const gainedScars = pendingScarTissue(state);
-  const clearedMilestone = EXCISION_MILESTONES.filter(
-    (m) => cycleLifetimeIchorDisplay(state) >= m.massThreshold,
-  ).reduce((maxN, m) => Math.max(maxN, m.number), state.highestExcisionMilestone);
-  const newHighest = Math.max(state.highestExcisionMilestone, clearedMilestone);
+  // Strict anti-skip sequential lock: advance by at most +1 Excision Milestone per Excision
+  const nextMilestone = nextExcisionMilestone(state);
+  const newHighest =
+    nextMilestone && cycleLifetimeIchorDisplay(state) >= nextMilestone.massThreshold
+      ? nextMilestone.number
+      : state.highestExcisionMilestone;
 
-  const startingCreatures = hasNode(state, 'calloused_palm')
-    ? { suture_hand: 3, leech_clerk: 1 }
-    : {};
+  const startingCreatures = {};
+  if (hasNode(state, 'calloused_palm')) {
+    startingCreatures.suture_hand = 3;
+    startingCreatures.leech_clerk = 1;
+  }
+  if (hasNode(state, 'membrane_recall')) {
+    startingCreatures.weeping_lamp = 1;
+    if (newHighest >= 2) {
+      startingCreatures.sump_siphon = 1;
+    }
+  }
 
   const reset = {
     ...initialState(catalog),
@@ -1793,9 +2091,11 @@ export function performExcision(state, catalog) {
     availableScarTissue: state.availableScarTissue + gainedScars,
     highestExcisionMilestone: newHighest,
     unlockedScarNodes: [...state.unlockedScarNodes],
+    repeatableScarRanks: { ...(state.repeatableScarRanks ?? {}) },
     cycle: state.cycle + 1,
     creatures: startingCreatures,
     ownedJars: [],
+    autoValveChargeSeconds: 0.0,
     nextAnomalyId: state.nextAnomalyId,
     lifetimeRelicsDredged: state.lifetimeRelicsDredged,
     echoPulsesTriggered: state.echoPulsesTriggered,
@@ -1811,14 +2111,10 @@ export function performExcision(state, catalog) {
 
 export function performBreachToArc2(state, catalog) {
   if (!canBreachToArc2(state)) return state;
-  const gainedScars =
-    state.highestExcisionMilestone < 6 ? EXCISION_MILESTONES[5].firstClearScarBonus : 0;
   const breached = {
     ...state,
     activeArc: GAME_ARCS.ARC_2_INVESTIGATION,
     highestExcisionMilestone: Math.max(state.highestExcisionMilestone, 6),
-    scarTissue: state.scarTissue + gainedScars,
-    availableScarTissue: state.availableScarTissue + gainedScars,
   };
   return finalizeProgression(breached, catalog);
 }
@@ -2070,6 +2366,7 @@ export function devSetAllScarNodes(state, unlockAll, catalog) {
   const adjusted = {
     ...state,
     unlockedScarNodes: unlockAll ? SCAR_NODES.map((n) => n.id) : [],
+    repeatableScarRanks: unlockAll ? { ...(state.repeatableScarRanks ?? {}) } : {},
     highestExcisionMilestone: unlockAll
       ? Math.max(state.highestExcisionMilestone, 1)
       : state.highestExcisionMilestone,
@@ -2130,6 +2427,7 @@ export function serializeState(state) {
     availableScarTissue: state.availableScarTissue,
     highestExcisionMilestone: state.highestExcisionMilestone,
     unlockedScarNodes: state.unlockedScarNodes,
+    repeatableScarRanks: state.repeatableScarRanks ?? {},
     cycle: state.cycle,
     creatures: state.creatures,
     graftedTendrils: state.graftedTendrils,
@@ -2219,6 +2517,14 @@ export function deserializeState(rawJson, catalog) {
       ? data.activeArc
       : GAME_ARCS.ARC_1_CHAMBER;
 
+    const repeatableRanks = {};
+    if (data.repeatableScarRanks && typeof data.repeatableScarRanks === 'object') {
+      for (const graft of REPEATABLE_SCAR_GRAFTS) {
+        const rank = Math.floor(Number(data.repeatableScarRanks[graft.id]) || 0);
+        if (rank > 0) repeatableRanks[graft.id] = rank;
+      }
+    }
+
     const restored = {
       ...initialState(catalog),
       activeArc: validArc,
@@ -2230,6 +2536,7 @@ export function deserializeState(rawJson, catalog) {
       availableScarTissue: availScar,
       highestExcisionMilestone: highestM,
       unlockedScarNodes: Array.isArray(data.unlockedScarNodes) ? [...data.unlockedScarNodes] : [],
+      repeatableScarRanks: repeatableRanks,
       cycle: cycleVal,
       creatures: data.creatures && typeof data.creatures === 'object' ? { ...data.creatures } : {},
       graftedTendrils: Math.max(0, Math.floor(Number(data.graftedTendrils) || 0)),

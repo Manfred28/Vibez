@@ -15,6 +15,7 @@ import {
   GAME_ARCS,
   INVESTIGATOR_CONTACTS,
   ORGAN_BALANCE,
+  REPEATABLE_SCAR_GRAFTS,
   SCAR_NODES,
   SPECIMEN_JARS,
   WALL_ANOMALY_TYPES,
@@ -22,9 +23,12 @@ import {
   arc2CanConnectNextChapter,
   bottleJar,
   buyCreature,
+  buyRepeatableScarGraft,
   canAffordChoirLung,
   canAffordGraft,
   canBreachToArc2,
+  canBuyRepeatableGraft,
+  canClearNextMilestone,
   canDredgeSump,
   canExcise,
   canOfferToThroat,
@@ -44,6 +48,7 @@ import {
   devSpawnDeskAnomaly,
   devSpawnWallAnomaly,
   dredgeSump,
+  echoPulseIntervalSec,
   effectiveCreatureIchorPerSec,
   effectiveJarCost,
   effectiveLampStillnessPerSec,
@@ -51,6 +56,7 @@ import {
   gazeMultiplier,
   graftCooldownDurationSec,
   graftStillnessCost,
+  hasExcessMilestoneMass,
   ichorDisplay,
   ichorPerSecond,
   initialState,
@@ -60,7 +66,11 @@ import {
   isApparatusUnlocked,
   isJarUnlocked,
   isJarsAndGraftUnlocked,
+  isRepeatableGraftsUnlocked,
+  jarEffectBoost,
   manualTapYield,
+  marrowBloomDurationSec,
+  massRequiredForScarCount,
   nextBaseScarMassThreshold,
   nextScarProgress,
   offerToThroat,
@@ -74,16 +84,23 @@ import {
   pressValve,
   progressWithinPhase,
   recruitContact,
+  relicAmplifier,
+  repeatableCost,
+  repeatableRank,
+  scarHarvestMultiplier,
   scarMultiplier,
   scarStillnessMultiplier,
+  sedimentCostMultiplier,
   serializeState,
   setEchoDiversion,
+  stillnessCostMultiplier,
   stillnessDisplay,
   stillnessPerSecond,
   tick,
   toggleDrainSeal,
   totalCreatureIchorPerSec,
   unlockScarNode,
+  valveClampDurationSec,
 } from '../src/engine.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -209,8 +226,8 @@ test('per-organism effective yields match aggregate ichorPerSecond and stillness
     highestExcisionMilestone: 0,
   };
 
-  // scarMultiplier = 1.0 + 0 * 0.25 + 2 * 0.15 = 1.30
-  const expectedScarIchor = 1.0 + 2 * ORGAN_BALANCE.SCAR_RESONANCE_PER_UNIT;
+  // Root-softcapped resonance: 1.0 + 0 * 0.20 + sqrt(2) * 0.25
+  const expectedScarIchor = 1.0 + Math.sqrt(2) * ORGAN_BALANCE.SCAR_RESONANCE_SQRT_FACTOR;
   const summedIchor =
     totalCreatureIchorPerSec(state, CREATURE_TYPES.SUTURE_HAND.id) +
     totalCreatureIchorPerSec(state, CREATURE_TYPES.LEECH_CLERK.id) +
@@ -294,7 +311,7 @@ test('wall anomalies, specimen jars, grafting, Excision I, and Cycle 1+ prestige
   const midP4 = pressValve({ ...pried, ichor: 144999, cycleLifetimeIchor: 144999 }, realCatalog);
   assert.equal(midP4.activeDialogue?.id, 'dlg_p4_mid_hollow');
 
-  // Excision I -> Cycle 1 grants 1 base + 2 M1 first-clear bonus = 3 Scar Tissue
+  // Excision I -> Cycle 1 grants 2 Scars along smooth power curve (zero milestone bonus)
   const excisionReady = {
     ...midP4,
     ichor: 215000,
@@ -302,15 +319,17 @@ test('wall anomalies, specimen jars, grafting, Excision I, and Cycle 1+ prestige
     phase: 4,
   };
   assert.equal(canExcise(excisionReady), true);
-  assert.equal(pendingScarTissue(excisionReady), 3);
+  assert.equal(pendingScarTissue(excisionReady), 2);
 
   const cycle1 = performExcision(excisionReady, realCatalog);
   assert.equal(cycle1.cycle, 1);
   assert.equal(cycle1.highestExcisionMilestone, 1);
-  assert.equal(cycle1.scarTissue, 3);
-  assert.equal(cycle1.availableScarTissue, 3);
-  assert.ok(Math.abs(scarMultiplier(cycle1) - 1.70) < 0.0001);
-  assert.ok(Math.abs(scarStillnessMultiplier(cycle1) - 1.50) < 0.0001);
+  assert.equal(cycle1.scarTissue, 2);
+  assert.equal(cycle1.availableScarTissue, 2);
+  const expectedScarMult = 1.0 + 1 * ORGAN_BALANCE.MILESTONE_ICHOR_RESONANCE + Math.sqrt(2) * ORGAN_BALANCE.SCAR_RESONANCE_SQRT_FACTOR;
+  const expectedStillMult = 1.0 + 1 * ORGAN_BALANCE.MILESTONE_STILLNESS_RESONANCE + Math.sqrt(2) * ORGAN_BALANCE.SCAR_STILLNESS_SQRT_FACTOR;
+  assert.ok(Math.abs(scarMultiplier(cycle1) - expectedScarMult) < 0.0001);
+  assert.ok(Math.abs(scarStillnessMultiplier(cycle1) - expectedStillMult) < 0.0001);
   assert.equal(cycle1.activeDialogue?.id, 'dlg_cycle_1_excision');
 
   const cycle1P1 = pressValve({ ...cycle1, ichor: 74, cycleLifetimeIchor: 74 }, realCatalog);
@@ -341,7 +360,7 @@ test('Scar Tissue Surgical Skill Tree enforces prerequisites, deducts spendable 
   state = unlockScarNode(state, 'wax_sealed_memory', realCatalog);
   assert.equal(state.availableScarTissue, 2);
 
-  // Reworked Wax-Sealed Memory: clears jars on Excision, discounts Stillness costs by 35%, halves graft cooldown
+  // Reworked Wax-Sealed Memory: clears jars on Excision, discounts Stillness costs by 30%, halves graft cooldown
   state = {
     ...state,
     ichor: 220000,
@@ -353,8 +372,10 @@ test('Scar Tissue Surgical Skill Tree enforces prerequisites, deducts spendable 
   assert.equal(creatureCount(reset, CREATURE_TYPES.SUTURE_HAND.id), 3);
   assert.equal(creatureCount(reset, CREATURE_TYPES.LEECH_CLERK.id), 1);
   assert.equal(reset.ownedJars.length, 0);
-  assert.equal(effectiveJarCost(reset, SPECIMEN_JARS.YESTERDAYS_DUST.id), 15);
-  assert.equal(graftStillnessCost(reset), 22);
+  assert.ok(Math.abs(stillnessCostMultiplier(reset) - 0.70) < 0.0001);
+  assert.ok(Math.abs(jarEffectBoost(reset) - 1.35) < 0.0001);
+  assert.equal(effectiveJarCost(reset, SPECIMEN_JARS.YESTERDAYS_DUST.id), 16);
+  assert.equal(graftStillnessCost(reset), 24);
   assert.equal(graftCooldownDurationSec(reset), 3.0);
 
   // Shorter Silence activates Stillness after 1.5s instead of 3.0s (requires >= 1 Weeping Lamp)
@@ -631,24 +652,226 @@ test('6-tier Specimen Jars, Next Scar quadratic progress, and cooldown serializa
   assert.ok(Math.abs(ichorPerSecond(c1) - preHourIchor * (1 + ORGAN_BALANCE.UNCOUNTED_HOUR_BONUS)) < 0.001);
   assert.ok(Math.abs(stillnessPerSecond(c1) - preHourStill * (1 + ORGAN_BALANCE.UNCOUNTED_HOUR_BONUS)) < 0.001);
 
-  // Next Scar quadratic threshold & progress
+  // Next Scar smooth power-curve threshold & exact inverse
   const s0 = initialState(realCatalog);
   assert.equal(currentBaseScarHarvest(s0), 0);
   assert.equal(nextBaseScarMassThreshold(s0), 210000);
   assert.ok(Math.abs(nextScarProgress({ ...s0, cycleLifetimeIchor: 105000 }) - 0.5) < 0.001);
-  const s1 = { ...s0, cycleLifetimeIchor: 210000 };
-  assert.equal(currentBaseScarHarvest(s1), 1);
-  assert.equal(nextBaseScarMassThreshold(s1), 840000);
-  assert.ok(Math.abs(nextScarProgress({ ...s0, cycleLifetimeIchor: 525000 }) - 0.5) < 0.001);
+  assert.equal(currentBaseScarHarvest({ ...s0, cycleLifetimeIchor: 210000 }), 2);
+  assert.equal(currentBaseScarHarvest({ ...s0, cycleLifetimeIchor: 1800000 }), 3);
+  assert.equal(currentBaseScarHarvest({ ...s0, cycleLifetimeIchor: 16000000 }), 7);
+  assert.equal(currentBaseScarHarvest({ ...s0, cycleLifetimeIchor: 140000000 }), 14);
+  assert.equal(currentBaseScarHarvest({ ...s0, cycleLifetimeIchor: 1250000000 }), 27);
+  assert.equal(currentBaseScarHarvest({ ...s0, cycleLifetimeIchor: 12000000000 }), 53);
 
-  // Cooldown & late-tier jar serialization round-trip
+  for (let target = 3; target <= 40; target += 1) {
+    const req = massRequiredForScarCount(s0, target);
+    assert.ok(currentBaseScarHarvest({ ...s0, cycleLifetimeIchor: req }) >= target);
+    assert.ok(currentBaseScarHarvest({ ...s0, cycleLifetimeIchor: req - 1 }) < target);
+  }
+
+  // Cooldown, late-tier jar, and repeatableScarRanks serialization round-trip
   const withCooldown = {
     ...c1,
     graftCooldownRemainingSeconds: 4.5,
     choirLungCooldownRemainingSeconds: 8.25,
+    repeatableScarRanks: { keloid_thickening: 2, scar_harvest_hook: 1 },
   };
   const restored = deserializeState(serializeState(withCooldown), realCatalog);
   assert.equal(restored.graftCooldownRemainingSeconds, 4.5);
   assert.equal(restored.choirLungCooldownRemainingSeconds, 8.25);
   assert.ok(restored.ownedJars.includes(SPECIMEN_JARS.THE_UNCOUNTED_HOUR.id));
+  assert.equal(repeatableRank(restored, 'keloid_thickening'), 2);
+  assert.equal(repeatableRank(restored, 'scar_harvest_hook'), 1);
+});
+
+test('Anti-skip sequential cap, zero milestone bonus Scars, M5 Arc 2 gate, 16-node Scar Tree, and 3 Repeatable Grafts match Android 1:1', () => {
+  assert.equal(SCAR_NODES.length, 16);
+  assert.equal(REPEATABLE_SCAR_GRAFTS.length, 3);
+  assert.ok(EXCISION_MILESTONES.every((m) => m.firstClearScarBonus === 0));
+
+  // Hard anti-skip cap: 999B Ichor at M0 advances strictly to M1 and blocks Arc 2 Breach
+  const massiveM0 = {
+    ...initialState(realCatalog),
+    ichor: 999000000000,
+    cycleLifetimeIchor: 999000000000,
+    phase: 4,
+  };
+  assert.equal(canClearNextMilestone(massiveM0), true);
+  assert.equal(hasExcessMilestoneMass(massiveM0), true);
+  assert.equal(canBreachToArc2(massiveM0), false);
+  const afterM0 = performExcision(massiveM0, realCatalog);
+  assert.equal(afterM0.highestExcisionMilestone, 1);
+
+  // M4 with 50B still cannot Breach Arc 2 and advances strictly to M5
+  const massiveM4 = {
+    ...afterM0,
+    highestExcisionMilestone: 4,
+    ichor: 50000000000,
+    cycleLifetimeIchor: 50000000000,
+    phase: 4,
+  };
+  assert.equal(canBreachToArc2(massiveM4), false);
+  const afterM4 = performExcision(massiveM4, realCatalog);
+  assert.equal(afterM4.highestExcisionMilestone, 5);
+
+  // M5 with 12B opens Breach to Arc 2 and grants 0 bonus Scars
+  const readyM5 = { ...afterM4, ichor: 12000000000, cycleLifetimeIchor: 12000000000, phase: 4 };
+  assert.equal(canBreachToArc2(readyM5), true);
+  const scarBeforeBreach = readyM5.scarTissue;
+  const breached = performBreachToArc2(readyM5, realCatalog);
+  assert.equal(breached.activeArc, GAME_ARCS.ARC_2_INVESTIGATION);
+  assert.equal(breached.highestExcisionMilestone, 6);
+  assert.equal(breached.scarTissue, scarBeforeBreach);
+
+  // New Tier 4-5 nodes: MEMBRANE_RECALL, PERPETUAL_SEAM, CATATONIC_TIDE, ECHO_OSSUARY, BLOOM_INCISION
+  const recallBase = {
+    ...initialState(realCatalog),
+    highestExcisionMilestone: 2,
+    cycle: 2,
+    ichor: 300000,
+    cycleLifetimeIchor: 300000,
+    phase: 4,
+    unlockedScarNodes: ['membrane_recall'],
+  };
+  const resetRecall = performExcision(recallBase, realCatalog);
+  assert.equal(creatureCount(resetRecall, CREATURE_TYPES.WEEPING_LAMP.id), 1);
+  assert.equal(creatureCount(resetRecall, CREATURE_TYPES.SUMP_SIPHON.id), 1);
+
+  const perpetual = {
+    ...initialState(realCatalog),
+    unlockedScarNodes: ['perpetual_seam'],
+    creatures: { [CREATURE_TYPES.WEEPING_LAMP.id]: 1 },
+    secondsSinceLastTap: 5.0,
+    isStillnessActive: true,
+  };
+  const afterPerp = tick(perpetual, ORGAN_BALANCE.PERPETUAL_SEAM_INTERVAL_SEC + 0.1, realCatalog);
+  assert.equal(afterPerp.isStillnessActive, true);
+  assert.ok(afterPerp.ichor >= manualTapYield(perpetual));
+
+  const ossuary = { ...initialState(realCatalog), highestExcisionMilestone: 3, unlockedScarNodes: ['echo_ossuary'] };
+  assert.equal(echoPulseIntervalSec(ossuary), 9.0);
+  assert.equal(relicAmplifier(ossuary), 1.45);
+
+  const bloomNode = { ...initialState(realCatalog), highestExcisionMilestone: 4, unlockedScarNodes: ['bloom_incision'] };
+  assert.equal(valveClampDurationSec(bloomNode), 15.0);
+  assert.equal(marrowBloomDurationSec(bloomNode), 32.0);
+
+  // Repeatable Surgical Grafts gated behind FIRST_INCISION, persist across Excisions, cleared by dev reset
+  let rep = { ...initialState(realCatalog), highestExcisionMilestone: 1, scarTissue: 20, availableScarTissue: 20 };
+  assert.equal(isRepeatableGraftsUnlocked(rep), false);
+  assert.equal(canBuyRepeatableGraft(rep, 'keloid_thickening'), false);
+
+  rep = unlockScarNode(rep, 'first_incision', realCatalog);
+  assert.equal(isRepeatableGraftsUnlocked(rep), true);
+  assert.equal(repeatableCost(rep, 'keloid_thickening'), 3);
+  rep = buyRepeatableScarGraft(rep, 'keloid_thickening', realCatalog);
+  assert.equal(repeatableRank(rep, 'keloid_thickening'), 1);
+  assert.equal(repeatableCost(rep, 'keloid_thickening'), 5);
+
+  rep = buyRepeatableScarGraft(rep, 'sediment_well', realCatalog);
+  assert.equal(repeatableRank(rep, 'sediment_well'), 1);
+  assert.ok(Math.abs(sedimentCostMultiplier(rep) - 0.96) < 0.0001);
+  assert.ok(Math.abs(sedimentCostMultiplier({ ...rep, repeatableScarRanks: { sediment_well: 25 } }) - 0.68) < 0.0001);
+
+  rep = buyRepeatableScarGraft(rep, 'scar_harvest_hook', realCatalog);
+  assert.ok(Math.abs(scarHarvestMultiplier(rep) - 1.12) < 0.0001);
+
+  const repAfterExcise = performExcision({ ...rep, ichor: 250000, cycleLifetimeIchor: 250000, phase: 4 }, realCatalog);
+  assert.equal(repeatableRank(repAfterExcise, 'keloid_thickening'), 1);
+  assert.equal(repeatableRank(repAfterExcise, 'scar_harvest_hook'), 1);
+
+  const repCleared = devSetAllScarNodes(repAfterExcise, false, realCatalog);
+  assert.equal(Object.keys(repCleared.repeatableScarRanks).length, 0);
+});
+
+test('Arc 1 escape-to-plea narrative threads, scar_node_specific, repeatable_graft_total, and Plead for Salvation match Android 1:1', () => {
+  assert.ok(realCatalog.entries.length >= 70);
+  assert.equal(EXCISION_MILESTONES[5].code, 'EXCISION VI // PLEAD FOR SALVATION');
+
+  // Specific Tier 5 Scar branch capstone trigger (prior M2-M4 and T1/T4 entries already seen in play)
+  let s = {
+    ...initialState(realCatalog),
+    highestExcisionMilestone: 4,
+    scarTissue: 140,
+    availableScarTissue: 140,
+    unlockedScarNodes: [
+      'first_incision',
+      'calloused_palm',
+      'twin_stitch',
+      'colony_inertia',
+      'membrane_recall',
+    ],
+    triggeredDialogueIds: [
+      'dlg_excision_m2_drain',
+      'dlg_excision_m3_seam',
+      'dlg_excision_m4_clamp',
+      'dlg_scar_tree_first',
+      'dlg_scar_branch_suture_t4',
+    ],
+  };
+  s = unlockScarNode(s, 'perpetual_seam', realCatalog);
+  assert.equal(s.activeDialogue?.id, 'dlg_scar_branch_suture_t5');
+
+  // Repeatable Surgical Graft narrative thresholds (1 and 4 total ranks)
+  s = buyRepeatableScarGraft(s, 'keloid_thickening', realCatalog);
+  assert.equal(s.activeDialogue?.id, 'dlg_repeatable_graft_first');
+  s = buyRepeatableScarGraft(s, 'sediment_well', realCatalog);
+  s = buyRepeatableScarGraft(s, 'scar_harvest_hook', realCatalog);
+  assert.ok(!s.triggeredDialogueIds.includes('dlg_repeatable_graft_deep'));
+  s = buyRepeatableScarGraft(s, 'keloid_thickening', realCatalog);
+  assert.equal(s.activeDialogue?.id, 'dlg_repeatable_graft_deep');
+
+  // Multi-step Dredged Relics (2nd Brass Key -> 3rd Bleeding Logbook)
+  s = {
+    ...s,
+    drainPressure: 100,
+    dredgedRelics: ['patient_wristband'],
+    lifetimeRelicsDredged: 1,
+  };
+  s = dredgeSump(s, realCatalog);
+  assert.equal(s.activeDialogue?.id, 'dlg_second_relic_dredged');
+  s = { ...s, drainPressure: 100 };
+  s = dredgeSump(s, realCatalog);
+  assert.equal(s.activeDialogue?.id, 'dlg_third_relic_dredged');
+
+  // Multi-step Neighbor Aperture Echoes (4th SOS -> 12th thumb cadence -> 25th sealed twin)
+  s = { ...s, echoDiversionPercent: 50, echoPulsesTriggered: 3, echoChargeSeconds: 11.5 };
+  s = tick(s, 1.0, realCatalog);
+  assert.equal(s.activeDialogue?.id, 'dlg_echo_sos_tapped');
+  s = { ...s, echoPulsesTriggered: 11, echoChargeSeconds: 11.5 };
+  s = tick(s, 1.0, realCatalog);
+  assert.equal(s.activeDialogue?.id, 'dlg_echo_mirror_thumb');
+  s = { ...s, echoPulsesTriggered: 24, echoChargeSeconds: 11.5 };
+  s = tick(s, 1.0, realCatalog);
+  assert.equal(s.activeDialogue?.id, 'dlg_echo_sealed_twin');
+
+  // Multi-step Marrow Blooms (3rd cold city rain draft -> 6th healed wall)
+  s = { ...s, clampRemainingSeconds: 0.5, marrowBloomCount: 2 };
+  s = tick(s, 1.0, realCatalog);
+  assert.equal(s.activeDialogue?.id, 'dlg_third_marrow_bloom');
+  s = { ...s, clampRemainingSeconds: 0.5, marrowBloomCount: 5 };
+  s = tick(s, 1.0, realCatalog);
+  assert.equal(s.activeDialogue?.id, 'dlg_sixth_marrow_bloom');
+
+  // Excision VI Plead for Salvation -> Arc 2 Case Folder #14-B unsigned petition entry
+  const readyForPlea = {
+    ...s,
+    highestExcisionMilestone: 5,
+    ichor: 12000000000,
+    cycleLifetimeIchor: 12000000000,
+    phase: 4,
+  };
+  const arc2 = performBreachToArc2(readyForPlea, realCatalog);
+  assert.equal(arc2.activeArc, GAME_ARCS.ARC_2_INVESTIGATION);
+  assert.ok(arc2.triggeredDialogueIds.includes('dlg_excision_m6_breach'));
+  assert.equal(arc2.activeDialogue?.id, 'dlg_arc2_entry');
+  assert.ok(arc2.activeDialogue.lines.join(' ').toLowerCase().includes('plea for salvation'));
+  const climaxEntry = realCatalog.entries.find((e) => e.id === 'dlg_excision_m6_breach');
+  const climaxText = climaxEntry.lines.join(' ').toLowerCase();
+  assert.ok(climaxText.includes('pulled out') && climaxText.includes('stay'));
+  const allText = realCatalog.entries.map((e) => e.lines.join(' ')).join('\n').toLowerCase();
+  for (const cliche of ['crowbar', 'rescue code', 'blow the chamber open', 'night shift ran late']) {
+    assert.ok(!allText.includes(cliche), `Unexpected escape-room cliché: ${cliche}`);
+  }
 });

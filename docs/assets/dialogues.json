@@ -1,7 +1,7 @@
 {
   "schemaVersion": 3,
   "designReference": "GAME_DESIGN_BIBLE.md",
-  "description": "Patchy, ambiguous, progress-bound narrative fragments for 'The Tending of the Unnamed Organ' across Arc 1 (Excisions I-VI), Arc 2 (The Inquiry), and the Arc 3 threshold. Stored strictly separate from UI and game logic.",
+  "description": "Patchy, ambiguous, progress-bound narrative fragments for 'The Tending of the Unnamed Organ' across Arc 1 (the surreal drift between leaving and acceptance through Excisions I-VI culminating in Plead for Salvation), Arc 2 (The Inquiry), and the Arc 3 threshold. Stored strictly separate from UI and game logic.",
   "phases": [
     {
       "id": 0,
@@ -53,6 +53,21 @@
       "lines": [
         "One drop cleared the iron lip.",
         "The tile stays cold, though something behind the grout shifted its weight."
+      ]
+    },
+    {
+      "id": "dlg_p0_sealed_latch",
+      "phase": 0,
+      "mood": "clinical",
+      "trigger": {
+        "type": "counter_reached",
+        "threshold": 20
+      },
+      "once": true,
+      "speaker": "Corridor Door",
+      "lines": [
+        "A painted door stands behind your shoulder, though you cannot remember which side you walked in from.",
+        "You assume you only stepped inside for a moment to steady the drip before going home."
       ]
     },
     {
@@ -116,6 +131,21 @@
       "lines": [
         "Blind, segmented, tireless. It clings to the glass over the tally and chews the figures upward.",
         "Perhaps it is not helping you count. Perhaps it is grazing."
+      ]
+    },
+    {
+      "id": "dlg_p1_vent_draft",
+      "phase": 1,
+      "mood": "uncanny",
+      "trigger": {
+        "type": "counter_reached",
+        "threshold": 450
+      },
+      "once": true,
+      "speaker": "Ceiling Grate",
+      "lines": [
+        "Warm air drifts down from the ceiling grate, smelling faintly of wet chalk and rain you might have invented.",
+        "You pause to recall the name of the street above this room, and only a cold room number comes back."
       ]
     },
     {
@@ -196,6 +226,36 @@
       ]
     },
     {
+      "id": "dlg_p2_corridor_silence",
+      "phase": 2,
+      "mood": "depressive",
+      "trigger": {
+        "type": "counter_reached",
+        "threshold": 5500
+      },
+      "once": true,
+      "speaker": "Door Seam",
+      "lines": [
+        "Between drips you listen for shoes on a hallway outside, though the silence sounds less empty than finished.",
+        "Only the plaster behind the hinges breathes inward, unhurried, as if the corridor already went home without you."
+      ]
+    },
+    {
+      "id": "dlg_p2_three_jars",
+      "phase": 2,
+      "mood": "depressive",
+      "trigger": {
+        "type": "jar_bottled",
+        "threshold": 3
+      },
+      "once": true,
+      "speaker": "Incubation Shelf // Row I",
+      "lines": [
+        "Three wax-stopped jars sit along the ledge like small errands you forgot to finish outside.",
+        "You write your name across the grey wax, less to prove who you are than to see whether the letters still look familiar."
+      ]
+    },
+    {
       "id": "dlg_p3_collapse_meaning",
       "phase": 3,
       "mood": "existential",
@@ -240,6 +300,21 @@
       "lines": [
         "Four small hungers stitched into one quieter throat.",
         "Output improved. Something that used to tap in time with your heartbeat stopped."
+      ]
+    },
+    {
+      "id": "dlg_p3_mortar_scrape",
+      "phase": 3,
+      "mood": "existential",
+      "trigger": {
+        "type": "counter_reached",
+        "threshold": 42000
+      },
+      "once": true,
+      "speaker": "Door Jamb",
+      "lines": [
+        "Beneath a curl of blistered paint, grey mortar sits flush across the frame—dry, smooth, and older than your memory of arriving.",
+        "It does not look sealed against you; it looks finished around you, as though the room grew shut once you took your place."
       ]
     },
     {
@@ -300,7 +375,7 @@
       "speaker": "Surgical Tray",
       "lines": [
         "There is no room left for anything else to grow. A cold blade rests beside the drain.",
-        "Cut it back to the tile. You already know you will not leave while the knife is in your hand."
+        "Cut it back to bare tile—not to break through the wall, only to see whether the room still remembers how it looked before you belonged to it."
       ]
     },
     {
@@ -314,8 +389,8 @@
       "once": true,
       "speaker": "Intake Slip #01 (Overwritten)",
       "lines": [
-        "The chamber is bare again, colder than before, except for the pale seam stitched across the tile.",
-        "Someone wrote your initials under the valve long before you arrived. Press again."
+        "The chamber is bare again, colder than before, and the bricked threshold looks no newer than the day you arrived.",
+        "Beneath the valve rim, your own initials sit worn smooth by years of thumbs. You press again as if returning to a coat left over a chair."
       ]
     },
     {
@@ -351,6 +426,81 @@
       ]
     },
     {
+      "id": "dlg_cycle_3_mortar_tally",
+      "phase": 0,
+      "mood": "depressive",
+      "trigger": {
+        "type": "excision_completed",
+        "threshold": 3
+      },
+      "once": true,
+      "speaker": "Intake Slip #03",
+      "lines": [
+        "Three times pared back to bare tile. In the quiet between passes you try to sketch the street outside in the wet grout.",
+        "Every corner you draw turns gently inward until it meets the same recessed iron valve."
+      ]
+    },
+    {
+      "id": "dlg_excision_farm_cycles",
+      "phase": 0,
+      "mood": "depressive",
+      "trigger": {
+        "type": "excision_completed",
+        "threshold": 6
+      },
+      "once": true,
+      "speaker": "Intake Slip #06",
+      "lines": [
+        "Six times you cut the growth back to bare tile just to carry pale ridges back to the chart.",
+        "The blade no longer hesitates; even your patience has begun to feel like part of the plumbing."
+      ]
+    },
+    {
+      "id": "dlg_cycle_10_worn_grout",
+      "phase": 0,
+      "mood": "hopeless",
+      "trigger": {
+        "type": "excision_completed",
+        "threshold": 10
+      },
+      "once": true,
+      "speaker": "Intake Slip #10",
+      "lines": [
+        "Ten severances. Your heels have worn two shallow bowls into the tile in front of the valve.",
+        "You no longer glance toward the bricked doorway after a reset; your hand finds the cold iron before you remember deciding to stay."
+      ]
+    },
+    {
+      "id": "dlg_jar_five_sealed",
+      "phase": 3,
+      "mood": "depressive",
+      "trigger": {
+        "type": "jar_bottled",
+        "threshold": 5
+      },
+      "once": true,
+      "speaker": "Incubation Shelf // Deep Row",
+      "lines": [
+        "Five sealed vessels trembling on the ledge—each holding a stretch of quiet you refused to spend on panic.",
+        "When you press the fifth jar to your ear, you almost imagine distant street traffic humming through the wax."
+      ]
+    },
+    {
+      "id": "dlg_jar_all_six",
+      "phase": 4,
+      "mood": "hopeless",
+      "trigger": {
+        "type": "jar_bottled",
+        "threshold": 6
+      },
+      "once": true,
+      "speaker": "Incubation Shelf // Full",
+      "lines": [
+        "All six jars stand dark and brimming, down to the uncounted hour you stopped asking what day it was.",
+        "Nothing in the chamber wastes a silence anymore; even your surrender is measured to the drop."
+      ]
+    },
+    {
       "id": "dlg_scar_first_incision",
       "phase": 0,
       "mood": "existential",
@@ -366,6 +516,162 @@
       ]
     },
     {
+      "id": "dlg_scar_mid_tree",
+      "phase": 0,
+      "mood": "existential",
+      "trigger": {
+        "type": "scar_node_unlocked",
+        "threshold": 8
+      },
+      "once": true,
+      "speaker": "Suture Chart // Mid-Folio",
+      "lines": [
+        "Half the chart is stitched shut now, pale seams crossing the valve like maps of a ward no one leaves.",
+        "Each shortcut returns you to the bare tile quicker, yet the floor never feels any less cold."
+      ]
+    },
+    {
+      "id": "dlg_scar_deep_tree",
+      "phase": 0,
+      "mood": "hopeless",
+      "trigger": {
+        "type": "scar_node_unlocked",
+        "threshold": 14
+      },
+      "once": true,
+      "speaker": "Suture Chart // Margin End",
+      "lines": [
+        "Almost every ridge on the chart has been sewn into the masonry; the valve turns whether you lift your hand or not.",
+        "You built an apparatus efficient enough to forget why you ever stood beside the bricked-over door."
+      ]
+    },
+    {
+      "id": "dlg_scar_branch_suture_t4",
+      "phase": 0,
+      "mood": "existential",
+      "trigger": {
+        "type": "scar_node_specific",
+        "target": "membrane_recall",
+        "threshold": 1
+      },
+      "once": true,
+      "speaker": "Suture Margin // Leverage",
+      "lines": [
+        "You taught the room to leave its lamps and sump-bladders waiting before the tile even cools.",
+        "Faster hands cannot unbrick a doorway, yet haste still borrows the feeling of somewhere else to be."
+      ]
+    },
+    {
+      "id": "dlg_scar_branch_suture_t5",
+      "phase": 0,
+      "mood": "hopeless",
+      "trigger": {
+        "type": "scar_node_specific",
+        "target": "perpetual_seam",
+        "threshold": 1
+      },
+      "once": true,
+      "speaker": "Suture Margin // Capstone",
+      "lines": [
+        "Now the iron wheel ratchets on its own while your arms hang empty at your sides.",
+        "Nothing holds you to the valve anymore, and still your feet stay planted in the two shallow bowls worn into the floor."
+      ]
+    },
+    {
+      "id": "dlg_scar_branch_stillness_t4",
+      "phase": 0,
+      "mood": "depressive",
+      "trigger": {
+        "type": "scar_node_specific",
+        "target": "hollow_lung_choir",
+        "threshold": 1
+      },
+      "once": true,
+      "speaker": "Stillness Margin // Breath",
+      "lines": [
+        "In the hush between taps, the grafted lungs pull deep enough to rattle the rusted floor grate.",
+        "You listen past their breathing for a street overhead, uncertain whether you miss the rain or only the idea of it."
+      ]
+    },
+    {
+      "id": "dlg_scar_branch_stillness_t5",
+      "phase": 0,
+      "mood": "hopeless",
+      "trigger": {
+        "type": "scar_node_specific",
+        "target": "catatonic_tide",
+        "threshold": 1
+      },
+      "once": true,
+      "speaker": "Stillness Margin // Capstone",
+      "lines": [
+        "Stillness pours through the chamber like grey groundwater now, carrying every jar and vein without effort.",
+        "At first you stayed motionless to gather yourself before leaving; now stillness feels less like waiting than arriving."
+      ]
+    },
+    {
+      "id": "dlg_scar_branch_marrow_t4",
+      "phase": 0,
+      "mood": "grotesque",
+      "trigger": {
+        "type": "scar_node_specific",
+        "target": "bloom_incision",
+        "threshold": 1
+      },
+      "once": true,
+      "speaker": "Marrow Margin // Rupture",
+      "lines": [
+        "Every fissure splits wider and faster under your fingers now, as though the concrete opens out of habit.",
+        "Behind every parted tile waits another pale skin of damp brick, patient and unhurried as the room itself."
+      ]
+    },
+    {
+      "id": "dlg_scar_branch_marrow_t5",
+      "phase": 0,
+      "mood": "existential",
+      "trigger": {
+        "type": "scar_node_specific",
+        "target": "bone_resonance",
+        "threshold": 1
+      },
+      "once": true,
+      "speaker": "Marrow Margin // Capstone",
+      "lines": [
+        "Your left-thumb scar aches in exact cadence with the pale ribs curving through the mortar.",
+        "You looked so long for where the wall ended and you began that the masonry learned your pulse by heart."
+      ]
+    },
+    {
+      "id": "dlg_repeatable_graft_first",
+      "phase": 0,
+      "mood": "depressive",
+      "trigger": {
+        "type": "repeatable_graft_total",
+        "threshold": 1
+      },
+      "once": true,
+      "speaker": "Surgical Ledger // Repeat Stitch",
+      "lines": [
+        "You fold leftover scar over scar, thickening the seam instead of wondering what lies past the grout.",
+        "Making the chamber easier to bear is only a quieter way of consenting to it."
+      ]
+    },
+    {
+      "id": "dlg_repeatable_graft_deep",
+      "phase": 0,
+      "mood": "hopeless",
+      "trigger": {
+        "type": "repeatable_graft_total",
+        "threshold": 4
+      },
+      "once": true,
+      "speaker": "Surgical Ledger // Keloid Layers",
+      "lines": [
+        "Four layers of repeat sutures now ridge the chart; each run cuts cleaner and asks less of you.",
+        "What unsettles you most is not the sealed tile, but how little you flinch at the thought of never leaving it."
+      ]
+    },
+    {
       "id": "dlg_excision_m2_drain",
       "phase": 0,
       "mood": "grotesque",
@@ -377,7 +683,7 @@
       "speaker": "Floor Grate Ledger",
       "lines": [
         "Black runoff now pools beneath the iron floor grate instead of draining away.",
-        "Something metallic knocks gently against the underside of the bars whenever the valve stops."
+        "Water has to go somewhere, you think—though the slow eddy beneath the bars looks less like an outlet than a return."
       ]
     },
     {
@@ -405,10 +711,55 @@
         "threshold": 1
       },
       "once": true,
-      "speaker": "Sump Recovery Tag",
+      "speaker": "Sump Recovery // Wristband",
       "lines": [
-        "Hooked from the black sump: a waterlogged plastic wristband stamped with the same ward floor as the brass rib tag.",
-        "The clasp is unfastened, yet the band is still shaped to a narrow wrist."
+        "Hooked from the black sump: a waterlogged wristband stamped with the same ward floor as the brass rib tag.",
+        "The ink is still wet, as if it drifted down the drain only minutes before you fished it back up."
+      ]
+    },
+    {
+      "id": "dlg_second_relic_dredged",
+      "phase": 2,
+      "mood": "depressive",
+      "trigger": {
+        "type": "relic_dredged",
+        "threshold": 2
+      },
+      "once": true,
+      "speaker": "Sump Recovery // Brass Key",
+      "lines": [
+        "A bent brass ward key rises on the hook, its teeth worn completely smooth from turning nothing.",
+        "You set it beside the bricked doorway anyway—not expecting a lock, only observing an old politeness."
+      ]
+    },
+    {
+      "id": "dlg_third_relic_dredged",
+      "phase": 3,
+      "mood": "hopeless",
+      "trigger": {
+        "type": "relic_dredged",
+        "threshold": 3
+      },
+      "once": true,
+      "speaker": "Sump Recovery // Bleeding Logbook",
+      "lines": [
+        "The waterlogged logbook lists municipal storm mains and damp sub-basements, its final three pages already dated tomorrow in your own neat margin hand.",
+        "The drain beneath these tiles does not carry things away; it folds them under the city and brings them back home."
+      ]
+    },
+    {
+      "id": "dlg_relic_repeat_dredge",
+      "phase": 3,
+      "mood": "existential",
+      "trigger": {
+        "type": "relic_dredged",
+        "threshold": 5
+      },
+      "once": true,
+      "speaker": "Sump Recovery // Recirculation",
+      "lines": [
+        "You keep hauling the same sodden relics back out of the sump cycle after cycle, heavier every time.",
+        "Nothing you drop into this room ever truly leaves it; even loss comes back on the hook."
       ]
     },
     {
@@ -423,7 +774,7 @@
       "speaker": "Unbricked Wall Slit",
       "lines": [
         "A hairline fissure opened through the north mortar into an identical dim chamber.",
-        "Through the slit you see another recessed valve sweating at the exact height of your own chest."
+        "For a moment you wonder whether their door still opens—or whether they have already forgotten what doors are for."
       ]
     },
     {
@@ -442,6 +793,51 @@
       ]
     },
     {
+      "id": "dlg_echo_sos_tapped",
+      "phase": 3,
+      "mood": "depressive",
+      "trigger": {
+        "type": "echo_routed",
+        "threshold": 4
+      },
+      "once": true,
+      "speaker": "Adjacent Masonry // Signal",
+      "lines": [
+        "You pause the count and tap a small, hesitant signal against the wet brick—three soft knocks asking simply if anyone remembers the weather.",
+        "The answer comes back steady and unhurried, matching your tally beat for beat as though weather were just another old ledger entry."
+      ]
+    },
+    {
+      "id": "dlg_echo_mirror_thumb",
+      "phase": 3,
+      "mood": "existential",
+      "trigger": {
+        "type": "echo_routed",
+        "threshold": 12
+      },
+      "once": true,
+      "speaker": "Adjacent Masonry // Cadence",
+      "lines": [
+        "Twelve exchanges through the slit, and every pause in their knocking carries the exact stiff hitch of your own scarred left thumb.",
+        "Neither of you asks how to leave anymore; you are only checking that the other is still keeping time."
+      ]
+    },
+    {
+      "id": "dlg_echo_sealed_twin",
+      "phase": 4,
+      "mood": "hopeless",
+      "trigger": {
+        "type": "echo_routed",
+        "threshold": 25
+      },
+      "once": true,
+      "speaker": "Adjacent Masonry // Quiet",
+      "lines": [
+        "Twenty-five pulses later, the cadence across the brick feels strangely comforting—two rooms breathing in the same slow meter.",
+        "You cannot tell whether a neighbor answered you, or whether solitude finally learned to keep itself company."
+      ]
+    },
+    {
       "id": "dlg_excision_m4_clamp",
       "phase": 0,
       "mood": "heavy",
@@ -452,8 +848,8 @@
       "once": true,
       "speaker": "Iron Clamp Order",
       "lines": [
-        "A rusted collar bolts directly over the valve lip. Holding it shut forces the plaster to swell like a held lung.",
-        "Restraint here is only another way of bruising the masonry open."
+        "A rusted collar bolts over the valve lip. Holding it shut forces the chamber to hold its breath until the grout swells and hums.",
+        "In the silence of a clamped vein, you wait to hear whether anything outside the masonry still moves."
       ]
     },
     {
@@ -467,8 +863,38 @@
       "once": true,
       "speaker": "Ruptured Grout",
       "lines": [
-        "Twenty seconds of clamped silence split four seams across the tile at once.",
-        "The whole room exhaled lukewarm static—and for one breath, you thought you smelled rain."
+        "Twenty seconds of clamped hush split four seams across the tile at once.",
+        "Pale dust drifted onto your shoes, and for one breathless instant the room felt thin enough to step right out of."
+      ]
+    },
+    {
+      "id": "dlg_third_marrow_bloom",
+      "phase": 4,
+      "mood": "depressive",
+      "trigger": {
+        "type": "marrow_bloom",
+        "threshold": 3
+      },
+      "once": true,
+      "speaker": "Ceiling Fissure // Cold Draft",
+      "lines": [
+        "At the crest of the third bloom, a hairline crack opens above the lamp and breathes in one cold draft of city rain and wet asphalt.",
+        "Then warm plaster knits the seam shut again—and what terrifies you is the faint, shameful relief as the cold disappears."
+      ]
+    },
+    {
+      "id": "dlg_sixth_marrow_bloom",
+      "phase": 4,
+      "mood": "hopeless",
+      "trigger": {
+        "type": "marrow_bloom",
+        "threshold": 6
+      },
+      "once": true,
+      "speaker": "Ruptured Grout // Healed",
+      "lines": [
+        "Six times you held the valve shut until the walls parted, and six times the masonry closed back warmer and closer around your shoulders.",
+        "You stop clamping it to look for an exit; you clamp it now only to feel the room lean in."
       ]
     },
     {
@@ -484,7 +910,7 @@
       "speaker": "Thoracic Graft Note",
       "lines": [
         "Two weeping vessels stitched around a choir-tendril until they share one slow inhale.",
-        "It keeps breathing long after your own shoulders drop."
+        "It keeps breathing the room's stale damp long after your own shoulders drop."
       ]
     },
     {
@@ -558,23 +984,23 @@
       "once": true,
       "speaker": "Rite of the Quiet Vessel [IV]",
       "lines": [
-        "\"When the vessel reaches critical mass, the mortar thins enough for the subject to remember a desk.\"",
-        "One final cut remains—not through flesh, but through the wall itself."
+        "\"An attendant who ceases to distinguish threshold from wall no longer requires egress. Leave one wet seam for petitions and rain.\"",
+        "The ink is dry and strangely gentle. Neither fighting nor staying feels like a choice anymore—only a quiet weight waiting to be laid down."
       ]
     },
     {
       "id": "dlg_excision_m6_breach",
       "phase": 4,
-      "mood": "surreal",
+      "mood": "hopeless",
       "trigger": {
         "type": "excision_milestone_reached",
         "threshold": 6
       },
       "once": true,
-      "speaker": "Fracture Threshold",
+      "speaker": "The Last Seam",
       "lines": [
-        "The scalpel catches the iron seam and parts the mortar straight through.",
-        "The damp counter fractures into tungsten glare—and somewhere behind the tile, cold rain strikes office glass."
+        "You lay your palm flat against the warm tile and press one last unaddressed plea for salvation into the damp seam—unable to tell whether you are praying to be pulled out, or forgiven for wanting to stay.",
+        "Somewhere beyond the grout, cold rain begins to fall against glass, as if one half of you stepped outside just to come looking for what remained."
       ]
     },
     {
@@ -589,8 +1015,8 @@
       "once": true,
       "speaker": "Case Folder #14-B",
       "lines": [
-        "Rain streaks the precinct window. Three municipal caretakers vanished from Hydro-Ward IV without signing out.",
-        "Your tungsten desk lamp hums softly over damp manila slips. Stamp the ledger and trace where they went."
+        "Rain streaks the precinct glass. Open on your blotter lies an unsigned, water-stained plea for salvation—the ink bled into Day 14, smelling faintly of damp grout.",
+        "No return address, no intake stamp—only a faint thumb smudge and three missing Hydro-Ward attendants. Stamp the file and begin."
       ]
     },
     {
@@ -669,7 +1095,7 @@
       "speaker": "Chapter I // Missing Caretakers",
       "lines": [
         "Every missing attendant filed a final maintenance slip dated Day 14 in bled ink.",
-        "Laid side by side under the lamp, all three signatures share your own sharp rightward slant."
+        "Laid beside the water-stained petition under your lamp, all four signatures carry the exact rightward slant of your own hand."
       ]
     },
     {

@@ -17,6 +17,7 @@ import {
   INVESTIGATION_CHAPTERS,
   INVESTIGATOR_CONTACTS,
   ORGAN_BALANCE,
+  REPEATABLE_SCAR_GRAFTS,
   SCAR_NODES,
   SPECIMEN_JAR_LIST,
   WALL_ANOMALY_TYPES,
@@ -31,6 +32,7 @@ import {
   canAffordChoirLung,
   canAffordGraft,
   canBreachToArc2,
+  canBuyRepeatableGraft,
   canClearNextMilestone,
   canDredgeSump,
   canExcise,
@@ -50,6 +52,7 @@ import {
   formatMultiplier,
   graftCooldownDurationSec,
   graftStillnessCost,
+  hasExcessMilestoneMass,
   hasNode,
   ichorDisplay,
   ichorPerSecond,
@@ -61,6 +64,7 @@ import {
   isGraftUnlocked,
   isJarUnlocked,
   isJarsAndGraftUnlocked,
+  isRepeatableGraftsUnlocked,
   isScarTreeUnlocked,
   isValveClamped,
   manualTapYield,
@@ -70,20 +74,23 @@ import {
   nextScarProgress,
   pendingScarTissue,
   relicIchorMultiplier,
+  repeatableCost,
+  repeatableRank,
   scarMultiplier,
   scarNodeById,
   scarStillnessMultiplier,
   stillnessDisplay,
   stillnessIdleDelaySec,
   totalCreatureIchorPerSec,
-} from './engine.js?v=2.4';
+  valveClampDurationSec,
+} from './engine.js?v=2.7';
 import {
   drawActionArtwork,
   drawAnomalyGlyph,
   drawDeskAnomalyGlyph,
   drawSumpSiphonPortrait,
   drawWeepingLampPortrait,
-} from './chamberCanvas.js?v=2.4';
+} from './chamberCanvas.js?v=2.7';
 
 export function createUiController(handlers) {
   const els = {
@@ -274,7 +281,7 @@ export function createUiController(handlers) {
     const ready = canClearNextMilestone(state) || canBreachToArc2(state) || canExcise(state);
     els.thresholdStatus.classList.toggle('threshold-status--ready', ready);
     if (canBreachToArc2(state)) {
-      els.thresholdStatus.textContent = 'MORTAR FRACTURED // BREACH RITUAL READY';
+      els.thresholdStatus.textContent = 'SEAM UNSEALED // PLEAD FOR SALVATION';
     } else if (canClearNextMilestone(state) && nextM) {
       els.thresholdStatus.textContent = `${nextM.code} READY`;
     } else if (state.nextPhaseThreshold != null) {
@@ -814,6 +821,43 @@ export function createUiController(handlers) {
     });
     els.deckContent.appendChild(detail);
 
+    const repeatSection = document.createElement('div');
+    repeatSection.className = 'scar-repeatables-section';
+    repeatSection.dataset.role = 'scar-repeatables';
+    const repeatTitle = document.createElement('div');
+    repeatTitle.className = 'scar-repeatables-title';
+    repeatTitle.textContent = 'REPEATABLE SURGICAL GRAFTS';
+    const repeatLocked = document.createElement('div');
+    repeatLocked.className = 'locked-hint';
+    repeatLocked.textContent = 'SUTURE FIRST INCISION TO OPEN REPEATABLE GRAFTS';
+    const repeatList = document.createElement('div');
+    repeatList.className = 'scar-repeatables-list';
+
+    const repeatableRefs = [];
+    for (const graft of REPEATABLE_SCAR_GRAFTS) {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'deck-row scar-repeatable-row';
+      btn.dataset.repeatableGraftId = graft.id;
+      btn.innerHTML = `
+        <span class="deck-row-text">
+          <span class="deck-row-title" data-role="rep-title"></span>
+          <span class="deck-row-sub">${graft.desc}</span>
+        </span>
+        <span class="deck-row-pill" data-role="rep-pill"></span>
+      `;
+      btn.addEventListener('click', () => handlers.onBuyRepeatableScarGraft(graft.id));
+      repeatList.appendChild(btn);
+      repeatableRefs.push({
+        graft,
+        btn,
+        titleEl: btn.querySelector('[data-role="rep-title"]'),
+        pillEl: btn.querySelector('[data-role="rep-pill"]'),
+      });
+    }
+    repeatSection.append(repeatTitle, repeatLocked, repeatList);
+    els.deckContent.appendChild(repeatSection);
+
     scarPanelRefs = {
       summary,
       nodeRefs,
@@ -821,6 +865,9 @@ export function createUiController(handlers) {
       costEl: detail.querySelector('[data-role="scar-detail-cost"]'),
       descEl: detail.querySelector('[data-role="scar-detail-desc"]'),
       actionBtn,
+      repeatLocked,
+      repeatList,
+      repeatableRefs,
     };
 
     updateScarTreeInPlace(state);
@@ -870,6 +917,21 @@ export function createUiController(handlers) {
       : active.prerequisite && !hasNode(state, active.prerequisite)
         ? `REQUIRES: ${scarNodeById(active.prerequisite)?.name ?? ''}`
         : `SUTURE (${active.cost} SCAR)`;
+
+    const repeatablesOpen = isRepeatableGraftsUnlocked(state);
+    scarPanelRefs.repeatLocked.hidden = repeatablesOpen;
+    scarPanelRefs.repeatList.hidden = !repeatablesOpen;
+    if (repeatablesOpen) {
+      for (const { graft, btn, titleEl, pillEl } of scarPanelRefs.repeatableRefs) {
+        const rank = repeatableRank(state, graft);
+        const cost = repeatableCost(state, graft);
+        const affordable = canBuyRepeatableGraft(state, graft);
+        btn.disabled = !affordable;
+        btn.classList.toggle('deck-row--accent', rank > 0);
+        titleEl.textContent = `${graft.name} [RANK ${rank}]`;
+        pillEl.textContent = `GRAFT · ${formatInteger(cost)} SCAR`;
+      }
+    }
   }
 
   function buildChamberRitesPanel(state) {
@@ -1125,7 +1187,7 @@ export function createUiController(handlers) {
       clampBtn.disabled = clamped;
       clampBtn.textContent = clamped
         ? `SWELLING (${Math.ceil(state.clampRemainingSeconds)}s)`
-        : 'CLAMP VALVE (20s)';
+        : `CLAMP VALVE (${Math.round(valveClampDurationSec(state))}s)`;
     }
 
     if (ritesPanelRefs.dossier) {
@@ -1171,9 +1233,9 @@ export function createUiController(handlers) {
       const breachCard = document.createElement('div');
       breachCard.className = 'file-zero-card';
       breachCard.innerHTML = `
-        <div class="file-zero-kicker">EXCISION VI // THE BREACH RITUAL</div>
-        <p class="file-zero-body">Cut past bone and mortar alike. Cross into The Inquiry while preserving this room.</p>
-        <button type="button" class="excision-btn excision-btn--confirm" data-role="breach-btn">CUT THROUGH THE MORTAR</button>
+        <div class="file-zero-kicker">EXCISION VI // PLEAD FOR SALVATION</div>
+        <p class="file-zero-body">Lay your palm against the last wet seam. Ask the rain outside for salvation—whether that means being found, or finally forgetting there was ever a door.</p>
+        <button type="button" class="excision-btn excision-btn--confirm" data-role="breach-btn">PLEAD FOR SALVATION</button>
       `;
       breachCard.querySelector('[data-role="breach-btn"]').addEventListener('click', () => {
         handlers.onPerformBreachToArc2();
@@ -1189,8 +1251,18 @@ export function createUiController(handlers) {
     summary.className = 'excision-summary';
     summary.textContent =
       canClearNextMilestone(state) && nextM
-        ? 'Milestone threshold breached — unlocks on severance.'
+        ? 'SEAM READY — SEVERING UNLOCKS THIS MILESTONE'
         : 'Cut away the overgrown mass to carry its scars forward.';
+
+    const milestoneLine = document.createElement('div');
+    milestoneLine.className = 'excision-milestone-line';
+    milestoneLine.hidden = !nextM;
+
+    const seamNote = document.createElement('div');
+    seamNote.className = 'excision-seam-note';
+    seamNote.textContent =
+      'ONLY ONE SEAM GIVES WAY PER EXCISION — SURPLUS MASS STILL HARVESTS AS SCARS';
+    seamNote.hidden = !hasExcessMilestoneMass(state);
 
     const reward = document.createElement('div');
     reward.className = 'excision-reward';
@@ -1208,15 +1280,14 @@ export function createUiController(handlers) {
     nextScarTrack.appendChild(nextScarFill);
     nextScarBlock.append(nextScarLabel, nextScarTrack);
 
-    panel.append(title, summary, reward, nextScarBlock);
+    panel.append(title, summary, milestoneLine, seamNote, reward, nextScarBlock);
 
+    let armBtn = null;
     if (canExcise(state)) {
       if (!excisionArmed) {
-        const armBtn = document.createElement('button');
+        armBtn = document.createElement('button');
         armBtn.type = 'button';
         armBtn.className = 'excision-btn excision-btn--arm';
-        armBtn.textContent =
-          canClearNextMilestone(state) && nextM ? `EXECUTE ${nextM.code}` : 'EXCISE & MOLT';
         armBtn.addEventListener('click', () => {
           excisionArmed = true;
           lastDeckSignature = '';
@@ -1251,22 +1322,53 @@ export function createUiController(handlers) {
     }
 
     els.deckContent.appendChild(panel);
-    excisionRefs = { cycleLine, resonanceLine, reward, nextScarLabel, nextScarFill };
+    excisionRefs = {
+      cycleLine,
+      resonanceLine,
+      milestoneLine,
+      seamNote,
+      reward,
+      nextScarLabel,
+      nextScarFill,
+      armBtn,
+    };
     updateExcisionInPlace(state);
   }
 
   function updateExcisionInPlace(state) {
     if (!excisionRefs) return;
-    const { cycleLine, resonanceLine, reward, nextScarLabel, nextScarFill } = excisionRefs;
+    const {
+      cycleLine,
+      resonanceLine,
+      milestoneLine,
+      seamNote,
+      reward,
+      nextScarLabel,
+      nextScarFill,
+      armBtn,
+    } = excisionRefs;
     const totalIchorMult =
       scarMultiplier(state) * relicIchorMultiplier(state) * dossierIchorMultiplier(state);
+    const nextM = nextExcisionMilestone(state);
+    const pending = pendingScarTissue(state);
     cycleLine.textContent = `CYCLE ${String(state.cycle).padStart(2, '0')} · MILESTONE M${state.highestExcisionMilestone}/6 · TOTAL SCAR ${formatInteger(state.scarTissue)}`;
     resonanceLine.textContent = `RESONANCE: ×${formatMultiplier(totalIchorMult)} ICHOR · ×${formatMultiplier(scarStillnessMultiplier(state))} STILLNESS`;
+    milestoneLine.hidden = !nextM;
+    if (nextM) {
+      milestoneLine.textContent = `NEXT MILESTONE: ${nextM.code} (${formatInteger(cycleLifetimeIchorDisplay(state))} / ${formatInteger(nextM.massThreshold)})`;
+    }
+    seamNote.hidden = !hasExcessMilestoneMass(state);
     reward.textContent = canExcise(state)
-      ? `HARVEST YIELD: +${formatInteger(pendingScarTissue(state))} SCAR TISSUE`
+      ? `HARVEST YIELD: +${formatInteger(pending)} SCAR TISSUE`
       : 'REACH 210,000 CYCLE ICHOR TO HARVEST';
     nextScarLabel.textContent = `NEXT SCAR TISSUE: ${formatInteger(cycleLifetimeIchorDisplay(state))} / ${formatInteger(nextBaseScarMassThreshold(state))}`;
     nextScarFill.style.width = `${(nextScarProgress(state) * 100).toFixed(1)}%`;
+    if (armBtn) {
+      armBtn.textContent =
+        canClearNextMilestone(state) && nextM
+          ? `SEVER EXCISION ${nextM.number} (+${formatInteger(pending)} SCAR)`
+          : `HARVEST SCARS EARLY (+${formatInteger(pending)})`;
+    }
   }
 
   function renderDeck(state) {
@@ -1286,7 +1388,9 @@ export function createUiController(handlers) {
       visibleCreatures.map((c) => c.id).join(','),
       `m${state.highestExcisionMilestone}`,
       isGraftUnlocked(state) ? 'g1' : 'g0',
+      canExcise(state) ? 'ex1' : 'ex0',
       canClearNextMilestone(state) ? 'cm1' : 'cm0',
+      hasExcessMilestoneMass(state) ? 'ov1' : 'ov0',
       canBreachToArc2(state) ? 'br1' : 'br0',
       excisionArmed ? 'arm1' : 'arm0',
     ].join('|');

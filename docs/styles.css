@@ -1988,4 +1988,47 @@ body[data-arc='arc_2'] {
   transition: border-color 280ms ease, box-shadow 280ms ease;
 }
 
+/* ==================== REPEATABLE SURGICAL GRAFTS & SEAM-HOLD NOTE ==================== */
+.scar-repeatables-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--hairline);
+}
+
+.scar-repeatables-title {
+  font-size: 10.5px;
+  letter-spacing: 1.2px;
+  color: var(--pale-lichen);
+}
+
+.scar-repeatables-list {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.scar-repeatable-row {
+  min-height: 50px;
+}
+
+.excision-milestone-line {
+  font-size: 11px;
+  letter-spacing: 0.8px;
+  color: var(--pale-lichen);
+}
+
+.excision-seam-note {
+  padding: 7px 9px;
+  background: rgba(40, 25, 26, 0.48);
+  border: 1px solid rgba(123, 74, 74, 0.65);
+  border-radius: 2px;
+  font-size: 10px;
+  line-height: 1.45;
+  letter-spacing: 0.7px;
+  color: var(--dried-clot);
+}
+
+
 

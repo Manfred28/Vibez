@@ -37,6 +37,7 @@ import androidx.compose.ui.window.Dialog
 import com.example.R
 import com.example.game.GameArc
 import com.example.game.OrganGameState
+import com.example.game.ScarNodeId
 import com.example.ui.theme.BleakTheme
 
 /**
@@ -158,7 +159,7 @@ fun DevToolsModal(
           ) {
             DevChip(
               label = "UNLOCK ALL SCARS",
-              selected = state.unlockedScarNodes.size == 10,
+              selected = state.unlockedScarNodes.size == ScarNodeId.entries.size,
               testTag = "dev_unlock_all_scars",
               onClick = { onSetAllScarNodes(true) },
               modifier = Modifier.weight(1f),
@@ -234,11 +235,11 @@ fun DevToolsModal(
               modifier = Modifier.weight(1f),
             )
             DevChip(
-              label = "+5B ICHOR",
+              label = "+15B ICHOR",
               selected = false,
               testTag = "dev_add_5b_ichor",
               onClick = {
-                val next = state.ichor + 5_000_000_000.0
+                val next = state.ichor + 15_000_000_000.0
                 ichorInput = next.toLong().toString()
                 onAssignArc1Resources(next, null, null)
               },
