@@ -179,6 +179,9 @@ fun OrganScreen(
 
   var selectedTab by remember { mutableStateOf(OrganDeckTab.APPARATUS) }
   var archiveVisible by remember { mutableStateOf(false) }
+  var latestDripEvent by remember { mutableStateOf<com.example.ui.components.ThematicDripEvent?>(null) }
+  var nextDripId by remember { mutableStateOf(1L) }
+  val eventSpeakerLabel = stringResource(R.string.drip_event_speaker)
   val scrollState = rememberScrollState()
 
   LaunchedEffect(state.cycle) {
@@ -253,7 +256,7 @@ fun OrganScreen(
           center = Offset(size.width * 0.24f - driftX, size.height * 0.20f),
         )
 
-        val stepPx = 10.dp.toPx().coerceAtLeast(6f)
+        val stepPx = 12.dp.toPx().coerceAtLeast(8f)
         var y = 0f
         val scanlineColor = colorScheme.onBackground.copy(alpha = atmosphere.scanlineAlpha)
         while (y < size.height) {
@@ -296,6 +299,15 @@ fun OrganScreen(
           dropPhaseProvider = { dropPhaseState.value },
           onPressValve = onPressValve,
           onInteractAnomaly = onInteractAnomaly,
+          onEmitThematicDrip = { text ->
+            val id = nextDripId++
+            latestDripEvent =
+              com.example.ui.components.ThematicDripEvent(
+                id = id,
+                speaker = "// $eventSpeakerLabel",
+                text = text,
+              )
+          },
           modifier = Modifier.height(300.dp),
         )
 
@@ -327,6 +339,13 @@ fun OrganScreen(
 
         Spacer(modifier = Modifier.height(8.dp))
       }
+
+      // Dual-lane non-blocking side-margin dripping overlay (Right = Story priority, Left = Chamber events)
+      com.example.ui.components.DrippingTransmissionOverlay(
+        activeDialogue = state.activeDialogue,
+        latestEvent = latestDripEvent,
+        modifier = Modifier.fillMaxSize(),
+      )
     }
   }
 
@@ -366,10 +385,6 @@ private fun PhaseTelemetryHeader(
       numberFormat.format(state.cycleLifetimeIchorDisplay) to numberFormat.format(targetExcisionMass)
     }
 
-  val formattedScar = remember(state.scarTissue) { numberFormat.format(state.scarTissue) }
-  val formattedAvailScar =
-    remember(state.availableScarTissue) { numberFormat.format(state.availableScarTissue) }
-
   Column(modifier = modifier.fillMaxWidth()) {
     Row(
       modifier = Modifier.fillMaxWidth(),
@@ -392,42 +407,6 @@ private fun PhaseTelemetryHeader(
           color = colorScheme.tertiary,
         )
         DevToolsTriggerPill(onClick = onOpenDevTools)
-      }
-    }
-
-    if (state.cycle > 0 || state.scarTissue > 0L || state.highestExcisionMilestone > 0) {
-      Spacer(modifier = Modifier.height(4.dp))
-      Text(
-        text = stringResource(R.string.cycle_readout, state.cycle, formattedScar),
-        style = MaterialTheme.typography.labelSmall,
-        color = colorScheme.primary,
-        modifier = Modifier.testTag("cycle_status"),
-      )
-      Spacer(modifier = Modifier.height(2.dp))
-      Text(
-        text =
-          stringResource(
-            R.string.scar_wallet_readout,
-            formattedAvailScar,
-            state.highestExcisionMilestone,
-          ),
-        style = MaterialTheme.typography.labelSmall,
-        color = colorScheme.onSurfaceVariant,
-        modifier = Modifier.testTag("scar_wallet_status"),
-      )
-      if (state.scarTissue > 0L || state.highestExcisionMilestone > 0) {
-        Spacer(modifier = Modifier.height(2.dp))
-        Text(
-          text =
-            stringResource(
-              R.string.scar_passive_readout,
-              formatMultiplier(state.scarMultiplier),
-              formatMultiplier(state.scarStillnessMultiplier),
-            ),
-          style = MaterialTheme.typography.bodySmall,
-          color = colorScheme.onSurfaceVariant,
-          modifier = Modifier.testTag("scar_passive_status"),
-        )
       }
     }
 

@@ -29,37 +29,37 @@
   --dread-error: #8f5252;
   --dread-error-container: #2e1a1a;
 
-  --aura-primary: rgba(141, 152, 138, 0.09);
-  --aura-grotesque: rgba(107, 112, 92, 0.04);
+  --aura-primary: rgba(141, 152, 138, 0.055);
+  --aura-grotesque: rgba(107, 112, 92, 0.025);
   --hairline: var(--hairline-ash);
-  --scanline-alpha: 0.04;
+  --scanline-alpha: 0.025;
 }
 
 body[data-phase='1'] {
-  --aura-primary: rgba(107, 112, 92, 0.12);
-  --aura-grotesque: rgba(123, 74, 74, 0.06);
-  --scanline-alpha: 0.06;
+  --aura-primary: rgba(107, 112, 92, 0.07);
+  --aura-grotesque: rgba(123, 74, 74, 0.035);
+  --scanline-alpha: 0.035;
 }
 
 body[data-phase='2'] {
-  --aura-primary: rgba(123, 74, 74, 0.15);
-  --aura-grotesque: rgba(107, 112, 92, 0.09);
+  --aura-primary: rgba(123, 74, 74, 0.085);
+  --aura-grotesque: rgba(107, 112, 92, 0.05);
   --hairline: var(--fracture-outline);
-  --scanline-alpha: 0.08;
+  --scanline-alpha: 0.045;
 }
 
 body[data-phase='3'] {
-  --aura-primary: rgba(76, 67, 82, 0.17);
-  --aura-grotesque: rgba(123, 74, 74, 0.12);
+  --aura-primary: rgba(76, 67, 82, 0.095);
+  --aura-grotesque: rgba(123, 74, 74, 0.065);
   --hairline: var(--fracture-outline);
-  --scanline-alpha: 0.10;
+  --scanline-alpha: 0.055;
 }
 
 body[data-phase='4'] {
-  --aura-primary: rgba(76, 67, 82, 0.22);
-  --aura-grotesque: rgba(123, 74, 74, 0.16);
-  --hairline: rgba(123, 74, 74, 0.45);
-  --scanline-alpha: 0.13;
+  --aura-primary: rgba(76, 67, 82, 0.115);
+  --aura-grotesque: rgba(123, 74, 74, 0.085);
+  --hairline: rgba(123, 74, 74, 0.42);
+  --scanline-alpha: 0.068;
 }
 
 *,
@@ -289,6 +289,15 @@ button:focus-visible {
   pointer-events: none;
 }
 
+.lamps-foreground-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 4;
+}
+
 .chamber-foreground {
   position: relative;
   z-index: 2;
@@ -472,13 +481,34 @@ button:focus-visible {
   border-color: rgba(123, 74, 74, 0.85);
 }
 
+.valve-wheel-rotator {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  pointer-events: none;
+  will-change: transform;
+}
+
 .valve-art-img {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
   object-fit: cover;
-  opacity: 0.58;
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+.valve-spokes {
+  position: absolute;
+  inset: 6px;
+  border-radius: 50%;
+  border: 1.5px dashed rgba(200, 203, 195, 0.24);
+  background:
+    linear-gradient(0deg, transparent 48%, rgba(200, 203, 195, 0.16) 50%, transparent 52%),
+    linear-gradient(90deg, transparent 48%, rgba(200, 203, 195, 0.16) 50%, transparent 52%),
+    linear-gradient(45deg, transparent 48%, rgba(123, 74, 74, 0.16) 50%, transparent 52%),
+    linear-gradient(135deg, transparent 48%, rgba(123, 74, 74, 0.16) 50%, transparent 52%);
   pointer-events: none;
 }
 
@@ -1664,4 +1694,298 @@ body[data-arc='arc_2'] {
   font-family: inherit;
   font-size: 12px;
 }
+
+/* ==================== ACTION ARTWORK MEDALLIONS, COOLDOWNS & RELIC INSPECTION ==================== */
+.action-emblem {
+  width: 38px;
+  height: 38px;
+  flex-shrink: 0;
+  background: rgba(10, 11, 11, 0.85);
+  border: 1px solid var(--hairline-ash);
+  border-radius: 2px;
+}
+
+.action-emblem--active {
+  border-color: rgba(141, 152, 138, 0.72);
+}
+
+.action-emblem--accent {
+  border-color: rgba(123, 74, 74, 0.75);
+}
+
+.rite-head-with-art {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.rite-head-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.cooldown-track {
+  width: 100%;
+  height: 3px;
+  background: var(--hairline-ash);
+  border-radius: 1px;
+  overflow: hidden;
+  margin-top: 4px;
+}
+
+.cooldown-fill {
+  height: 100%;
+  width: 0%;
+  background: var(--dried-clot);
+  transition: width 120ms linear;
+}
+
+.relic-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 4px 0;
+}
+
+.relic-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 34px;
+  padding: 4px 9px;
+  border-radius: 2px;
+  border: 1px solid var(--hairline-ash);
+  background: rgba(10, 11, 11, 0.72);
+  color: var(--weathered-ash);
+  font-size: 10px;
+  letter-spacing: 0.8px;
+  transition: border-color 140ms ease, color 140ms ease, background-color 140ms ease;
+}
+
+.relic-chip--dredged {
+  border-color: rgba(141, 152, 138, 0.65);
+  color: var(--bleached-bone);
+}
+
+.relic-chip--selected {
+  background: rgba(40, 25, 26, 0.55);
+  border-color: var(--dried-clot);
+  color: var(--bleached-bone);
+}
+
+.relic-chip-canvas {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+}
+
+.relic-inspect-box {
+  padding: 8px 10px;
+  background: rgba(10, 11, 11, 0.86);
+  border: 1px solid rgba(123, 74, 74, 0.55);
+  border-radius: 2px;
+  font-size: 11px;
+  line-height: 1.48;
+  color: rgba(200, 203, 195, 0.92);
+}
+
+/* Relocated Cycle / Resonance & Next Scar Indicator */
+.excision-telemetry-box {
+  padding: 8px 10px;
+  background: rgba(10, 11, 11, 0.72);
+  border: 1px solid var(--hairline-ash);
+  border-radius: 2px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 10.5px;
+  letter-spacing: 0.7px;
+}
+
+.next-scar-block {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 8px 10px;
+  background: rgba(40, 25, 26, 0.36);
+  border: 1px solid rgba(123, 74, 74, 0.5);
+  border-radius: 2px;
+}
+
+.next-scar-label {
+  font-size: 10.5px;
+  letter-spacing: 0.8px;
+  color: var(--bleached-bone);
+}
+
+/* ==================== DUAL-LANE SIDE-MARGIN DRIPPING OVERLAYS ==================== */
+.drip-lane {
+  position: fixed;
+  top: 56px;
+  bottom: 18px;
+  width: min(260px, 46vw);
+  pointer-events: none;
+  z-index: 30;
+  overflow: hidden;
+}
+
+.drip-lane--story {
+  right: max(10px, calc(50vw - 310px - 266px));
+}
+
+.drip-lane--event {
+  left: max(10px, calc(50vw - 310px - 266px));
+  transition: opacity 280ms ease;
+}
+
+.drip-lane--event.is-dimmed {
+  opacity: 0.42;
+}
+
+@media (max-width: 1140px) {
+  .drip-lane--story {
+    right: 8px;
+  }
+  .drip-lane--event {
+    left: 8px;
+  }
+}
+
+.drip-card {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  pointer-events: none;
+}
+
+.drip-card--story {
+  flex-direction: row-reverse;
+  animation: story-seep-drip 6.8s linear forwards;
+}
+
+.drip-card--event {
+  flex-direction: row;
+  animation: event-seep-drip 4.8s linear forwards;
+}
+
+.drip-ribbon {
+  position: relative;
+  width: 5px;
+  height: 118px;
+  flex-shrink: 0;
+  border-radius: 3px;
+  background: linear-gradient(
+    to bottom,
+    transparent 0%,
+    rgba(123, 74, 74, 0.72) 48%,
+    rgba(123, 74, 74, 0.96) 100%
+  );
+}
+
+.drip-card--event .drip-ribbon {
+  height: 82px;
+  background: linear-gradient(
+    to bottom,
+    transparent 0%,
+    rgba(141, 152, 138, 0.55) 48%,
+    rgba(141, 152, 138, 0.88) 100%
+  );
+}
+
+.drip-ribbon::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: -4px;
+  width: 7px;
+  height: 10px;
+  transform: translateX(-50%);
+  border-radius: 50% 50% 55% 55%;
+  background: var(--dried-clot);
+}
+
+.drip-card--event .drip-ribbon::after {
+  background: var(--pale-lichen);
+}
+
+.drip-bubble {
+  padding: 8px 10px;
+  background: rgba(11, 13, 13, 0.94);
+  border: 1px solid rgba(123, 74, 74, 0.85);
+  border-radius: 2px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.62);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.drip-card--event .drip-bubble {
+  border-color: rgba(141, 152, 138, 0.62);
+}
+
+.drip-speaker {
+  font-size: 9.5px;
+  letter-spacing: 1.1px;
+  color: var(--dried-clot);
+}
+
+.drip-card--event .drip-speaker {
+  color: var(--pale-lichen);
+}
+
+.drip-text {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.42;
+  color: var(--bleached-bone);
+}
+
+@keyframes story-seep-drip {
+  0% {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+  9% {
+    opacity: 1;
+    transform: translateY(10px);
+  }
+  82% {
+    opacity: 0.96;
+    transform: translateY(min(300px, 44vh));
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(min(360px, 54vh));
+  }
+}
+
+@keyframes event-seep-drip {
+  0% {
+    opacity: 0;
+    transform: translateY(-16px);
+  }
+  12% {
+    opacity: 0.95;
+    transform: translateY(8px);
+  }
+  78% {
+    opacity: 0.88;
+    transform: translateY(min(220px, 34vh));
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(min(270px, 42vh));
+  }
+}
+
+.ledger-panel--arrived {
+  border-color: rgba(123, 74, 74, 0.95) !important;
+  box-shadow: 0 0 14px rgba(123, 74, 74, 0.25);
+  transition: border-color 280ms ease, box-shadow 280ms ease;
+}
+
 

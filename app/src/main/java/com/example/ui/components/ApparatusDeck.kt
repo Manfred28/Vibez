@@ -9,7 +9,9 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -37,6 +39,7 @@ import com.example.game.ScarNodeId
 import com.example.game.SpecimenJar
 import com.example.ui.theme.BleakTheme
 import java.text.NumberFormat
+import kotlin.math.ceil
 
 @Composable
 fun ApparatusDeck(
@@ -65,7 +68,9 @@ fun ApparatusDeck(
     if (state.isJarsAndGraftUnlocked) add(OrganDeckTab.JARS_AND_GRAFT)
     if (state.isScarTreeUnlocked) add(OrganDeckTab.SCAR_TREE)
     if (state.isChamberRitesUnlocked) add(OrganDeckTab.CHAMBER_RITES)
-    if (state.canExcise || state.canBreachToArc2) add(OrganDeckTab.EXCISION)
+    if (state.canExcise || state.canBreachToArc2 || state.cycle > 0 || state.phase >= 4) {
+      add(OrganDeckTab.EXCISION)
+    }
   }
 
   val activeTab = if (selectedTab in availableTabs) selectedTab else OrganDeckTab.APPARATUS
@@ -108,7 +113,7 @@ fun ApparatusDeck(
               style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.5.sp, letterSpacing = 0.5.sp),
               color =
                 when {
-                  isExcisionTab -> colorScheme.tertiary
+                  isExcisionTab && (state.canExcise || state.canBreachToArc2) -> colorScheme.tertiary
                   isSelected -> colorScheme.onBackground
                   else -> colorScheme.onSurfaceVariant
                 },
@@ -122,26 +127,6 @@ fun ApparatusDeck(
       }
 
       HorizontalDivider(color = atmosphere.hairline, thickness = 1.dp)
-
-      if (state.scarTissue > 0L || state.highestExcisionMilestone > 0) {
-        Surface(
-          modifier = Modifier.fillMaxWidth().testTag("prestige_passive_banner"),
-          color = colorScheme.tertiaryContainer.copy(alpha = 0.45f),
-        ) {
-          Text(
-            text =
-              stringResource(
-                R.string.scar_passive_readout,
-                formatMultiplier(state.scarMultiplier),
-                formatMultiplier(state.scarStillnessMultiplier),
-              ),
-            style = MaterialTheme.typography.bodySmall,
-            color = colorScheme.onBackground.copy(alpha = 0.92f),
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
-          )
-        }
-        HorizontalDivider(color = atmosphere.hairline, thickness = 1.dp)
-      }
 
       Column(
         modifier = Modifier.fillMaxWidth().padding(12.dp),
@@ -202,31 +187,47 @@ private fun JarsAndGraftList(
   onPerformGraft: () -> Unit,
 ) {
   val numberFormat = remember { NumberFormat.getIntegerInstance() }
+  val colorScheme = MaterialTheme.colorScheme
+  val atmosphere = BleakTheme.atmosphere
 
   SpecimenJar.entries.forEach { jar ->
+    val unlocked = state.isJarUnlocked(jar)
     val owned = jar in state.ownedJars
-    val canAfford = !owned && state.stillness >= jar.stillnessCost
+    val cost = state.effectiveJarCost(jar)
+    val canAfford = unlocked && !owned && state.stillness >= cost
 
     val title =
       when (jar) {
         SpecimenJar.YESTERDAYS_DUST -> stringResource(R.string.jar_dust_name)
         SpecimenJar.UNSPENT_BREATH -> stringResource(R.string.jar_breath_name)
         SpecimenJar.ALMOST_A_NAME -> stringResource(R.string.jar_name_title)
+        SpecimenJar.SALT_FROM_THE_GROUT -> stringResource(R.string.jar_grout_name)
+        SpecimenJar.A_BORROWED_PULSE -> stringResource(R.string.jar_pulse_name)
+        SpecimenJar.THE_UNCOUNTED_HOUR -> stringResource(R.string.jar_hour_name)
       }
     val effect =
-      when (jar) {
-        SpecimenJar.YESTERDAYS_DUST -> stringResource(R.string.jar_dust_effect)
-        SpecimenJar.UNSPENT_BREATH -> stringResource(R.string.jar_breath_effect)
-        SpecimenJar.ALMOST_A_NAME -> stringResource(R.string.jar_name_effect)
+      if (!unlocked) {
+        if (jar.requiresCycleOrMilestone) stringResource(R.string.jar_locked_cycle_hint)
+        else stringResource(R.string.jar_locked_phase_hint, jar.unlockPhase)
+      } else {
+        when (jar) {
+          SpecimenJar.YESTERDAYS_DUST -> stringResource(R.string.jar_dust_effect)
+          SpecimenJar.UNSPENT_BREATH -> stringResource(R.string.jar_breath_effect)
+          SpecimenJar.ALMOST_A_NAME -> stringResource(R.string.jar_name_effect)
+          SpecimenJar.SALT_FROM_THE_GROUT -> stringResource(R.string.jar_grout_effect)
+          SpecimenJar.A_BORROWED_PULSE -> stringResource(R.string.jar_pulse_effect)
+          SpecimenJar.THE_UNCOUNTED_HOUR -> stringResource(R.string.jar_hour_effect)
+        }
       }
 
     val actionLabel =
-      if (owned) {
-        stringResource(R.string.jar_sealed_badge)
-      } else {
-        "${stringResource(R.string.jar_bottle_action)} · ${
-          stringResource(R.string.cost_stillness_format, numberFormat.format(jar.stillnessCost.toLong()))
-        }"
+      when {
+        owned -> stringResource(R.string.jar_sealed_badge)
+        !unlocked -> "LOCKED"
+        else ->
+          "${stringResource(R.string.jar_bottle_action)} · ${
+            stringResource(R.string.cost_stillness_format, numberFormat.format(cost.toLong()))
+          }"
       }
 
     DeckActionRow(
@@ -236,30 +237,64 @@ private fun JarsAndGraftList(
       enabled = canAfford,
       accentAction = owned,
       testTag = "jar_${jar.id}",
+      leadingArtwork = {
+        JarArtworkEmblem(jar = jar, owned = owned, affordable = canAfford)
+      },
       onClick = { onBottleJar(jar) },
     )
   }
 
-  HorizontalDivider(color = BleakTheme.atmosphere.hairline, thickness = 1.dp)
+  HorizontalDivider(color = atmosphere.hairline, thickness = 1.dp)
 
   if (state.isGraftUnlocked) {
-    DeckActionRow(
-      title =
-        "${stringResource(R.string.graft_title)} ${
-          stringResource(R.string.owned_count_format, state.graftedTendrils)
-        }",
-      subtitle = stringResource(R.string.graft_desc),
-      actionLabel = stringResource(R.string.graft_action),
-      enabled = state.canAffordGraft,
-      accentAction = true,
-      testTag = "perform_graft_button",
-      onClick = onPerformGraft,
-    )
+    val graftCost = state.graftStillnessCost
+    val onCooldown = state.isGraftOnCooldown
+    val actionLabel =
+      if (onCooldown) {
+        stringResource(R.string.graft_cooldown_format, ceil(state.graftCooldownRemainingSeconds).toInt())
+      } else {
+        stringResource(R.string.graft_action_cost, numberFormat.format(graftCost))
+      }
+
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+      DeckActionRow(
+        title =
+          "${stringResource(R.string.graft_title)} ${
+            stringResource(R.string.owned_count_format, state.graftedTendrils)
+          }",
+        subtitle = stringResource(R.string.graft_desc),
+        actionLabel = actionLabel,
+        enabled = state.canAffordGraft,
+        accentAction = true,
+        testTag = "perform_graft_button",
+        leadingArtwork = {
+          GraftArtworkEmblem(
+            isLung = false,
+            ready = state.canAffordGraft,
+            onCooldown = onCooldown,
+          )
+        },
+        onClick = onPerformGraft,
+      )
+      if (onCooldown) {
+        val ratio =
+          (state.graftCooldownRemainingSeconds / state.graftCooldownDurationSec)
+            .toFloat()
+            .coerceIn(0f, 1f)
+        LinearProgressIndicator(
+          progress = { 1f - ratio },
+          modifier = Modifier.fillMaxWidth().height(3.dp).testTag("graft_cooldown_bar"),
+          color = colorScheme.tertiary,
+          trackColor = atmosphere.hairline,
+          drawStopIndicator = {},
+        )
+      }
+    }
   } else {
     Text(
       text = stringResource(R.string.graft_locked_hint),
       style = MaterialTheme.typography.labelSmall,
-      color = MaterialTheme.colorScheme.onSurfaceVariant,
+      color = colorScheme.onSurfaceVariant,
       modifier = Modifier.padding(vertical = 4.dp),
     )
   }
@@ -272,6 +307,7 @@ private fun ExcisionRitualPanel(
   onPerformBreachToArc2: () -> Unit,
 ) {
   val colorScheme = MaterialTheme.colorScheme
+  val atmosphere = BleakTheme.atmosphere
   val numberFormat = remember { NumberFormat.getIntegerInstance() }
   var armed by remember { mutableStateOf(false) }
 
@@ -289,6 +325,67 @@ private fun ExcisionRitualPanel(
       style = MaterialTheme.typography.bodyMedium,
       color = colorScheme.onSurfaceVariant,
     )
+
+    // Relocated cycle / milestone / permanent scar resonance ledger (keeps top header uncluttered)
+    if (state.cycle > 0 || state.scarTissue > 0L || state.highestExcisionMilestone > 0) {
+      Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.extraSmall,
+        color = colorScheme.surfaceVariant.copy(alpha = 0.65f),
+        border = BorderStroke(1.dp, atmosphere.hairline),
+      ) {
+        Column(
+          modifier = Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 8.dp),
+          verticalArrangement = Arrangement.spacedBy(3.dp),
+        ) {
+          Text(
+            text =
+              stringResource(
+                R.string.excision_cycle_summary,
+                state.cycle,
+                state.highestExcisionMilestone,
+                numberFormat.format(state.scarTissue),
+              ),
+            style = MaterialTheme.typography.labelSmall,
+            color = colorScheme.primary,
+            modifier = Modifier.testTag("cycle_status"),
+          )
+          Text(
+            text =
+              stringResource(
+                R.string.scar_passive_readout,
+                formatMultiplier(state.scarMultiplier),
+                formatMultiplier(state.scarStillnessMultiplier),
+              ),
+            style = MaterialTheme.typography.bodySmall,
+            color = colorScheme.onSurfaceVariant,
+            modifier = Modifier.testTag("scar_passive_status"),
+          )
+        }
+      }
+    }
+
+    // Next Scar Tissue visual progress indicator
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+      Text(
+        text =
+          stringResource(
+            R.string.excision_next_scar_format,
+            numberFormat.format(state.cycleLifetimeIchorDisplay),
+            numberFormat.format(state.nextBaseScarMassThreshold),
+          ),
+        style = MaterialTheme.typography.labelSmall,
+        color = colorScheme.onSurfaceVariant,
+        modifier = Modifier.testTag("next_scar_status"),
+      )
+      LinearProgressIndicator(
+        progress = { state.nextScarProgress.coerceIn(0f, 1f) },
+        modifier = Modifier.fillMaxWidth().height(3.dp).testTag("next_scar_progress_bar"),
+        color = colorScheme.primary,
+        trackColor = atmosphere.hairline,
+        drawStopIndicator = {},
+      )
+    }
 
     state.nextExcisionMilestone?.let { next ->
       Text(
@@ -333,13 +430,21 @@ private fun ExcisionRitualPanel(
             .testTag("excision_arm_button")
             .clickable(enabled = state.canExcise, role = Role.Button) { armed = true },
         shape = MaterialTheme.shapes.extraSmall,
-        color = colorScheme.tertiaryContainer,
-        border = BorderStroke(1.dp, colorScheme.tertiary),
+        color =
+          if (state.canExcise) colorScheme.tertiaryContainer
+          else colorScheme.surfaceContainerLowest,
+        border =
+          BorderStroke(
+            1.dp,
+            if (state.canExcise) colorScheme.tertiary else colorScheme.outlineVariant,
+          ),
       ) {
         Text(
           text = stringResource(R.string.excision_action_arm),
           style = MaterialTheme.typography.labelLarge,
-          color = colorScheme.onTertiaryContainer,
+          color =
+            if (state.canExcise) colorScheme.onTertiaryContainer
+            else colorScheme.onSurfaceVariant,
           modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
         )
       }
@@ -388,9 +493,8 @@ private fun ExcisionRitualPanel(
       }
     }
 
-    // Excision VI Breach Ritual into Arc 2
     if (state.canBreachToArc2) {
-      HorizontalDivider(color = BleakTheme.atmosphere.hairline)
+      HorizontalDivider(color = atmosphere.hairline)
       Text(
         text = stringResource(R.string.excision_breach_title),
         style = MaterialTheme.typography.titleMedium,
@@ -431,6 +535,7 @@ private fun DeckActionRow(
   enabled: Boolean,
   accentAction: Boolean,
   testTag: String,
+  leadingArtwork: (@Composable () -> Unit)? = null,
   onClick: () -> Unit,
 ) {
   val colorScheme = MaterialTheme.colorScheme
@@ -460,18 +565,23 @@ private fun DeckActionRow(
       ),
   ) {
     Row(
-      modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 10.dp),
+      modifier = Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 10.dp),
       horizontalArrangement = Arrangement.SpaceBetween,
       verticalAlignment = Alignment.CenterVertically,
     ) {
-      Column(modifier = Modifier.weight(1f).padding(end = 10.dp)) {
+      if (leadingArtwork != null) {
+        leadingArtwork()
+        Spacer(modifier = Modifier.width(10.dp))
+      }
+
+      Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
         Text(
           text = title,
           style =
             MaterialTheme.typography.titleMedium.copy(
-              fontSize = 13.sp,
-              lineHeight = 18.sp,
-              letterSpacing = 0.8.sp,
+              fontSize = 12.5.sp,
+              lineHeight = 17.sp,
+              letterSpacing = 0.7.sp,
             ),
           color = if (enabled) colorScheme.onBackground else colorScheme.onBackground.copy(alpha = 0.82f),
         )
@@ -506,7 +616,7 @@ private fun DeckActionRow(
       ) {
         Text(
           text = actionLabel,
-          style = MaterialTheme.typography.labelMedium.copy(letterSpacing = 0.8.sp),
+          style = MaterialTheme.typography.labelMedium.copy(fontSize = 10.5.sp, letterSpacing = 0.7.sp),
           color =
             when {
               enabled && accentAction -> colorScheme.onTertiaryContainer

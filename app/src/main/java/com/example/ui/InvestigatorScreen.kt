@@ -369,6 +369,12 @@ fun InvestigatorScreen(
         }
         Spacer(modifier = Modifier.height(8.dp))
       }
+
+      com.example.ui.components.DrippingTransmissionOverlay(
+        activeDialogue = state.activeDialogue,
+        latestEvent = null,
+        modifier = Modifier.fillMaxSize(),
+      )
     }
   }
 

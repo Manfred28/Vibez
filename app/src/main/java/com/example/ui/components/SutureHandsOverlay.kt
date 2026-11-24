@@ -38,6 +38,7 @@ private val FingerWidthsDp = floatArrayOf(2.15f, 2.30f, 2.10f, 1.75f)
 @Composable
 internal fun SutureHandsValveOverlay(
   breathPhaseProvider: () -> Float,
+  handCyclePhaseProvider: () -> Float,
   sutureCount: Int,
   graftCount: Int,
   boneColor: Color,
@@ -62,6 +63,7 @@ internal fun SutureHandsValveOverlay(
 
   Canvas(modifier = modifier.size(228.dp).testTag("suture_hands_overlay")) {
     val breath = breathPhaseProvider()
+    val handCycle = handCyclePhaseProvider()
     val center = Offset(size.width / 2f, size.height / 2f)
     val valveRimRadius = 64.dp.toPx()
     val armStartRadius = size.minDimension * 0.495f
@@ -125,19 +127,21 @@ internal fun SutureHandsValveOverlay(
       drawCircle(color = boneColor.copy(alpha = 0.84f), radius = 3.1.dp.toPx(), center = end)
     }
 
-    // Grotesque, emaciated 5-fingered stitched Suture-Hands clawing and drumming the valve rim
+    // Grotesque, emaciated 5-fingered stitched Suture-Hands clawing and turning the valve clockwise
     val visibleHands = min(sutureCount, 8)
     for (i in 0 until visibleHands) {
-      val baseAngle = (i * (2.0 * PI / visibleHands)) - PI / 2.0 + (PI / 8.0)
+      // Subtle clockwise tug sweep synchronized with handCycle so hands visibly crank the valve
+      val tugAngle = sin(handCycle * 2.0 * PI + i * 1.15) * 0.085
+      val baseAngle = (i * (2.0 * PI / visibleHands)) - PI / 2.0 + (PI / 8.0) + tugAngle
       val handedness = if (i % 2 == 0) 1f else -1f
       val dirX = cos(baseAngle).toFloat()
       val dirY = sin(baseAngle).toFloat()
       val perpX = -dirY * handedness
       val perpY = dirX * handedness
 
-      // Unsettling irregular tremor & slow creeping press wave
+      // Unsettling irregular tremor & speed-scaled creeping press wave
       val pressWave =
-        ((sin(breath * 2.0 * PI + i * 1.15) * 0.78 + sin(breath * 6.0 * PI + i * 2.3) * 0.22 + 1.0) *
+        ((sin(handCycle * 2.0 * PI + i * 1.15) * 0.78 + sin(handCycle * 6.0 * PI + i * 2.3) * 0.22 + 1.0) *
             0.5)
           .toFloat()
       val pressInset = pressWave * 6.8.dp.toPx()

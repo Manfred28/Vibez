@@ -44,6 +44,8 @@ object OrganStateSerializer {
     root.put("cycle", state.cycle)
     root.put("graftedTendrils", state.graftedTendrils)
     root.put("choirLungs", state.choirLungs)
+    root.put("graftCooldownRemainingSeconds", state.graftCooldownRemainingSeconds)
+    root.put("choirLungCooldownRemainingSeconds", state.choirLungCooldownRemainingSeconds)
     root.put("drainSealed", state.drainSealed)
     root.put("drainPressure", state.drainPressure)
     root.put("lifetimeRelicsDredged", state.lifetimeRelicsDredged)
@@ -216,6 +218,10 @@ object OrganStateSerializer {
           creatures = creatures,
           graftedTendrils = root.optInt("graftedTendrils", 0).coerceAtLeast(0),
           choirLungs = root.optInt("choirLungs", 0).coerceAtLeast(0),
+          graftCooldownRemainingSeconds =
+            root.optDouble("graftCooldownRemainingSeconds", 0.0).coerceAtLeast(0.0),
+          choirLungCooldownRemainingSeconds =
+            root.optDouble("choirLungCooldownRemainingSeconds", 0.0).coerceAtLeast(0.0),
           ownedJars = ownedJars,
           anomalyInteractions = anomalyInteractions,
           secondsUntilNextAnomaly = OrganBalance.FIRST_ANOMALY_DELAY_SEC,

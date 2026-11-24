@@ -76,6 +76,16 @@ fun ScarTreePanel(
       )
     }
 
+    Text(
+      text =
+        "${stringResource(R.string.excision_cycle_summary, state.cycle, state.highestExcisionMilestone, nf.format(state.scarTissue))} · ${
+          stringResource(R.string.scar_passive_readout, formatMultiplier(state.scarMultiplier), formatMultiplier(state.scarStillnessMultiplier))
+        }",
+      style = MaterialTheme.typography.bodySmall,
+      color = colorScheme.onSurfaceVariant,
+      modifier = Modifier.testTag("scar_wallet_status"),
+    )
+
     // Surgical suture graph: Root -> 3 branches x 3 tiers
     Box(modifier = Modifier.fillMaxWidth()) {
       Canvas(modifier = Modifier.matchParentSize()) {

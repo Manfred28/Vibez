@@ -1,10 +1,20 @@
 package com.example.ui.components
 
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -31,9 +41,6 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.material3.rememberModalBottomSheetState
-import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
@@ -122,11 +129,36 @@ fun TransmissionLedgerPanel(
   val colorScheme = MaterialTheme.colorScheme
   val atmosphere = BleakTheme.atmosphere
 
+  val arrivalPulse = androidx.compose.runtime.remember { androidx.compose.animation.core.Animatable(0f) }
+  var initialized by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
+  var lastId by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf<String?>(null) }
+
+  androidx.compose.runtime.LaunchedEffect(activeDialogue?.id) {
+    val id = activeDialogue?.id
+    if (!initialized) {
+      initialized = true
+      lastId = id
+      return@LaunchedEffect
+    }
+    if (id != null && id != lastId) {
+      lastId = id
+      arrivalPulse.snapTo(1f)
+      arrivalPulse.animateTo(0f, animationSpec = tween(durationMillis = 1200))
+    }
+  }
+
+  val borderColor =
+    androidx.compose.ui.graphics.lerp(
+      atmosphere.hairline,
+      colorScheme.primary.copy(alpha = 0.85f),
+      arrivalPulse.value,
+    )
+
   Surface(
     modifier = modifier.fillMaxWidth().testTag("dialogue_panel"),
     shape = MaterialTheme.shapes.small,
     color = colorScheme.surface.copy(alpha = 0.97f),
-    border = BorderStroke(1.dp, atmosphere.hairline),
+    border = BorderStroke(1.dp, borderColor),
   ) {
     AnimatedContent(
       targetState = activeDialogue,

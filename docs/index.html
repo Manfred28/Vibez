@@ -10,10 +10,10 @@
     />
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
     <meta http-equiv="Pragma" content="no-cache" />
-    <meta name="app-build" content="2.2" />
+    <meta name="app-build" content="2.4" />
     <title>Tap Counter // The Counting Room</title>
     <link rel="icon" type="image/png" href="./assets/icon.png" />
-    <link rel="stylesheet" href="./styles.css?v=2.2" />
+    <link rel="stylesheet" href="./styles.css?v=2.4" />
   </head>
   <body data-phase="0" data-arc="arc_1">
     <main class="app-shell">
@@ -49,8 +49,6 @@
             <span id="phase-header" class="phase-label">PHASE 00 // THE COUNTING ROOM</span>
             <span id="phase-badge" class="phase-badge">P0</span>
           </div>
-          <div id="cycle-status" class="cycle-status" hidden></div>
-          <div id="scar-passive-status" class="scar-passive-status" hidden></div>
           <div class="progress-track" aria-hidden="true">
             <div id="phase-progress-fill" class="progress-fill"></div>
           </div>
@@ -95,7 +93,10 @@
                   class="valve-button"
                   aria-label="Press the recessed wall valve to extract ichor"
                 >
-                  <img class="valve-art-img" src="./assets/img_recessed_valve.jpg" alt="" aria-hidden="true" />
+                  <span id="valve-wheel-rotator" class="valve-wheel-rotator" aria-hidden="true">
+                    <img class="valve-art-img" src="./assets/img_recessed_valve.jpg" alt="" aria-hidden="true" />
+                    <span class="valve-spokes" aria-hidden="true"></span>
+                  </span>
                   <span class="valve-vignette" aria-hidden="true"></span>
                   <span id="valve-yield-text" class="valve-yield-text">+1</span>
                   <span id="valve-sub-label" class="valve-sub-label">VALVE</span>
@@ -105,12 +106,12 @@
             </div>
           </div>
 
+          <canvas id="lamps-foreground-canvas" class="lamps-foreground-canvas" aria-hidden="true"></canvas>
           <div id="anomaly-layer" class="anomaly-layer"></div>
         </section>
 
         <section id="apparatus-deck" class="deck-panel" aria-label="Apparatus deck" hidden>
           <div id="deck-tabs" class="deck-tabs" role="tablist"></div>
-          <div id="prestige-banner" class="prestige-banner" hidden></div>
           <div id="deck-content" class="deck-content"></div>
         </section>
       </div>
@@ -209,7 +210,7 @@
       </div>
 
       <!-- ==================== SHARED GROUT / CASE LEDGER ==================== -->
-      <section class="ledger-panel" aria-label="Grout transmission ledger">
+      <section id="ledger-panel" class="ledger-panel" aria-label="Grout transmission ledger">
         <div class="ledger-head">
           <span id="ledger-speaker" class="ledger-speaker">// GROUT LEDGER: SILENT</span>
           <button
@@ -230,6 +231,10 @@
         <span>DUAL BUILD: GITHUB PAGES WEB + ANDROID</span>
       </footer>
     </main>
+
+    <!-- Non-blocking Dual-Lane Side-Margin Dripping Overlays (Right = Priority Story, Left = Subordinate Chamber Events) -->
+    <div id="story-drip-layer" class="drip-lane drip-lane--story" aria-live="polite" aria-atomic="true"></div>
+    <div id="event-drip-layer" class="drip-lane drip-lane--event" aria-live="polite" aria-atomic="true"></div>
 
     <!-- Recovered Fragments Archive Modal -->
     <div id="archive-modal" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="archive-modal-title" hidden>
@@ -364,6 +369,6 @@
       </div>
     </div>
 
-    <script type="module" src="./src/app.js?v=2.2"></script>
+    <script type="module" src="./src/app.js?v=2.4"></script>
   </body>
 </html>

@@ -68,7 +68,7 @@ export const SCAR_NODES = Object.freeze([
     cost: 1,
     prerequisite: null,
     name: 'FIRST INCISION',
-    desc: '×1.50 permanent Ichor and ×1.25 Stillness across every cycle.',
+    desc: 'The first mark remembers how to bleed; three paths open.',
   }),
   Object.freeze({
     id: 'calloused_palm',
@@ -77,7 +77,7 @@ export const SCAR_NODES = Object.freeze([
     cost: 2,
     prerequisite: 'first_incision',
     name: 'CALLOUSED PALM',
-    desc: '×2.2 valve tap yield. Start every reset with 3 Suture-Hands & 1 Leech-Clerk.',
+    desc: 'Old hands wait at the valve before you even wake.',
   }),
   Object.freeze({
     id: 'twin_stitch',
@@ -85,8 +85,8 @@ export const SCAR_NODES = Object.freeze([
     tier: 2,
     cost: 5,
     prerequisite: 'calloused_palm',
-    name: 'TWIN-STITCHED ARTERIES',
-    desc: 'Suture-Hands & Leech-Clerks ×2.5 output. Valve taps echo +3s of passive Ichor.',
+    name: 'TWIN STITCH',
+    desc: 'Every turn of iron wakes a second tremor in the colony.',
   }),
   Object.freeze({
     id: 'colony_inertia',
@@ -95,7 +95,7 @@ export const SCAR_NODES = Object.freeze([
     cost: 12,
     prerequisite: 'twin_stitch',
     name: 'COLONY INERTIA',
-    desc: '×3.2 all organisms and −0.05 organism cost growth exponent.',
+    desc: 'The flesh multiplies with less persuasion.',
   }),
   Object.freeze({
     id: 'shorter_silence',
@@ -104,7 +104,7 @@ export const SCAR_NODES = Object.freeze([
     cost: 2,
     prerequisite: 'first_incision',
     name: 'SHORTER SILENCE',
-    desc: 'Stillness engages after 1.5s idle (was 3s) and gains ×1.6 base rate.',
+    desc: 'The room falls quiet almost as soon as you let go.',
   }),
   Object.freeze({
     id: 'wax_sealed_memory',
@@ -113,7 +113,7 @@ export const SCAR_NODES = Object.freeze([
     cost: 5,
     prerequisite: 'shorter_silence',
     name: 'WAX-SEALED MEMORY',
-    desc: 'Specimen Jars persist across Excisions and gain ×1.6 potency.',
+    desc: "Wax softens the quiet's price; fresh grafts knit twice as fast.",
   }),
   Object.freeze({
     id: 'deep_weeping',
@@ -122,7 +122,7 @@ export const SCAR_NODES = Object.freeze([
     cost: 12,
     prerequisite: 'wax_sealed_memory',
     name: 'DEEP WEEPING',
-    desc: 'Weeping Lamps & Choir-Lungs ×3.5 Ichor; Lamps drip 40% Stillness even while tapping.',
+    desc: 'Even while you press the iron, the lamps keep weeping.',
   }),
   Object.freeze({
     id: 'softened_mortar',
@@ -131,7 +131,7 @@ export const SCAR_NODES = Object.freeze([
     cost: 2,
     prerequisite: 'first_incision',
     name: 'SOFTENED MORTAR',
-    desc: 'Wall anomalies spawn twice as fast, allow 4 simultaneous seams, and pay ×3.0.',
+    desc: 'The plaster gives way easily to what pushes through.',
   }),
   Object.freeze({
     id: 'auto_tendril_suture',
@@ -139,8 +139,8 @@ export const SCAR_NODES = Object.freeze([
     tier: 2,
     cost: 6,
     prerequisite: 'softened_mortar',
-    name: 'AUTOMATIC TENDRIL SUTURE',
-    desc: 'Auto-grafts Choir-Tendrils when 4 Hands & 4 Leeches exist; Tendrils & Siphons ×3.0.',
+    name: 'AUTO-TENDRIL SUTURE',
+    desc: 'Spare hands and leeches braid themselves without your consent.',
   }),
   Object.freeze({
     id: 'bone_resonance',
@@ -149,26 +149,29 @@ export const SCAR_NODES = Object.freeze([
     cost: 14,
     prerequisite: 'auto_tendril_suture',
     name: 'BONE RESONANCE',
-    desc: '×4.0 global Ichor and supercharges Dredged Relics, Echo bursts, Blooms & Dossier lines.',
+    desc: 'The masonry hums in tune with your deeper rites.',
   }),
 ]);
 
 export const DREDGED_RELICS = Object.freeze([
   Object.freeze({
     id: 'patient_wristband',
-    name: 'WATERLOGGED WRISTBAND',
+    name: 'WRISTBAND',
+    hint: 'Sodden tag #14 — the valve pulls heavier from beneath the mortar.',
     ichorMultiplier: 1.45,
     stillnessMultiplier: 1.15,
   }),
   Object.freeze({
     id: 'brass_ward_key',
-    name: 'BRASS WARD KEY',
+    name: 'BRASS KEY',
+    hint: 'Bent ward key — the room settles into quiet deeper than before.',
     ichorMultiplier: 1.65,
     stillnessMultiplier: 1.25,
   }),
   Object.freeze({
     id: 'bleeding_logbook',
-    name: 'BLED-INK LOGBOOK',
+    name: 'LOGBOOK',
+    hint: 'Bled-ink ledger — every tending thing works a fraction harder.',
     ichorMultiplier: 1.9,
     stillnessMultiplier: 1.4,
   }),
@@ -222,7 +225,7 @@ export const CREATURE_TYPES = Object.freeze({
     id: 'suture_hand',
     code: 'SPEC-01',
     name: 'SUTURE-HAND',
-    desc: 'Stitched appendage gripping and pressing the wall valve.',
+    desc: 'Stitched fingers that will not stop turning the iron.',
     baseCost: 25.0,
     costGrowth: 1.24,
     baseIchorPerSec: 0.6,
@@ -235,7 +238,7 @@ export const CREATURE_TYPES = Object.freeze({
     id: 'leech_clerk',
     code: 'SPEC-02',
     name: 'LEECH-CLERK',
-    desc: 'Blind annelid clinging to the counter glass, chewing digits.',
+    desc: 'Blind wet mouth grazing across the counter glass.',
     baseCost: 180.0,
     costGrowth: 1.26,
     baseIchorPerSec: 2.4,
@@ -248,7 +251,7 @@ export const CREATURE_TYPES = Object.freeze({
     id: 'weeping_lamp',
     code: 'SPEC-03',
     name: 'WEEPING LAMP',
-    desc: 'Ceiling vessel that drips Stillness & 2× Ichor while idle.',
+    desc: 'Only weeps when your hands leave the room alone.',
     baseCost: 1190.0,
     costGrowth: 1.32,
     baseIchorPerSec: 6.0,
@@ -261,7 +264,7 @@ export const CREATURE_TYPES = Object.freeze({
     id: 'sump_siphon',
     code: 'SPEC-04',
     name: 'SUMP-SIPHON',
-    desc: 'Ribbed floor-drain gulper extracting thick black runoff & speeding grate pressure.',
+    desc: 'Ribbed leather bladder pulling what settled beneath the tiles.',
     baseCost: 28000.0,
     costGrowth: 1.28,
     baseIchorPerSec: 140.0,
@@ -283,20 +286,50 @@ export const SPECIMEN_JARS = Object.freeze({
   YESTERDAYS_DUST: Object.freeze({
     id: 'yesterdays_dust',
     name: "YESTERDAY'S DUST",
-    effect: 'Valve extraction +3 base Ichor',
+    effect: 'The iron valve turns heavier, and yields thicker.',
     stillnessCost: 24.0,
+    unlockPhase: 0,
+    requiresCycleOrMilestone: false,
   }),
   UNSPENT_BREATH: Object.freeze({
     id: 'unspent_breath',
     name: 'UNSPENT BREATH',
-    effect: 'Suture-Hands & Leech-Clerks ×1.75',
+    effect: 'Hands and leeches draw from what you held back.',
     stillnessCost: 65.0,
+    unlockPhase: 0,
+    requiresCycleOrMilestone: false,
   }),
   ALMOST_A_NAME: Object.freeze({
     id: 'almost_a_name',
     name: 'A NAME YOU ALMOST REMEMBER',
-    effect: 'Weeping Lamps & wall anomalies ×1.8',
+    effect: 'Lamps weep warmer; the cracks part wider.',
     stillnessCost: 140.0,
+    unlockPhase: 0,
+    requiresCycleOrMilestone: false,
+  }),
+  SALT_FROM_THE_GROUT: Object.freeze({
+    id: 'salt_from_the_grout',
+    name: 'SALT FROM THE GROUT',
+    effect: 'Every tending creature drinks brine from the seams.',
+    stillnessCost: 320.0,
+    unlockPhase: 3,
+    requiresCycleOrMilestone: false,
+  }),
+  A_BORROWED_PULSE: Object.freeze({
+    id: 'a_borrowed_pulse',
+    name: 'A BORROWED PULSE',
+    effect: "The room's quiet beats twice beneath your palm.",
+    stillnessCost: 750.0,
+    unlockPhase: 4,
+    requiresCycleOrMilestone: false,
+  }),
+  THE_UNCOUNTED_HOUR: Object.freeze({
+    id: 'the_uncounted_hour',
+    name: 'THE UNCOUNTED HOUR',
+    effect: 'Even the wall forgets how long you have been here.',
+    stillnessCost: 1800.0,
+    unlockPhase: 0,
+    requiresCycleOrMilestone: true,
   }),
 });
 
@@ -304,6 +337,9 @@ export const SPECIMEN_JAR_LIST = Object.freeze([
   SPECIMEN_JARS.YESTERDAYS_DUST,
   SPECIMEN_JARS.UNSPENT_BREATH,
   SPECIMEN_JARS.ALMOST_A_NAME,
+  SPECIMEN_JARS.SALT_FROM_THE_GROUT,
+  SPECIMEN_JARS.A_BORROWED_PULSE,
+  SPECIMEN_JARS.THE_UNCOUNTED_HOUR,
 ]);
 
 export const WALL_ANOMALY_TYPES = Object.freeze({
@@ -312,24 +348,28 @@ export const WALL_ANOMALY_TYPES = Object.freeze({
     minPhase: 1,
     label: 'PULL',
     ariaLabel: 'Pull pale tooth protruding from plaster crack',
+    dripLine: 'Enamel gives way; the iron valve drinks deeper.',
   }),
   GLASS_EYE: Object.freeze({
     id: 'glass_eye',
     minPhase: 2,
     label: 'WIPE',
     ariaLabel: 'Wipe condensation from blinking glass eye',
+    dripLine: 'The glass blinks clean; the colony quickens under its gaze.',
   }),
   SWOLLEN_NODULE: Object.freeze({
     id: 'swollen_nodule',
     minPhase: 3,
     label: 'PROD',
     ariaLabel: 'Prod swollen nodule pulsing along fissure',
+    dripLine: 'The blister splits warm; ichor and quiet seep down the grout.',
   }),
   CHITIN_RIB: Object.freeze({
     id: 'chitin_rib',
     minPhase: 4,
     label: 'PRY',
     ariaLabel: 'Pry cracked calcified rib parting the chamber wall',
+    dripLine: 'The pale rib snaps free; everything in the wall surges.',
   }),
 });
 
@@ -387,19 +427,19 @@ export const CASE_DEDUCTIONS = Object.freeze([
   Object.freeze({
     id: 'hydro_ward_invoices',
     name: 'HYDRO-WARD INVOICES',
-    effect: 'Case-file stamp +4 base Leads per stamp.',
+    effect: 'Each stamped page turns up sharper ink.',
     silenceCost: 18.0,
   }),
   Object.freeze({
     id: 'missing_caretaker_roster',
     name: 'CARETAKER ROSTER',
-    effect: 'All Desk Contacts & Tools ×2.0 Leads/s.',
+    effect: 'The contacts find names twice as fast.',
     silenceCost: 50.0,
   }),
   Object.freeze({
     id: 'mortar_sample_match',
     name: 'MORTAR SAMPLE MATCH',
-    effect: 'Late-Night Silence & Desk Anomalies ×2.2.',
+    effect: 'Late-night quiet deepens; oddities surface clearer.',
     silenceCost: 115.0,
   }),
 ]);
@@ -478,12 +518,23 @@ export const ORGAN_BALANCE = Object.freeze({
   YESTERDAYS_DUST_TAP_BONUS: 3.0,
   UNSPENT_BREATH_MULTIPLIER: 1.75,
   ALMOST_A_NAME_MULTIPLIER: 1.8,
+  SALT_GROUT_BONUS: 0.45,
+  BORROWED_PULSE_BONUS: 0.55,
+  UNCOUNTED_HOUR_BONUS: 0.75,
+  WAX_STILLNESS_COST_MULTIPLIER: 0.65,
+  WAX_GRAFT_COOLDOWN_MULTIPLIER: 0.5,
   GRAFT_SUTURE_COST: 2,
   GRAFT_LEECH_COST: 2,
+  GRAFT_BASE_STILLNESS_COST: 35.0,
+  GRAFT_STILLNESS_GROWTH: 1.55,
+  GRAFT_COOLDOWN_SEC: 6.0,
   GRAFT_ICHOR_PER_SEC: 18.0,
   GRAFT_STILLNESS_PER_SEC: 0.7,
   CHOIR_LUNG_LAMP_COST: 2,
   CHOIR_LUNG_TENDRIL_COST: 1,
+  CHOIR_LUNG_BASE_STILLNESS_COST: 180.0,
+  CHOIR_LUNG_STILLNESS_GROWTH: 1.65,
+  CHOIR_LUNG_COOLDOWN_SEC: 10.0,
   CHOIR_LUNG_ICHOR_PER_SEC: 260.0,
   CHOIR_LUNG_STILLNESS_PER_SEC: 4.5,
   EXCISION_ICHOR_THRESHOLD: 210000,
@@ -677,6 +728,80 @@ export function jarEffectBoost(state) {
   return hasNode(state, 'wax_sealed_memory') ? 1.6 : 1.0;
 }
 
+export function stillnessCostMultiplier(state) {
+  return hasNode(state, 'wax_sealed_memory') ? ORGAN_BALANCE.WAX_STILLNESS_COST_MULTIPLIER : 1.0;
+}
+
+export function graftCooldownDurationSec(state) {
+  return (
+    ORGAN_BALANCE.GRAFT_COOLDOWN_SEC *
+    (hasNode(state, 'wax_sealed_memory') ? ORGAN_BALANCE.WAX_GRAFT_COOLDOWN_MULTIPLIER : 1.0)
+  );
+}
+
+export function choirLungCooldownDurationSec(state) {
+  return (
+    ORGAN_BALANCE.CHOIR_LUNG_COOLDOWN_SEC *
+    (hasNode(state, 'wax_sealed_memory') ? ORGAN_BALANCE.WAX_GRAFT_COOLDOWN_MULTIPLIER : 1.0)
+  );
+}
+
+export function isJarUnlocked(state, jarOrId) {
+  const jar = typeof jarOrId === 'string' ? jarById(jarOrId) : jarOrId;
+  if (!jar) return false;
+  if (state.ownedJars.includes(jar.id)) return true;
+  if (jar.requiresCycleOrMilestone) {
+    return state.cycle > 0 || state.highestExcisionMilestone >= 1 || state.scarTissue > 0;
+  }
+  return state.cycle > 0 || state.phase >= (jar.unlockPhase ?? 0);
+}
+
+export function effectiveJarCost(state, jarOrId) {
+  const jar = typeof jarOrId === 'string' ? jarById(jarOrId) : jarOrId;
+  if (!jar) return 0;
+  return Math.max(1.0, Math.floor(jar.stillnessCost * stillnessCostMultiplier(state)));
+}
+
+export function graftStillnessCost(state) {
+  return Math.max(
+    1,
+    Math.floor(
+      ORGAN_BALANCE.GRAFT_BASE_STILLNESS_COST *
+        Math.pow(ORGAN_BALANCE.GRAFT_STILLNESS_GROWTH, state.graftedTendrils) *
+        stillnessCostMultiplier(state),
+    ),
+  );
+}
+
+export function choirLungStillnessCost(state) {
+  return Math.max(
+    1,
+    Math.floor(
+      ORGAN_BALANCE.CHOIR_LUNG_BASE_STILLNESS_COST *
+        Math.pow(ORGAN_BALANCE.CHOIR_LUNG_STILLNESS_GROWTH, state.choirLungs) *
+        stillnessCostMultiplier(state),
+    ),
+  );
+}
+
+export function groutSaltOrganismMultiplier(state) {
+  return state.ownedJars.includes(SPECIMEN_JARS.SALT_FROM_THE_GROUT.id)
+    ? 1.0 + ORGAN_BALANCE.SALT_GROUT_BONUS * jarEffectBoost(state)
+    : 1.0;
+}
+
+export function borrowedPulseMultiplier(state) {
+  return state.ownedJars.includes(SPECIMEN_JARS.A_BORROWED_PULSE.id)
+    ? 1.0 + ORGAN_BALANCE.BORROWED_PULSE_BONUS * jarEffectBoost(state)
+    : 1.0;
+}
+
+export function uncountedHourMultiplier(state) {
+  return state.ownedJars.includes(SPECIMEN_JARS.THE_UNCOUNTED_HOUR.id)
+    ? 1.0 + ORGAN_BALANCE.UNCOUNTED_HOUR_BONUS * jarEffectBoost(state)
+    : 1.0;
+}
+
 export function scarMultiplier(state) {
   const baseResonance =
     1.0 +
@@ -757,7 +882,8 @@ export function globalIchorMultiplier(state) {
     relicIchorMultiplier(state) *
     dossierIchorMultiplier(state) *
     gazeMultiplier(state) *
-    bloomMultiplier(state)
+    bloomMultiplier(state) *
+    uncountedHourMultiplier(state)
   );
 }
 
@@ -791,7 +917,13 @@ export function effectiveCreatureIchorPerSec(state, typeId) {
     specimenMultiplier = autoMult * sealPenalty;
   }
 
-  return spec.baseIchorPerSec * specimenMultiplier * inertiaMult * globalIchorMultiplier(state);
+  return (
+    spec.baseIchorPerSec *
+    specimenMultiplier *
+    inertiaMult *
+    groutSaltOrganismMultiplier(state) *
+    globalIchorMultiplier(state)
+  );
 }
 
 export function totalCreatureIchorPerSec(state, typeId) {
@@ -818,10 +950,12 @@ export function rawIchorPerSecond(state) {
     creaturesRate += totalCreatureIchorPerSec(state, spec.id);
   }
   const graftNodeMult = hasNode(state, 'auto_tendril_suture') ? 3.0 : 1.0;
+  const pulseMult = borrowedPulseMultiplier(state);
   const graftRate =
     state.graftedTendrils *
     ORGAN_BALANCE.GRAFT_ICHOR_PER_SEC *
     graftNodeMult *
+    pulseMult *
     globalIchorMultiplier(state);
   const deepLungMult = hasNode(state, 'deep_weeping') ? 3.5 : 1.0;
   const lungStillnessBoost = state.isStillnessActive ? 2.0 : 1.0;
@@ -830,6 +964,7 @@ export function rawIchorPerSecond(state) {
     ORGAN_BALANCE.CHOIR_LUNG_ICHOR_PER_SEC *
     deepLungMult *
     lungStillnessBoost *
+    pulseMult *
     globalIchorMultiplier(state);
   return creaturesRate + graftRate + lungRate;
 }
@@ -878,7 +1013,11 @@ export function stillnessPerSecond(state) {
     relicStillnessMultiplier(state) *
     gazeMultiplier(state) *
     (state.isStillnessActive ? 1.5 : 1.0);
-  return lampStillness + graftStillness + lungStillness;
+  return (
+    (lampStillness + graftStillness + lungStillness) *
+    borrowedPulseMultiplier(state) *
+    uncountedHourMultiplier(state)
+  );
 }
 
 export function ichorDisplay(state) {
@@ -927,19 +1066,31 @@ export function isValveClamped(state) {
   return state.clampRemainingSeconds > 0;
 }
 
+export function isGraftOnCooldown(state) {
+  return (state.graftCooldownRemainingSeconds ?? 0) > 0;
+}
+
+export function isChoirLungOnCooldown(state) {
+  return (state.choirLungCooldownRemainingSeconds ?? 0) > 0;
+}
+
 export function canAffordGraft(state) {
   return (
     isGraftUnlocked(state) &&
+    !isGraftOnCooldown(state) &&
     creatureCount(state, CREATURE_TYPES.SUTURE_HAND.id) >= ORGAN_BALANCE.GRAFT_SUTURE_COST &&
-    creatureCount(state, CREATURE_TYPES.LEECH_CLERK.id) >= ORGAN_BALANCE.GRAFT_LEECH_COST
+    creatureCount(state, CREATURE_TYPES.LEECH_CLERK.id) >= ORGAN_BALANCE.GRAFT_LEECH_COST &&
+    state.stillness >= graftStillnessCost(state)
   );
 }
 
 export function canAffordChoirLung(state) {
   return (
     state.highestExcisionMilestone >= 4 &&
+    !isChoirLungOnCooldown(state) &&
     creatureCount(state, CREATURE_TYPES.WEEPING_LAMP.id) >= ORGAN_BALANCE.CHOIR_LUNG_LAMP_COST &&
-    state.graftedTendrils >= ORGAN_BALANCE.CHOIR_LUNG_TENDRIL_COST
+    state.graftedTendrils >= ORGAN_BALANCE.CHOIR_LUNG_TENDRIL_COST &&
+    state.stillness >= choirLungStillnessCost(state)
   );
 }
 
@@ -992,12 +1143,30 @@ export function canBreachToArc2(state) {
   );
 }
 
-export function pendingScarTissue(state) {
+export function currentBaseScarHarvest(state) {
   if (!canExcise(state)) return 0;
-  const baseHarvest = Math.max(
+  return Math.max(
     1,
     Math.floor(Math.sqrt(state.cycleLifetimeIchor / ORGAN_BALANCE.EXCISION_ICHOR_THRESHOLD)),
   );
+}
+
+export function nextBaseScarMassThreshold(state) {
+  const nextBase = currentBaseScarHarvest(state) + 1;
+  return nextBase * nextBase * ORGAN_BALANCE.EXCISION_ICHOR_THRESHOLD;
+}
+
+export function nextScarProgress(state) {
+  const prevBase = currentBaseScarHarvest(state);
+  const prevMass = prevBase * prevBase * ORGAN_BALANCE.EXCISION_ICHOR_THRESHOLD;
+  const nextMass = nextBaseScarMassThreshold(state);
+  const span = Math.max(1, nextMass - prevMass);
+  return Math.max(0, Math.min(1, (state.cycleLifetimeIchor - prevMass) / span));
+}
+
+export function pendingScarTissue(state) {
+  if (!canExcise(state)) return 0;
+  const baseHarvest = currentBaseScarHarvest(state);
   const milestoneBonus = EXCISION_MILESTONES.filter(
     (m) => m.number > state.highestExcisionMilestone && cycleLifetimeIchorDisplay(state) >= m.massThreshold,
   ).reduce((sum, m) => sum + m.firstClearScarBonus, 0);
@@ -1090,6 +1259,10 @@ export function initialState(catalog) {
     creatures: {},
     graftedTendrils: 0,
     choirLungs: 0,
+    graftCooldownRemainingSeconds: 0.0,
+    choirLungCooldownRemainingSeconds: 0.0,
+    lastSacrificePulse: 0,
+    lastSacrificeKind: null,
     ownedJars: [],
     activeAnomalies: [],
     anomalyInteractions: {},
@@ -1308,6 +1481,14 @@ export function tick(state, deltaSeconds, catalog) {
   const gainedStillness = stillnessPerSecond(preProduction) * deltaSeconds;
   const nextGaze = Math.max(0.0, state.gazeRemainingSeconds - deltaSeconds);
   const nextBloom = Math.max(0.0, state.marrowBloomRemainingSeconds - deltaSeconds);
+  const nextGraftCooldown = Math.max(
+    0.0,
+    (state.graftCooldownRemainingSeconds ?? 0.0) - deltaSeconds,
+  );
+  const nextLungCooldown = Math.max(
+    0.0,
+    (state.choirLungCooldownRemainingSeconds ?? 0.0) - deltaSeconds,
+  );
 
   const nextDrainPressure =
     state.highestExcisionMilestone >= 2 && state.drainSealed
@@ -1334,6 +1515,8 @@ export function tick(state, deltaSeconds, catalog) {
     secondsSinceLastTap: nextIdleSec,
     gazeRemainingSeconds: nextGaze,
     marrowBloomRemainingSeconds: nextBloom,
+    graftCooldownRemainingSeconds: nextGraftCooldown,
+    choirLungCooldownRemainingSeconds: nextLungCooldown,
     drainPressure: nextDrainPressure,
     echoChargeSeconds: echoPulseReady ? state.echoChargeSeconds : chargedEcho,
     clampRemainingSeconds: nextClamp,
@@ -1387,13 +1570,17 @@ export function buyCreature(state, typeId, catalog) {
 
 export function bottleJar(state, jarId, catalog) {
   const jar = typeof jarId === 'string' ? jarById(jarId) : jarId;
-  if (!jar || state.ownedJars.includes(jar.id) || state.stillness < jar.stillnessCost) {
+  if (!jar || !isJarUnlocked(state, jar) || state.ownedJars.includes(jar.id)) {
+    return state;
+  }
+  const cost = effectiveJarCost(state, jar);
+  if (state.stillness < cost) {
     return state;
   }
   return finalizeProgression(
     {
       ...state,
-      stillness: state.stillness - jar.stillnessCost,
+      stillness: state.stillness - cost,
       ownedJars: [...state.ownedJars, jar.id],
     },
     catalog,
@@ -1402,6 +1589,7 @@ export function bottleJar(state, jarId, catalog) {
 
 export function performGraft(state, catalog) {
   if (!canAffordGraft(state)) return state;
+  const stillnessCost = graftStillnessCost(state);
   const updatedCreatures = {
     ...state.creatures,
     [CREATURE_TYPES.SUTURE_HAND.id]:
@@ -1412,8 +1600,12 @@ export function performGraft(state, catalog) {
   return finalizeProgression(
     {
       ...state,
+      stillness: Math.max(0.0, state.stillness - stillnessCost),
       creatures: updatedCreatures,
       graftedTendrils: state.graftedTendrils + 1,
+      graftCooldownRemainingSeconds: graftCooldownDurationSec(state),
+      lastSacrificePulse: (state.lastSacrificePulse ?? 0) + 1,
+      lastSacrificeKind: 'tendril',
     },
     catalog,
   );
@@ -1421,6 +1613,7 @@ export function performGraft(state, catalog) {
 
 export function performChoirLungGraft(state, catalog) {
   if (!canAffordChoirLung(state)) return state;
+  const stillnessCost = choirLungStillnessCost(state);
   const updatedCreatures = {
     ...state.creatures,
     [CREATURE_TYPES.WEEPING_LAMP.id]:
@@ -1429,9 +1622,13 @@ export function performChoirLungGraft(state, catalog) {
   return finalizeProgression(
     {
       ...state,
+      stillness: Math.max(0.0, state.stillness - stillnessCost),
       creatures: updatedCreatures,
       graftedTendrils: state.graftedTendrils - ORGAN_BALANCE.CHOIR_LUNG_TENDRIL_COST,
       choirLungs: state.choirLungs + 1,
+      choirLungCooldownRemainingSeconds: choirLungCooldownDurationSec(state),
+      lastSacrificePulse: (state.lastSacrificePulse ?? 0) + 1,
+      lastSacrificeKind: 'choir_lung',
     },
     catalog,
   );
@@ -1588,7 +1785,6 @@ export function performExcision(state, catalog) {
   const startingCreatures = hasNode(state, 'calloused_palm')
     ? { suture_hand: 3, leech_clerk: 1 }
     : {};
-  const retainedJars = hasNode(state, 'wax_sealed_memory') ? [...state.ownedJars] : [];
 
   const reset = {
     ...initialState(catalog),
@@ -1599,7 +1795,7 @@ export function performExcision(state, catalog) {
     unlockedScarNodes: [...state.unlockedScarNodes],
     cycle: state.cycle + 1,
     creatures: startingCreatures,
-    ownedJars: retainedJars,
+    ownedJars: [],
     nextAnomalyId: state.nextAnomalyId,
     lifetimeRelicsDredged: state.lifetimeRelicsDredged,
     echoPulsesTriggered: state.echoPulsesTriggered,
@@ -1938,6 +2134,8 @@ export function serializeState(state) {
     creatures: state.creatures,
     graftedTendrils: state.graftedTendrils,
     choirLungs: state.choirLungs,
+    graftCooldownRemainingSeconds: state.graftCooldownRemainingSeconds ?? 0.0,
+    choirLungCooldownRemainingSeconds: state.choirLungCooldownRemainingSeconds ?? 0.0,
     ownedJars: state.ownedJars,
     activeAnomalies: state.activeAnomalies,
     anomalyInteractions: state.anomalyInteractions,
@@ -2036,6 +2234,11 @@ export function deserializeState(rawJson, catalog) {
       creatures: data.creatures && typeof data.creatures === 'object' ? { ...data.creatures } : {},
       graftedTendrils: Math.max(0, Math.floor(Number(data.graftedTendrils) || 0)),
       choirLungs: Math.max(0, Math.floor(Number(data.choirLungs) || 0)),
+      graftCooldownRemainingSeconds: Math.max(0, Number(data.graftCooldownRemainingSeconds) || 0),
+      choirLungCooldownRemainingSeconds: Math.max(
+        0,
+        Number(data.choirLungCooldownRemainingSeconds) || 0,
+      ),
       ownedJars: Array.isArray(data.ownedJars) ? [...data.ownedJars] : [],
       activeAnomalies: Array.isArray(data.activeAnomalies) ? [...data.activeAnomalies] : [],
       anomalyInteractions:

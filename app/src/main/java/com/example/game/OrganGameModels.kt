@@ -50,14 +50,32 @@ enum class CreatureType(
   }
 }
 
-enum class SpecimenJar(val id: String, val stillnessCost: Double) {
-  YESTERDAYS_DUST(id = "yesterdays_dust", stillnessCost = 24.0),
-  UNSPENT_BREATH(id = "unspent_breath", stillnessCost = 65.0),
-  ALMOST_A_NAME(id = "almost_a_name", stillnessCost = 140.0);
+enum class SpecimenJar(
+  val id: String,
+  val stillnessCost: Double,
+  val unlockPhase: Int = 0,
+  val requiresCycleOrMilestone: Boolean = false,
+) {
+  YESTERDAYS_DUST(id = "yesterdays_dust", stillnessCost = 24.0, unlockPhase = 0),
+  UNSPENT_BREATH(id = "unspent_breath", stillnessCost = 65.0, unlockPhase = 0),
+  ALMOST_A_NAME(id = "almost_a_name", stillnessCost = 140.0, unlockPhase = 0),
+  SALT_FROM_THE_GROUT(id = "salt_from_the_grout", stillnessCost = 320.0, unlockPhase = 3),
+  A_BORROWED_PULSE(id = "a_borrowed_pulse", stillnessCost = 750.0, unlockPhase = 4),
+  THE_UNCOUNTED_HOUR(
+    id = "the_uncounted_hour",
+    stillnessCost = 1_800.0,
+    unlockPhase = 0,
+    requiresCycleOrMilestone = true,
+  );
 
   companion object {
     fun byId(id: String): SpecimenJar? = entries.firstOrNull { it.id == id }
   }
+}
+
+enum class GraftSacrificeKind(val id: String) {
+  TENDRIL("tendril"),
+  CHOIR_LUNG("choir_lung"),
 }
 
 enum class WallAnomalyType(val id: String, val minPhase: Int) {
@@ -111,6 +129,10 @@ data class OrganGameState(
   val creatures: Map<CreatureType, Int> = emptyMap(),
   val graftedTendrils: Int = 0,
   val choirLungs: Int = 0,
+  val graftCooldownRemainingSeconds: Double = 0.0,
+  val choirLungCooldownRemainingSeconds: Double = 0.0,
+  val lastSacrificePulse: Long = 0L,
+  val lastSacrificeKind: GraftSacrificeKind? = null,
   val ownedJars: Set<SpecimenJar> = emptySet(),
   val activeAnomalies: List<ActiveWallAnomaly> = emptyList(),
   val anomalyInteractions: Map<WallAnomalyType, Int> = emptyMap(),
@@ -185,6 +207,78 @@ data class OrganGameState(
 
   val jarEffectBoost: Double
     get() = if (hasNode(ScarNodeId.WAX_SEALED_MEMORY)) 1.6 else 1.0
+
+  val stillnessCostMultiplier: Double
+    get() =
+      if (hasNode(ScarNodeId.WAX_SEALED_MEMORY)) OrganBalance.WAX_STILLNESS_COST_MULTIPLIER
+      else 1.0
+
+  val graftCooldownDurationSec: Double
+    get() =
+      OrganBalance.GRAFT_COOLDOWN_SEC *
+        if (hasNode(ScarNodeId.WAX_SEALED_MEMORY)) OrganBalance.WAX_GRAFT_COOLDOWN_MULTIPLIER
+        else 1.0
+
+  val choirLungCooldownDurationSec: Double
+    get() =
+      OrganBalance.CHOIR_LUNG_COOLDOWN_SEC *
+        if (hasNode(ScarNodeId.WAX_SEALED_MEMORY)) OrganBalance.WAX_GRAFT_COOLDOWN_MULTIPLIER
+        else 1.0
+
+  fun isJarUnlocked(jar: SpecimenJar): Boolean {
+    if (jar in ownedJars) return true
+    if (jar.requiresCycleOrMilestone) {
+      return cycle > 0 || highestExcisionMilestone >= 1 || scarTissue > 0L
+    }
+    return cycle > 0 || phase >= jar.unlockPhase
+  }
+
+  fun effectiveJarCost(jar: SpecimenJar): Double =
+    max(1.0, floor(jar.stillnessCost * stillnessCostMultiplier))
+
+  val graftStillnessCost: Long
+    get() =
+      floor(
+          OrganBalance.GRAFT_BASE_STILLNESS_COST *
+            OrganBalance.GRAFT_STILLNESS_GROWTH.pow(graftedTendrils) *
+            stillnessCostMultiplier
+        )
+        .toLong()
+        .coerceAtLeast(1L)
+
+  val choirLungStillnessCost: Long
+    get() =
+      floor(
+          OrganBalance.CHOIR_LUNG_BASE_STILLNESS_COST *
+            OrganBalance.CHOIR_LUNG_STILLNESS_GROWTH.pow(choirLungs) *
+            stillnessCostMultiplier
+        )
+        .toLong()
+        .coerceAtLeast(1L)
+
+  val groutSaltOrganismMultiplier: Double
+    get() =
+      if (SpecimenJar.SALT_FROM_THE_GROUT in ownedJars) {
+        1.0 + OrganBalance.SALT_GROUT_BONUS * jarEffectBoost
+      } else {
+        1.0
+      }
+
+  val borrowedPulseMultiplier: Double
+    get() =
+      if (SpecimenJar.A_BORROWED_PULSE in ownedJars) {
+        1.0 + OrganBalance.BORROWED_PULSE_BONUS * jarEffectBoost
+      } else {
+        1.0
+      }
+
+  val uncountedHourMultiplier: Double
+    get() =
+      if (SpecimenJar.THE_UNCOUNTED_HOUR in ownedJars) {
+        1.0 + OrganBalance.UNCOUNTED_HOUR_BONUS * jarEffectBoost
+      } else {
+        1.0
+      }
 
   /**
    * Permanent Scar multiplier combining baseline milestone/scar resonance with Surgical Tree
@@ -290,7 +384,8 @@ data class OrganGameState(
         relicIchorMultiplier *
         dossierIchorMultiplier *
         gazeMultiplier *
-        bloomMultiplier
+        bloomMultiplier *
+        uncountedHourMultiplier
 
   fun effectiveCreatureIchorPerSec(type: CreatureType): Double {
     val inertiaMult = if (hasNode(ScarNodeId.COLONY_INERTIA)) 3.2 else 1.0
@@ -329,7 +424,11 @@ data class OrganGameState(
           autoMult * sealPenalty
         }
       }
-    return type.baseIchorPerSec * specimenMultiplier * inertiaMult * globalIchorMultiplier
+    return type.baseIchorPerSec *
+      specimenMultiplier *
+      inertiaMult *
+      groutSaltOrganismMultiplier *
+      globalIchorMultiplier
   }
 
   fun totalCreatureIchorPerSec(type: CreatureType): Double =
@@ -355,7 +454,11 @@ data class OrganGameState(
         CreatureType.entries.sumOf { totalCreatureIchorPerSec(it) }
       val graftNodeMult = if (hasNode(ScarNodeId.AUTO_TENDRIL_SUTURE)) 3.0 else 1.0
       val graftRate =
-        graftedTendrils * OrganBalance.GRAFT_ICHOR_PER_SEC * graftNodeMult * globalIchorMultiplier
+        graftedTendrils *
+          OrganBalance.GRAFT_ICHOR_PER_SEC *
+          graftNodeMult *
+          borrowedPulseMultiplier *
+          globalIchorMultiplier
       val deepLungMult = if (hasNode(ScarNodeId.DEEP_WEEPING)) 3.5 else 1.0
       val lungStillnessBoost = if (isStillnessActive) 2.0 else 1.0
       val lungRate =
@@ -363,6 +466,7 @@ data class OrganGameState(
           OrganBalance.CHOIR_LUNG_ICHOR_PER_SEC *
           deepLungMult *
           lungStillnessBoost *
+          borrowedPulseMultiplier *
           globalIchorMultiplier
       return creaturesRate + graftRate + lungRate
     }
@@ -398,7 +502,9 @@ data class OrganGameState(
           relicStillnessMultiplier *
           gazeMultiplier *
           (if (isStillnessActive) 1.5 else 1.0)
-      return lampStillness + graftStillness + lungStillness
+      return (lampStillness + graftStillness + lungStillness) *
+        borrowedPulseMultiplier *
+        uncountedHourMultiplier
     }
 
   val isApparatusUnlocked: Boolean
@@ -427,17 +533,27 @@ data class OrganGameState(
   val isValveClamped: Boolean
     get() = clampRemainingSeconds > 0.0
 
+  val isGraftOnCooldown: Boolean
+    get() = graftCooldownRemainingSeconds > 0.0
+
+  val isChoirLungOnCooldown: Boolean
+    get() = choirLungCooldownRemainingSeconds > 0.0
+
   val canAffordGraft: Boolean
     get() =
       isGraftUnlocked &&
+        !isGraftOnCooldown &&
         creatureCount(CreatureType.SUTURE_HAND) >= OrganBalance.GRAFT_SUTURE_COST &&
-        creatureCount(CreatureType.LEECH_CLERK) >= OrganBalance.GRAFT_LEECH_COST
+        creatureCount(CreatureType.LEECH_CLERK) >= OrganBalance.GRAFT_LEECH_COST &&
+        stillness >= graftStillnessCost.toDouble()
 
   val canAffordChoirLung: Boolean
     get() =
       highestExcisionMilestone >= 4 &&
+        !isChoirLungOnCooldown &&
         creatureCount(CreatureType.WEEPING_LAMP) >= OrganBalance.CHOIR_LUNG_LAMP_COST &&
-        graftedTendrils >= OrganBalance.CHOIR_LUNG_TENDRIL_COST
+        graftedTendrils >= OrganBalance.CHOIR_LUNG_TENDRIL_COST &&
+        stillness >= choirLungStillnessCost.toDouble()
 
   val nextDredgeableRelic: DredgedRelic?
     get() = DredgedRelic.entries.firstOrNull { it !in dredgedRelics }
@@ -479,14 +595,34 @@ data class OrganGameState(
       highestExcisionMilestone >= 6 ||
         cycleLifetimeIchorDisplay >= ExcisionMilestone.FINAL_SEVERANCE.massThreshold
 
+  val currentBaseScarHarvest: Long
+    get() =
+      if (!canExcise) 0L
+      else
+        floor(sqrt(cycleLifetimeIchor / OrganBalance.EXCISION_ICHOR_THRESHOLD.toDouble()))
+          .toLong()
+          .coerceAtLeast(1L)
+
+  val nextBaseScarMassThreshold: Long
+    get() {
+      val nextBase = currentBaseScarHarvest + 1L
+      return nextBase * nextBase * OrganBalance.EXCISION_ICHOR_THRESHOLD
+    }
+
+  val nextScarProgress: Float
+    get() {
+      val prevBase = currentBaseScarHarvest
+      val prevMass = prevBase * prevBase * OrganBalance.EXCISION_ICHOR_THRESHOLD
+      val nextMass = nextBaseScarMassThreshold
+      val span = max(1L, nextMass - prevMass).toDouble()
+      return ((cycleLifetimeIchor - prevMass.toDouble()) / span).toFloat().coerceIn(0f, 1f)
+    }
+
   /** Total Scar Tissue granted if excising right now (base harvest + any newly cleared milestone bonuses). */
   val pendingScarTissue: Long
     get() {
       if (!canExcise) return 0L
-      val baseHarvest =
-        floor(sqrt(cycleLifetimeIchor / OrganBalance.EXCISION_ICHOR_THRESHOLD.toDouble()))
-          .toLong()
-          .coerceAtLeast(1L)
+      val baseHarvest = currentBaseScarHarvest
       val milestoneBonus =
         ExcisionMilestone.entries
           .filter {
@@ -506,12 +642,23 @@ object OrganBalance {
   const val YESTERDAYS_DUST_TAP_BONUS: Double = 3.0
   const val UNSPENT_BREATH_MULTIPLIER: Double = 1.75
   const val ALMOST_A_NAME_MULTIPLIER: Double = 1.8
+  const val SALT_GROUT_BONUS: Double = 0.45
+  const val BORROWED_PULSE_BONUS: Double = 0.55
+  const val UNCOUNTED_HOUR_BONUS: Double = 0.75
+  const val WAX_STILLNESS_COST_MULTIPLIER: Double = 0.65
+  const val WAX_GRAFT_COOLDOWN_MULTIPLIER: Double = 0.50
   const val GRAFT_SUTURE_COST: Int = 2
   const val GRAFT_LEECH_COST: Int = 2
+  const val GRAFT_BASE_STILLNESS_COST: Double = 35.0
+  const val GRAFT_STILLNESS_GROWTH: Double = 1.55
+  const val GRAFT_COOLDOWN_SEC: Double = 6.0
   const val GRAFT_ICHOR_PER_SEC: Double = 18.0
   const val GRAFT_STILLNESS_PER_SEC: Double = 0.7
   const val CHOIR_LUNG_LAMP_COST: Int = 2
   const val CHOIR_LUNG_TENDRIL_COST: Int = 1
+  const val CHOIR_LUNG_BASE_STILLNESS_COST: Double = 180.0
+  const val CHOIR_LUNG_STILLNESS_GROWTH: Double = 1.65
+  const val CHOIR_LUNG_COOLDOWN_SEC: Double = 10.0
   const val CHOIR_LUNG_ICHOR_PER_SEC: Double = 260.0
   const val CHOIR_LUNG_STILLNESS_PER_SEC: Double = 4.5
   const val EXCISION_ICHOR_THRESHOLD: Long = 210_000L

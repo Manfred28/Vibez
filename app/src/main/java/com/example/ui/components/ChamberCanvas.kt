@@ -1,8 +1,15 @@
 package com.example.ui.components
 
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Arrangement
@@ -23,9 +30,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -41,14 +51,16 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.R
 import com.example.game.CreatureType
-import com.example.game.OrganBalance
+import com.example.game.GraftSacrificeKind
 import com.example.game.OrganGameState
-import com.example.game.SpecimenJar
 import com.example.game.WallAnomalyType
 import com.example.ui.theme.BleakTheme
 import java.text.NumberFormat
 import kotlin.math.ceil
+import kotlin.math.ln
+import kotlin.math.min
 import kotlin.math.roundToInt
+import kotlinx.coroutines.launch
 
 @Composable
 fun ChamberCanvas(
@@ -57,10 +69,12 @@ fun ChamberCanvas(
   dropPhaseProvider: () -> Float,
   onPressValve: () -> Unit,
   onInteractAnomaly: (Long) -> Unit,
+  onEmitThematicDrip: (String) -> Unit = {},
   modifier: Modifier = Modifier,
 ) {
   val colorScheme = MaterialTheme.colorScheme
   val atmosphere = BleakTheme.atmosphere
+  val scope = rememberCoroutineScope()
 
   val formattedIchor =
     remember(state.ichorDisplay) { NumberFormat.getIntegerInstance().format(state.ichorDisplay) }
@@ -87,6 +101,126 @@ fun ChamberCanvas(
   val leechCount = state.creatureCount(CreatureType.LEECH_CLERK)
   val lampCount = state.creatureCount(CreatureType.WEEPING_LAMP)
 
+  // Monotonic clockwise tap ratchet on the iron valve wheel (+24 deg per manual press)
+  val tapWheelRotation = remember { Animatable(0f) }
+
+  // Continuous Robolectric-safe infinite transitions for living chamber motion
+  val chamberMotion = rememberInfiniteTransition(label = "chamber_living_motion")
+  val leechPatrolState =
+    chamberMotion.animateFloat(
+      initialValue = 0f,
+      targetValue = 1f,
+      animationSpec =
+        infiniteRepeatable(
+          animation = tween(durationMillis = 11500, easing = LinearEasing),
+          repeatMode = RepeatMode.Restart,
+        ),
+      label = "leech_patrol",
+    )
+  val wallCreepState =
+    chamberMotion.animateFloat(
+      initialValue = 0f,
+      targetValue = 1f,
+      animationSpec =
+        infiniteRepeatable(
+          animation = tween(durationMillis = 4200, easing = LinearEasing),
+          repeatMode = RepeatMode.Restart,
+        ),
+      label = "wall_creep",
+    )
+  val arterialPulseState =
+    chamberMotion.animateFloat(
+      initialValue = 0f,
+      targetValue = 1f,
+      animationSpec =
+        infiniteRepeatable(
+          animation = tween(durationMillis = 1550, easing = LinearEasing),
+          repeatMode = RepeatMode.Restart,
+        ),
+      label = "arterial_pulse",
+    )
+
+  // Suture-Hand driven clockwise wheel speed scales smoothly with count up to 110 deg/s visual cap
+  val handSpeedDegPerSec =
+    remember(sutureCount) {
+      if (sutureCount <= 0) 0f
+      else min(110f, 12f + 26f * ln(1f + sutureCount.toFloat()))
+    }
+  val handRevPeriodMs =
+    remember(handSpeedDegPerSec) {
+      if (handSpeedDegPerSec <= 0f) 18000
+      else (360_000f / handSpeedDegPerSec).roundToInt().coerceIn(3272, 18000)
+    }
+  val handCyclePeriodMs =
+    remember(sutureCount) {
+      if (sutureCount <= 0) 3200
+      else (3200f / (1f + 0.55f * ln(1f + sutureCount.toFloat()))).roundToInt().coerceIn(850, 3200)
+    }
+
+  val handMotion = rememberInfiniteTransition(label = "suture_hand_rotation")
+  val handWheelAngleState =
+    handMotion.animateFloat(
+      initialValue = 0f,
+      targetValue = 360f,
+      animationSpec =
+        infiniteRepeatable(
+          animation = tween(durationMillis = handRevPeriodMs, easing = LinearEasing),
+          repeatMode = RepeatMode.Restart,
+        ),
+      label = "hand_wheel_angle",
+    )
+  val handCycleState =
+    handMotion.animateFloat(
+      initialValue = 0f,
+      targetValue = 1f,
+      animationSpec =
+        infiniteRepeatable(
+          animation = tween(durationMillis = handCyclePeriodMs, easing = LinearEasing),
+          repeatMode = RepeatMode.Restart,
+        ),
+      label = "hand_claw_cycle",
+    )
+
+  // Neighbor Aperture Echo slit ripple + subordinate thematic drip
+  val echoAnswerText = stringResource(R.string.drip_echo_answer)
+  val echoRipple = remember { Animatable(0f) }
+  var echoInitialized by remember { mutableStateOf(false) }
+  var lastEchoCount by remember { mutableIntStateOf(state.echoPulsesTriggered) }
+  LaunchedEffect(state.echoPulsesTriggered) {
+    if (!echoInitialized) {
+      echoInitialized = true
+      lastEchoCount = state.echoPulsesTriggered
+      return@LaunchedEffect
+    }
+    if (state.echoPulsesTriggered > lastEchoCount) {
+      lastEchoCount = state.echoPulsesTriggered
+      onEmitThematicDrip(echoAnswerText)
+      echoRipple.snapTo(0.01f)
+      echoRipple.animateTo(1f, animationSpec = tween(durationMillis = 1100, easing = FastOutSlowInEasing))
+      echoRipple.snapTo(0f)
+    }
+  }
+
+  // Graft sacrifice subordinate thematic drip (paired with GraftSacrificeOverlay death FX)
+  val sacrificeTendrilText = stringResource(R.string.drip_sacrifice_tendril)
+  val sacrificeLungText = stringResource(R.string.drip_sacrifice_lung)
+  var sacrificeDripInitialized by remember { mutableStateOf(false) }
+  var lastSacrificeDripPulse by remember { mutableLongStateOf(state.lastSacrificePulse) }
+  LaunchedEffect(state.lastSacrificePulse) {
+    if (!sacrificeDripInitialized) {
+      sacrificeDripInitialized = true
+      lastSacrificeDripPulse = state.lastSacrificePulse
+      return@LaunchedEffect
+    }
+    if (state.lastSacrificePulse > lastSacrificeDripPulse) {
+      lastSacrificeDripPulse = state.lastSacrificePulse
+      onEmitThematicDrip(
+        if (state.lastSacrificeKind == GraftSacrificeKind.CHOIR_LUNG) sacrificeLungText
+        else sacrificeTendrilText
+      )
+    }
+  }
+
   Surface(
     modifier = modifier.fillMaxWidth().testTag("chamber_canvas"),
     shape = MaterialTheme.shapes.small,
@@ -100,13 +234,9 @@ fun ChamberCanvas(
       ChamberWallBackdrop(
         state = state,
         breathPhaseProvider = breathPhaseProvider,
-      )
-
-      WeepingLampsCeilingOverlay(
-        lampCount = lampCount,
-        isStillnessActive = state.isStillnessActive,
-        breathPhaseProvider = breathPhaseProvider,
-        dropPhaseProvider = dropPhaseProvider,
+        wallCreepPhaseProvider = { wallCreepState.value },
+        arterialPulsePhaseProvider = { arterialPulseState.value },
+        echoRippleProvider = { echoRipple.value },
       )
 
       Column(
@@ -140,7 +270,7 @@ fun ChamberCanvas(
 
           Spacer(modifier = Modifier.height(6.dp))
 
-          // Recessed damp counter glass plate with outer clearance so Leech-Clerk tails never clip
+          // Recessed damp counter glass plate with perimeter-crawling Leech-Clerks
           Box(contentAlignment = Alignment.Center) {
             Surface(
               modifier = Modifier.padding(horizontal = 24.dp, vertical = 4.dp),
@@ -199,6 +329,7 @@ fun ChamberCanvas(
               LeechClerksGlassOverlay(
                 leechCount = leechCount,
                 breathPhaseProvider = breathPhaseProvider,
+                patrolPhaseProvider = { leechPatrolState.value },
                 modifier = Modifier.matchParentSize(),
               )
             }
@@ -246,7 +377,6 @@ fun ChamberCanvas(
                 text =
                   stringResource(
                     R.string.bloom_active_tag,
-                    formatMultiplier(state.bloomMultiplier),
                     ceil(state.marrowBloomRemainingSeconds).toInt(),
                   ),
                 style = MaterialTheme.typography.labelSmall,
@@ -273,9 +403,20 @@ fun ChamberCanvas(
             }
           RecessedValveButton(
             yieldLabel = valveYieldLabel,
+            wheelRotationDegreesProvider = {
+              val handContribution =
+                if (sutureCount > 0 && !state.isValveClamped) handWheelAngleState.value else 0f
+              tapWheelRotation.value + handContribution
+            },
             onPress = {
               if (!state.isValveClamped) {
                 onPressValve()
+                scope.launch {
+                  tapWheelRotation.animateTo(
+                    targetValue = tapWheelRotation.targetValue + 24f,
+                    animationSpec = tween(durationMillis = 220, easing = FastOutSlowInEasing),
+                  )
+                }
                 val id = nextResidueId++
                 val drift = ((id % 5) - 2) * 14f
                 if (residues.size >= 14) {
@@ -288,6 +429,10 @@ fun ChamberCanvas(
 
           SutureHandsValveOverlay(
             breathPhaseProvider = breathPhaseProvider,
+            handCyclePhaseProvider = {
+              if (sutureCount > 0 && !state.isValveClamped) handCycleState.value
+              else breathPhaseProvider()
+            },
             sutureCount = sutureCount,
             graftCount = state.graftedTendrils,
             boneColor = colorScheme.onBackground,
@@ -306,46 +451,43 @@ fun ChamberCanvas(
         }
       }
 
+      // Foreground Weeping Lamps & downward droplets — rendered OVER the counter plate
+      WeepingLampsCeilingOverlay(
+        lampCount = lampCount,
+        isStillnessActive = state.isStillnessActive,
+        breathPhaseProvider = breathPhaseProvider,
+        dropPhaseProvider = dropPhaseProvider,
+      )
+
+      // Grotesque creature death/dissolution animation during Grafting sacrifices
+      GraftSacrificeOverlay(
+        sacrificePulse = state.lastSacrificePulse,
+        sacrificeKind = state.lastSacrificeKind,
+      )
+
+      // Wall anomalies emit slow thematic drips to the subordinate left margin (never fast popups)
+      val toothDrip = stringResource(R.string.drip_anomaly_tooth)
+      val eyeDrip = stringResource(R.string.drip_anomaly_eye)
+      val noduleDrip = stringResource(R.string.drip_anomaly_nodule)
+      val ribDrip = stringResource(R.string.drip_anomaly_rib)
+
       state.activeAnomalies.forEach { anomaly ->
         key(anomaly.id) {
           val offsetX = (boxWidth - 62.dp) * anomaly.xFraction
           val offsetY = (boxHeight - 62.dp) * anomaly.yFraction
-          val rewardBoost = state.anomalyRewardMultiplier
-          val ichorScale =
-            state.scarMultiplier * state.relicIchorMultiplier * state.dossierIchorMultiplier * rewardBoost
-          val stillnessScale =
-            state.scarStillnessMultiplier * state.relicStillnessMultiplier * rewardBoost
-          val feedbackLabel =
+          val dripLine =
             when (anomaly.type) {
-              WallAnomalyType.PALE_TOOTH ->
-                stringResource(
-                  R.string.anomaly_tooth_feedback,
-                  formatCompactDecimal(OrganBalance.TOOTH_BASE_ICHOR_REWARD * ichorScale),
-                )
-              WallAnomalyType.GLASS_EYE -> stringResource(R.string.anomaly_eye_feedback)
-              WallAnomalyType.SWOLLEN_NODULE ->
-                stringResource(
-                  R.string.anomaly_nodule_feedback,
-                  formatCompactDecimal(OrganBalance.NODULE_BASE_ICHOR_REWARD * ichorScale),
-                  formatCompactDecimal(OrganBalance.NODULE_BASE_STILLNESS_REWARD * stillnessScale),
-                )
-              WallAnomalyType.CHITIN_RIB ->
-                stringResource(
-                  R.string.anomaly_rib_feedback,
-                  formatCompactDecimal(OrganBalance.RIB_BASE_ICHOR_REWARD * ichorScale),
-                  formatCompactDecimal(OrganBalance.RIB_BASE_STILLNESS_REWARD * stillnessScale),
-                )
+              WallAnomalyType.PALE_TOOTH -> toothDrip
+              WallAnomalyType.GLASS_EYE -> eyeDrip
+              WallAnomalyType.SWOLLEN_NODULE -> noduleDrip
+              WallAnomalyType.CHITIN_RIB -> ribDrip
             }
           WallAnomalyNode(
             anomaly = anomaly,
             breathPhaseProvider = breathPhaseProvider,
             onInteract = {
               onInteractAnomaly(anomaly.id)
-              val id = nextResidueId++
-              if (residues.size >= 14) {
-                residues.removeAt(0)
-              }
-              residues.add(ValveResidue(id = id, label = feedbackLabel, xDriftDp = 0f))
+              onEmitThematicDrip(dripLine)
             },
             modifier = Modifier.offset(x = offsetX, y = offsetY),
           )
@@ -354,8 +496,6 @@ fun ChamberCanvas(
     }
   }
 }
-
-
 
 internal fun formatCompactDecimal(value: Double): String {
   val rounded = (value * 10.0).roundToInt() / 10.0

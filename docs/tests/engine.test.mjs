@@ -32,6 +32,7 @@ import {
   connectNextChapter,
   creatureCost,
   creatureCount,
+  currentBaseScarHarvest,
   cycleLifetimeIchorDisplay,
   deserializeState,
   devAssignArc1Resources,
@@ -44,9 +45,12 @@ import {
   devSpawnWallAnomaly,
   dredgeSump,
   effectiveCreatureIchorPerSec,
+  effectiveJarCost,
   effectiveLampStillnessPerSec,
   enterArc3Convergence,
   gazeMultiplier,
+  graftCooldownDurationSec,
+  graftStillnessCost,
   ichorDisplay,
   ichorPerSecond,
   initialState,
@@ -54,8 +58,11 @@ import {
   interactAnomaly,
   interactDeskAnomaly,
   isApparatusUnlocked,
+  isJarUnlocked,
   isJarsAndGraftUnlocked,
   manualTapYield,
+  nextBaseScarMassThreshold,
+  nextScarProgress,
   offerToThroat,
   pendingScarTissue,
   performBreachToArc2,
@@ -98,6 +105,7 @@ test('GitHub Pages static bundle integrity and Android dialogues.json parity', (
     'src/app.js',
     'assets/dialogues.json',
     'assets/img_wall_phase1.jpg',
+    'assets/img_wall_fleshy.jpg',
     'assets/img_recessed_valve.jpg',
     'assets/img_suture_hand.jpg',
     'assets/img_leech_clerk.jpg',
@@ -239,12 +247,12 @@ test('wall anomalies, specimen jars, grafting, Excision I, and Cycle 1+ prestige
   const wiped = interactAnomaly(eyeState, 50, realCatalog);
   assert.equal(gazeMultiplier(wiped), ORGAN_BALANCE.GAZE_PASSIVE_MULTIPLIER);
 
-  // Jars + Grafting in Phase 3
+  // Jars + Grafting in Phase 3 (with Stillness cost & cooldown)
   let p3 = {
     ...initialState(realCatalog),
     cycleLifetimeIchor: 17000,
     ichor: 17000,
-    stillness: 30,
+    stillness: 70,
     phase: 3,
     creatures: {
       [CREATURE_TYPES.SUTURE_HAND.id]: 2,
@@ -253,9 +261,16 @@ test('wall anomalies, specimen jars, grafting, Excision I, and Cycle 1+ prestige
   };
   p3 = bottleJar(p3, SPECIMEN_JARS.YESTERDAYS_DUST.id, realCatalog);
   assert.ok(p3.ownedJars.includes(SPECIMEN_JARS.YESTERDAYS_DUST.id));
+  assert.equal(p3.stillness, 46);
+  assert.equal(graftStillnessCost(p3), 35);
   assert.equal(canAffordGraft(p3), true);
   p3 = performGraft(p3, realCatalog);
   assert.equal(p3.graftedTendrils, 1);
+  assert.equal(p3.stillness, 11);
+  assert.equal(p3.graftCooldownRemainingSeconds, ORGAN_BALANCE.GRAFT_COOLDOWN_SEC);
+  assert.equal(p3.lastSacrificePulse, 1);
+  assert.equal(p3.lastSacrificeKind, 'tendril');
+  assert.equal(canAffordGraft(p3), false);
   assert.equal(p3.activeDialogue?.id, 'dlg_p3_first_graft');
 
   // Phase 4 Split Chitin Rib grants Ichor + Stillness + 6s Eye Gaze + dlg_p4_chitin_rib
@@ -326,7 +341,7 @@ test('Scar Tissue Surgical Skill Tree enforces prerequisites, deducts spendable 
   state = unlockScarNode(state, 'wax_sealed_memory', realCatalog);
   assert.equal(state.availableScarTissue, 2);
 
-  // Bottle a jar, cross M1 threshold, and perform Excision -> retains jar + starts with Calloused Palm creatures
+  // Reworked Wax-Sealed Memory: clears jars on Excision, discounts Stillness costs by 35%, halves graft cooldown
   state = {
     ...state,
     ichor: 220000,
@@ -337,7 +352,10 @@ test('Scar Tissue Surgical Skill Tree enforces prerequisites, deducts spendable 
   const reset = performExcision(state, realCatalog);
   assert.equal(creatureCount(reset, CREATURE_TYPES.SUTURE_HAND.id), 3);
   assert.equal(creatureCount(reset, CREATURE_TYPES.LEECH_CLERK.id), 1);
-  assert.ok(reset.ownedJars.includes(SPECIMEN_JARS.YESTERDAYS_DUST.id));
+  assert.equal(reset.ownedJars.length, 0);
+  assert.equal(effectiveJarCost(reset, SPECIMEN_JARS.YESTERDAYS_DUST.id), 15);
+  assert.equal(graftStillnessCost(reset), 22);
+  assert.equal(graftCooldownDurationSec(reset), 3.0);
 
   // Shorter Silence activates Stillness after 1.5s instead of 3.0s (requires >= 1 Weeping Lamp)
   const withLamp = {
@@ -387,6 +405,7 @@ test('Excisions II-VI unlock Sump-Siphon/Drain/Relics, Echo Routing, Valve Clamp
 
   s = {
     ...s,
+    stillness: 250,
     creatures: { ...s.creatures, [CREATURE_TYPES.WEEPING_LAMP.id]: 3 },
     graftedTendrils: 2,
   };
@@ -395,6 +414,9 @@ test('Excisions II-VI unlock Sump-Siphon/Drain/Relics, Echo Routing, Valve Clamp
   assert.equal(s.choirLungs, 1);
   assert.equal(creatureCount(s, CREATURE_TYPES.WEEPING_LAMP.id), 1);
   assert.equal(s.graftedTendrils, 1);
+  assert.equal(s.stillness, 70);
+  assert.equal(s.choirLungCooldownRemainingSeconds, ORGAN_BALANCE.CHOIR_LUNG_COOLDOWN_SEC);
+  assert.equal(s.lastSacrificeKind, 'choir_lung');
 
   // M5: Ossified Throat & Redacted Cult Dossier
   s = devSetHighestMilestone(s, 5, realCatalog);
@@ -572,4 +594,61 @@ test('save serialization v2 round-trips multi-arc state, migrates v1 saves safel
 
   assert.equal(deserializeState('{invalid json', realCatalog), null);
   assert.equal(deserializeState(null, realCatalog), null);
+});
+
+test('6-tier Specimen Jars, Next Scar quadratic progress, and cooldown serialization match Android 1:1', () => {
+  assert.equal(Object.values(SPECIMEN_JARS).length, 6);
+
+  // Phase 2 locks Salt (P3), Borrowed Pulse (P4), and Uncounted Hour (post-Severance)
+  const p2 = { ...initialState(realCatalog), phase: 2, stillness: 5000 };
+  assert.equal(isJarUnlocked(p2, SPECIMEN_JARS.YESTERDAYS_DUST.id), true);
+  assert.equal(isJarUnlocked(p2, SPECIMEN_JARS.SALT_FROM_THE_GROUT.id), false);
+  assert.equal(isJarUnlocked(p2, SPECIMEN_JARS.A_BORROWED_PULSE.id), false);
+  assert.equal(isJarUnlocked(p2, SPECIMEN_JARS.THE_UNCOUNTED_HOUR.id), false);
+
+  // Phase 3 Salt from the Grout boosts organisms by +45%
+  let p3 = {
+    ...p2,
+    phase: 3,
+    cycleLifetimeIchor: 17000,
+    creatures: { [CREATURE_TYPES.SUTURE_HAND.id]: 2 },
+  };
+  const preSaltRate = ichorPerSecond(p3);
+  p3 = bottleJar(p3, SPECIMEN_JARS.SALT_FROM_THE_GROUT.id, realCatalog);
+  assert.ok(Math.abs(ichorPerSecond(p3) - preSaltRate * (1 + ORGAN_BALANCE.SALT_GROUT_BONUS)) < 0.001);
+
+  // Phase 4 A Borrowed Pulse boosts graft/lung Ichor & all Stillness/s by +55%
+  let p4 = { ...p3, phase: 4, cycleLifetimeIchor: 90000, graftedTendrils: 1 };
+  const prePulseStill = stillnessPerSecond(p4);
+  p4 = bottleJar(p4, SPECIMEN_JARS.A_BORROWED_PULSE.id, realCatalog);
+  assert.ok(Math.abs(stillnessPerSecond(p4) - prePulseStill * (1 + ORGAN_BALANCE.BORROWED_PULSE_BONUS)) < 0.001);
+
+  // Cycle 1+ unlocks The Uncounted Hour (+75% global Ichor & all Stillness/s)
+  let c1 = { ...p4, cycle: 1, highestExcisionMilestone: 1 };
+  const preHourIchor = ichorPerSecond(c1);
+  const preHourStill = stillnessPerSecond(c1);
+  c1 = bottleJar(c1, SPECIMEN_JARS.THE_UNCOUNTED_HOUR.id, realCatalog);
+  assert.ok(Math.abs(ichorPerSecond(c1) - preHourIchor * (1 + ORGAN_BALANCE.UNCOUNTED_HOUR_BONUS)) < 0.001);
+  assert.ok(Math.abs(stillnessPerSecond(c1) - preHourStill * (1 + ORGAN_BALANCE.UNCOUNTED_HOUR_BONUS)) < 0.001);
+
+  // Next Scar quadratic threshold & progress
+  const s0 = initialState(realCatalog);
+  assert.equal(currentBaseScarHarvest(s0), 0);
+  assert.equal(nextBaseScarMassThreshold(s0), 210000);
+  assert.ok(Math.abs(nextScarProgress({ ...s0, cycleLifetimeIchor: 105000 }) - 0.5) < 0.001);
+  const s1 = { ...s0, cycleLifetimeIchor: 210000 };
+  assert.equal(currentBaseScarHarvest(s1), 1);
+  assert.equal(nextBaseScarMassThreshold(s1), 840000);
+  assert.ok(Math.abs(nextScarProgress({ ...s0, cycleLifetimeIchor: 525000 }) - 0.5) < 0.001);
+
+  // Cooldown & late-tier jar serialization round-trip
+  const withCooldown = {
+    ...c1,
+    graftCooldownRemainingSeconds: 4.5,
+    choirLungCooldownRemainingSeconds: 8.25,
+  };
+  const restored = deserializeState(serializeState(withCooldown), realCatalog);
+  assert.equal(restored.graftCooldownRemainingSeconds, 4.5);
+  assert.equal(restored.choirLungCooldownRemainingSeconds, 8.25);
+  assert.ok(restored.ownedJars.includes(SPECIMEN_JARS.THE_UNCOUNTED_HOUR.id));
 });

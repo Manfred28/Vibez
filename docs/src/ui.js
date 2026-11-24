@@ -36,28 +36,38 @@ import {
   canExcise,
   canOfferToThroat,
   canUnlockNode,
+  choirLungCooldownDurationSec,
+  choirLungStillnessCost,
   creatureCost,
   creatureCount,
   cycleLifetimeIchorDisplay,
   dossierIchorMultiplier,
   effectiveCreatureIchorPerSec,
+  effectiveJarCost,
   effectiveLampStillnessPerSec,
   formatCompactDecimal,
   formatInteger,
   formatMultiplier,
+  graftCooldownDurationSec,
+  graftStillnessCost,
   hasNode,
   ichorDisplay,
   ichorPerSecond,
   isApparatusUnlocked,
   isChamberRitesUnlocked,
+  isChoirLungOnCooldown,
   isCreatureUnlocked,
+  isGraftOnCooldown,
   isGraftUnlocked,
+  isJarUnlocked,
   isJarsAndGraftUnlocked,
   isScarTreeUnlocked,
   isValveClamped,
   manualTapYield,
+  nextBaseScarMassThreshold,
   nextDredgeableRelic,
   nextExcisionMilestone,
+  nextScarProgress,
   pendingScarTissue,
   relicIchorMultiplier,
   scarMultiplier,
@@ -66,13 +76,14 @@ import {
   stillnessDisplay,
   stillnessIdleDelaySec,
   totalCreatureIchorPerSec,
-} from './engine.js?v=2.2';
+} from './engine.js?v=2.4';
 import {
+  drawActionArtwork,
   drawAnomalyGlyph,
   drawDeskAnomalyGlyph,
   drawSumpSiphonPortrait,
   drawWeepingLampPortrait,
-} from './chamberCanvas.js?v=2.2';
+} from './chamberCanvas.js?v=2.4';
 
 export function createUiController(handlers) {
   const els = {
@@ -82,11 +93,9 @@ export function createUiController(handlers) {
     arc2Shell: document.getElementById('arc2-shell'),
     arc3Shell: document.getElementById('arc3-shell'),
 
-    // Arc 1
+    // Arc 1 (Decluttered Top Telemetry)
     phaseHeader: document.getElementById('phase-header'),
     phaseBadge: document.getElementById('phase-badge'),
-    cycleStatus: document.getElementById('cycle-status'),
-    scarPassiveStatus: document.getElementById('scar-passive-status'),
     phaseProgressFill: document.getElementById('phase-progress-fill'),
     thresholdStatus: document.getElementById('threshold-status'),
 
@@ -106,7 +115,6 @@ export function createUiController(handlers) {
 
     deckPanel: document.getElementById('apparatus-deck'),
     deckTabs: document.getElementById('deck-tabs'),
-    prestigeBanner: document.getElementById('prestige-banner'),
     deckContent: document.getElementById('deck-content'),
 
     // Arc 2
@@ -130,24 +138,30 @@ export function createUiController(handlers) {
     // Arc 3
     arc3Stats: document.getElementById('arc3-stats'),
 
-    // Shared Ledger & Archive
+    // Shared Ledger, Archive & Dual-Lane Dripping Margin Overlays
+    ledgerPanel: document.getElementById('ledger-panel'),
     ledgerSpeaker: document.getElementById('ledger-speaker'),
     ledgerDivider: document.getElementById('ledger-divider'),
     ledgerBody: document.getElementById('ledger-body'),
     openArchiveBtn: document.getElementById('open-archive-btn'),
     archiveModal: document.getElementById('archive-modal'),
     archiveList: document.getElementById('archive-list'),
+    storyDripLayer: document.getElementById('story-drip-layer'),
+    eventDripLayer: document.getElementById('event-drip-layer'),
   };
 
   let selectedTab = 'apparatus';
   let selectedArc2Tab = 'contacts';
   let selectedScarNodeId = 'first_incision';
+  let selectedRelicId = null;
   let excisionArmed = false;
   let lastDeckSignature = '';
   let lastArc2DeckSignature = '';
   let lastCounterDisplay = -1;
   let lastDialogueId = null;
+  let hasHydratedDialogue = false;
   let residueSeq = 0;
+  let ledgerPulseTimer = null;
 
   const anomalyCanvasMap = new Map();
   const deskAnomalyCanvasMap = new Map();
@@ -161,7 +175,7 @@ export function createUiController(handlers) {
   let jarsPanelRefs = null;
   let scarPanelRefs = null;
   let ritesPanelRefs = null;
-  let excisionRewardEl = null;
+  let excisionRefs = null;
   let arc2DeckRefs = null;
 
   function resolveAvailableTabs(state) {
@@ -169,7 +183,9 @@ export function createUiController(handlers) {
     if (isJarsAndGraftUnlocked(state)) tabs.push('jars_and_graft');
     if (isScarTreeUnlocked(state)) tabs.push('scar_tree');
     if (isChamberRitesUnlocked(state)) tabs.push('chamber_rites');
-    if (canExcise(state) || canBreachToArc2(state)) tabs.push('excision');
+    if (canExcise(state) || canBreachToArc2(state) || state.cycle > 0 || state.phase >= 4) {
+      tabs.push('excision');
+    }
     return tabs;
   }
 
@@ -187,6 +203,61 @@ export function createUiController(handlers) {
     }
   }
 
+  function triggerStoryDrip(entry) {
+    if (!els.storyDripLayer || !entry) return;
+    // Story lane is strictly dedicated to newly unlocked DialogueEntry fragments
+    els.storyDripLayer.innerHTML = '';
+    const card = document.createElement('div');
+    card.className = 'drip-card drip-card--story';
+    const ribbon = document.createElement('div');
+    ribbon.className = 'drip-ribbon';
+    const bubble = document.createElement('div');
+    bubble.className = 'drip-bubble';
+    const speaker = document.createElement('span');
+    speaker.className = 'drip-speaker';
+    speaker.textContent = `// ${(entry.speaker || 'CHAMBER').toUpperCase()}`;
+    const body = document.createElement('p');
+    body.className = 'drip-text';
+    body.textContent = (entry.lines || []).join('\n');
+    bubble.append(speaker, body);
+    card.append(ribbon, bubble);
+    els.storyDripLayer.appendChild(card);
+
+    els.eventDripLayer?.classList.add('is-dimmed');
+    card.addEventListener(
+      'animationend',
+      () => {
+        card.remove();
+        if (els.storyDripLayer.childElementCount === 0) {
+          els.eventDripLayer?.classList.remove('is-dimmed');
+        }
+      },
+      { once: true },
+    );
+  }
+
+  function triggerEventDrip(text, speakerLabel = 'CHAMBER') {
+    if (!els.eventDripLayer || !text) return;
+    // Subordinate left lane — never touches or interferes with the primary Story lane
+    els.eventDripLayer.innerHTML = '';
+    const card = document.createElement('div');
+    card.className = 'drip-card drip-card--event';
+    const ribbon = document.createElement('div');
+    ribbon.className = 'drip-ribbon';
+    const bubble = document.createElement('div');
+    bubble.className = 'drip-bubble';
+    const speaker = document.createElement('span');
+    speaker.className = 'drip-speaker';
+    speaker.textContent = `// ${speakerLabel.toUpperCase()}`;
+    const body = document.createElement('p');
+    body.className = 'drip-text';
+    body.textContent = text;
+    bubble.append(speaker, body);
+    card.append(ribbon, bubble);
+    els.eventDripLayer.appendChild(card);
+    card.addEventListener('animationend', () => card.remove(), { once: true });
+  }
+
   /* ==================== ARC 1 RENDERING ==================== */
 
   function renderTelemetry(state) {
@@ -194,24 +265,6 @@ export function createUiController(handlers) {
     const phaseTitle = (state.phaseName || '').toUpperCase();
     els.phaseHeader.textContent = `PHASE ${String(state.phase).padStart(2, '0')} // ${phaseTitle}`;
     els.phaseBadge.textContent = `P${state.phase}`;
-
-    const showCycle = state.cycle > 0 || state.scarTissue > 0 || state.highestExcisionMilestone > 0;
-    els.cycleStatus.hidden = !showCycle;
-    if (showCycle) {
-      els.cycleStatus.textContent = `CYCLE ${String(state.cycle).padStart(2, '0')} // M${state.highestExcisionMilestone}/6 · SCAR: ${formatInteger(state.availableScarTissue)} AVAIL (${formatInteger(state.scarTissue)} TOTAL)`;
-    }
-
-    const hasBonuses =
-      state.scarTissue > 0 ||
-      state.highestExcisionMilestone > 0 ||
-      state.dredgedRelics.length > 0 ||
-      state.unredactedDossierLines.length > 0;
-    els.scarPassiveStatus.hidden = !hasBonuses;
-    if (hasBonuses) {
-      const totalIchorMult =
-        scarMultiplier(state) * relicIchorMultiplier(state) * dossierIchorMultiplier(state);
-      els.scarPassiveStatus.textContent = `PERMANENT RESONANCE: ×${formatMultiplier(totalIchorMult)} ICHOR · ×${formatMultiplier(scarStillnessMultiplier(state))} STILLNESS`;
-    }
 
     const pct = Math.max(0, Math.min(100, state.phaseProgress * 100));
     els.phaseProgressFill.style.width = `${pct.toFixed(2)}%`;
@@ -221,7 +274,7 @@ export function createUiController(handlers) {
     const ready = canClearNextMilestone(state) || canBreachToArc2(state) || canExcise(state);
     els.thresholdStatus.classList.toggle('threshold-status--ready', ready);
     if (canBreachToArc2(state)) {
-      els.thresholdStatus.textContent = 'MORTAR CRITICAL // BREACH RITUAL READY (ARC 2)';
+      els.thresholdStatus.textContent = 'MORTAR FRACTURED // BREACH RITUAL READY';
     } else if (canClearNextMilestone(state) && nextM) {
       els.thresholdStatus.textContent = `${nextM.code} READY`;
     } else if (state.nextPhaseThreshold != null) {
@@ -229,7 +282,7 @@ export function createUiController(handlers) {
     } else if (nextM) {
       els.thresholdStatus.textContent = `NEXT MILESTONE (${nextM.code}): ${formatInteger(cycleLifetimeIchorDisplay(state))} / ${formatInteger(nextM.massThreshold)}`;
     } else {
-      els.thresholdStatus.textContent = 'FINAL SEVERANCE COMPLETE';
+      els.thresholdStatus.textContent = 'NO SUMMIT REMAINS';
     }
   }
 
@@ -266,7 +319,7 @@ export function createUiController(handlers) {
     els.stillnessActiveBadge.hidden = !state.isStillnessActive;
     els.gazeActiveBadge.hidden = state.gazeRemainingSeconds <= 0;
     if (state.gazeRemainingSeconds > 0) {
-      els.gazeActiveBadge.textContent = `EYE GAZE: ×1.6 (${Math.ceil(state.gazeRemainingSeconds)}s)`;
+      els.gazeActiveBadge.textContent = `EYE GAZE (${Math.ceil(state.gazeRemainingSeconds)}s)`;
     }
 
     const clamped = isValveClamped(state);
@@ -277,7 +330,7 @@ export function createUiController(handlers) {
 
     els.bloomActiveBadge.hidden = state.marrowBloomRemainingSeconds <= 0;
     if (state.marrowBloomRemainingSeconds > 0) {
-      els.bloomActiveBadge.textContent = `MARROW BLOOM ×${formatMultiplier(bloomMultiplier(state))} (${Math.ceil(state.marrowBloomRemainingSeconds)}s)`;
+      els.bloomActiveBadge.textContent = `MARROW BLOOM (${Math.ceil(state.marrowBloomRemainingSeconds)}s)`;
     }
 
     els.valveButton.disabled = clamped;
@@ -484,16 +537,16 @@ export function createUiController(handlers) {
         count <= 0
           ? 'DORMANT'
           : id === CREATURE_TYPES.SUTURE_HAND.id
-            ? 'PRESSING VALVE'
+            ? 'TURNING IRON'
             : id === CREATURE_TYPES.LEECH_CLERK.id
               ? 'GRAZING GLASS'
               : id === CREATURE_TYPES.SUMP_SIPHON.id
                 ? state.drainSealed
                   ? 'PRESSURIZING'
-                  : 'GULPING SUMP'
+                  : 'DREDGING SUMP'
                 : state.isStillnessActive
-                  ? 'WEEPING ×2'
-                  : `IDLE ${formatCompactDecimal(stillnessIdleDelaySec(state))}s TO WEEP`;
+                  ? 'WEEPING'
+                  : 'AWAITING QUIET';
       statusEl.className = 'organism-status-badge';
       if (isWeeping) statusEl.classList.add('organism-status-badge--weeping');
       else if (isWorking) statusEl.classList.add('organism-status-badge--active');
@@ -549,6 +602,7 @@ export function createUiController(handlers) {
       btn.className = 'deck-row';
       btn.dataset.jarId = jar.id;
       btn.innerHTML = `
+        <canvas class="action-emblem" width="38" height="38" aria-hidden="true"></canvas>
         <span class="deck-row-text">
           <span class="deck-row-title">${jar.name}</span>
           <span class="deck-row-sub">${jar.effect}</span>
@@ -557,30 +611,47 @@ export function createUiController(handlers) {
       `;
       btn.addEventListener('click', () => handlers.onBottleJar(jar.id));
       els.deckContent.appendChild(btn);
-      jarRows.push({ jar, btn, pillEl: btn.querySelector('[data-role="pill"]') });
+      jarRows.push({
+        jar,
+        btn,
+        emblemCanvas: btn.querySelector('canvas'),
+        pillEl: btn.querySelector('[data-role="pill"]'),
+        lastDrawnActive: null,
+      });
     }
 
     const divider = document.createElement('div');
     divider.className = 'deck-divider';
     els.deckContent.appendChild(divider);
 
-    let graftBtn = null;
-    let graftTitleEl = null;
+    let graftRef = null;
     if (isGraftUnlocked(state)) {
-      graftBtn = document.createElement('button');
+      const graftBtn = document.createElement('button');
       graftBtn.type = 'button';
       graftBtn.className = 'deck-row deck-row--accent';
       graftBtn.dataset.role = 'graft-btn';
       graftBtn.innerHTML = `
+        <canvas class="action-emblem action-emblem--accent" width="38" height="38" aria-hidden="true"></canvas>
         <span class="deck-row-text">
           <span class="deck-row-title" data-role="graft-title"></span>
-          <span class="deck-row-sub">Fuse 2 Suture-Hands + 2 Leech-Clerks (+18/s Ichor, +0.7/s Stillness)</span>
+          <span class="deck-row-sub">Bind 2 Hands &amp; 2 Leeches into one braided hum.</span>
+          <span class="cooldown-track" data-role="graft-cd-track" hidden>
+            <span class="cooldown-fill" data-role="graft-cd-fill"></span>
+          </span>
         </span>
-        <span class="deck-row-pill">GRAFT</span>
+        <span class="deck-row-pill" data-role="graft-pill">GRAFT</span>
       `;
       graftBtn.addEventListener('click', () => handlers.onPerformGraft());
       els.deckContent.appendChild(graftBtn);
-      graftTitleEl = graftBtn.querySelector('[data-role="graft-title"]');
+      const emblemCanvas = graftBtn.querySelector('canvas');
+      drawActionArtwork(emblemCanvas, 'graft', 'tendril', true);
+      graftRef = {
+        btn: graftBtn,
+        titleEl: graftBtn.querySelector('[data-role="graft-title"]'),
+        pillEl: graftBtn.querySelector('[data-role="graft-pill"]'),
+        cdTrack: graftBtn.querySelector('[data-role="graft-cd-track"]'),
+        cdFill: graftBtn.querySelector('[data-role="graft-cd-fill"]'),
+      };
     } else {
       const hint = document.createElement('div');
       hint.className = 'locked-hint';
@@ -588,48 +659,98 @@ export function createUiController(handlers) {
       els.deckContent.appendChild(hint);
     }
 
-    let lungBtn = null;
-    let lungTitleEl = null;
+    let lungRef = null;
     if (state.highestExcisionMilestone >= 4) {
-      lungBtn = document.createElement('button');
+      const lungBtn = document.createElement('button');
       lungBtn.type = 'button';
       lungBtn.className = 'deck-row deck-row--accent';
       lungBtn.dataset.role = 'choir-lung-btn';
       lungBtn.innerHTML = `
+        <canvas class="action-emblem action-emblem--accent" width="38" height="38" aria-hidden="true"></canvas>
         <span class="deck-row-text">
           <span class="deck-row-title" data-role="choir-lung-title"></span>
-          <span class="deck-row-sub">Fuse 2 Weeping Lamps + 1 Choir-Tendril (+260/s Ichor, +4.5/s Stillness; ×2 while idle)</span>
+          <span class="deck-row-sub">Bind 2 Lamps &amp; 1 Tendril; it breathes deepest in quiet.</span>
+          <span class="cooldown-track" data-role="lung-cd-track" hidden>
+            <span class="cooldown-fill" data-role="lung-cd-fill"></span>
+          </span>
         </span>
-        <span class="deck-row-pill">GRAFT LUNG</span>
+        <span class="deck-row-pill" data-role="lung-pill">GRAFT</span>
       `;
       lungBtn.addEventListener('click', () => handlers.onPerformChoirLung());
       els.deckContent.appendChild(lungBtn);
-      lungTitleEl = lungBtn.querySelector('[data-role="choir-lung-title"]');
+      const emblemCanvas = lungBtn.querySelector('canvas');
+      drawActionArtwork(emblemCanvas, 'graft', 'choir_lung', true);
+      lungRef = {
+        btn: lungBtn,
+        titleEl: lungBtn.querySelector('[data-role="choir-lung-title"]'),
+        pillEl: lungBtn.querySelector('[data-role="lung-pill"]'),
+        cdTrack: lungBtn.querySelector('[data-role="lung-cd-track"]'),
+        cdFill: lungBtn.querySelector('[data-role="lung-cd-fill"]'),
+      };
     }
 
-    jarsPanelRefs = { jarRows, graftBtn, graftTitleEl, lungBtn, lungTitleEl };
+    jarsPanelRefs = { jarRows, graftRef, lungRef };
   }
 
   function updateJarsAndGraftInPlace(state) {
     if (!jarsPanelRefs) return;
-    for (const { jar, btn, pillEl } of jarsPanelRefs.jarRows) {
+    for (const row of jarsPanelRefs.jarRows) {
+      const { jar, btn, emblemCanvas, pillEl } = row;
       const owned = state.ownedJars.includes(jar.id);
-      const canAfford = !owned && state.stillness >= jar.stillnessCost;
+      const unlocked = isJarUnlocked(state, jar);
+      const cost = effectiveJarCost(state, jar);
+      const canAfford = unlocked && !owned && state.stillness >= cost;
       btn.disabled = !canAfford;
       btn.classList.toggle('deck-row--accent', owned);
-      pillEl.textContent = owned
-        ? 'SEALED'
-        : `BOTTLE · ${formatInteger(jar.stillnessCost)} STILLNESS`;
+      emblemCanvas.classList.toggle('action-emblem--active', owned);
+      if (row.lastDrawnActive !== owned || emblemCanvas.width <= 1) {
+        row.lastDrawnActive = owned;
+        drawActionArtwork(emblemCanvas, 'jar', jar.id, owned);
+      }
+      if (owned) {
+        pillEl.textContent = 'SEALED';
+      } else if (!unlocked) {
+        pillEl.textContent = jar.requiresCycleOrMilestone
+          ? 'AFTER SEVERANCE'
+          : `PHASE ${String(jar.unlockPhase).padStart(2, '0')}`;
+      } else {
+        pillEl.textContent = `BOTTLE · ${formatInteger(cost)} STILL`;
+      }
     }
 
-    if (jarsPanelRefs.graftBtn) {
-      jarsPanelRefs.graftBtn.disabled = !canAffordGraft(state);
-      jarsPanelRefs.graftTitleEl.textContent = `GRAFTED CHOIR-TENDRIL [${state.graftedTendrils}]`;
+    if (jarsPanelRefs.graftRef) {
+      const { btn, titleEl, pillEl, cdTrack, cdFill } = jarsPanelRefs.graftRef;
+      const onCd = isGraftOnCooldown(state);
+      btn.disabled = !canAffordGraft(state);
+      titleEl.textContent = `GRAFTED CHOIR-TENDRIL [${state.graftedTendrils}]`;
+      pillEl.textContent = onCd
+        ? `SETTLING (${Math.ceil(state.graftCooldownRemainingSeconds)}s)`
+        : `GRAFT · ${formatInteger(graftStillnessCost(state))} STILL`;
+      cdTrack.hidden = !onCd;
+      if (onCd) {
+        const dur = Math.max(0.1, graftCooldownDurationSec(state));
+        const pct = Math.max(0, Math.min(100, (state.graftCooldownRemainingSeconds / dur) * 100));
+        cdFill.style.width = `${pct.toFixed(1)}%`;
+      }
     }
 
-    if (jarsPanelRefs.lungBtn) {
-      jarsPanelRefs.lungBtn.disabled = !canAffordChoirLung(state);
-      jarsPanelRefs.lungTitleEl.textContent = `CHOIR-LUNG VESSEL [${state.choirLungs}]`;
+    if (jarsPanelRefs.lungRef) {
+      const { btn, titleEl, pillEl, cdTrack, cdFill } = jarsPanelRefs.lungRef;
+      const onCd = isChoirLungOnCooldown(state);
+      btn.disabled = !canAffordChoirLung(state);
+      titleEl.textContent = `GRAFTED CHOIR-LUNG [${state.choirLungs}]`;
+      pillEl.textContent = onCd
+        ? `SETTLING (${Math.ceil(state.choirLungCooldownRemainingSeconds)}s)`
+        : `GRAFT · ${formatInteger(choirLungStillnessCost(state))} STILL`;
+      cdTrack.hidden = !onCd;
+      if (onCd) {
+        const dur = Math.max(0.1, choirLungCooldownDurationSec(state));
+        const pct = Math.max(
+          0,
+          Math.min(100, (state.choirLungCooldownRemainingSeconds / dur) * 100),
+        );
+        cdFill.style.width = `${pct.toFixed(1)}%`;
+      }
     }
   }
 
@@ -723,7 +844,9 @@ export function createUiController(handlers) {
 
   function updateScarTreeInPlace(state) {
     if (!scarPanelRefs) return;
-    scarPanelRefs.summary.textContent = `AVAILABLE SCAR TISSUE: ${formatInteger(state.availableScarTissue)} // SUTURED: ${state.unlockedScarNodes.length} / ${SCAR_NODES.length}`;
+    const totalIchorMult =
+      scarMultiplier(state) * relicIchorMultiplier(state) * dossierIchorMultiplier(state);
+    scarPanelRefs.summary.textContent = `CYCLE ${String(state.cycle).padStart(2, '0')} · M${state.highestExcisionMilestone}/6 · AVAIL SCAR: ${formatInteger(state.availableScarTissue)} (${formatInteger(state.scarTissue)} TOTAL) · ×${formatMultiplier(totalIchorMult)} ICHOR · ×${formatMultiplier(scarStillnessMultiplier(state))} STILL`;
 
     for (const { node, btn, costEl } of scarPanelRefs.nodeRefs) {
       const id = node.id;
@@ -758,27 +881,67 @@ export function createUiController(handlers) {
       dossier: null,
     };
 
-    // Excision II: Floor Drain Grate
+    // Excision II: Floor Drain Grate + Inspectable Graphic Relics
     if (state.highestExcisionMilestone >= 2) {
       const card = document.createElement('div');
       card.className = 'rite-card';
       card.innerHTML = `
-        <div class="rite-head">
-          <span class="rite-title">EXCISION II // FLOOR DRAIN GRATE</span>
-          <span class="rite-meta" data-role="drain-meta"></span>
+        <div class="rite-head-with-art">
+          <canvas class="action-emblem" width="38" height="38" data-role="drain-art" aria-hidden="true"></canvas>
+          <div class="rite-head-text">
+            <span class="rite-title">FLOOR DRAIN GRATE // M2</span>
+            <span class="rite-meta" data-role="drain-meta"></span>
+          </div>
         </div>
-        <p class="rite-desc">Seal the floor grate (−15% Ichor while sealed) to build pressure to 100%, then dredge forgotten relics for compounding run multipliers & burst Ichor.</p>
+        <p class="rite-desc">Stop the grate to build weight beneath the tiles, then haul up what sank.</p>
+        <div class="relic-chip-row" data-role="relic-chips"></div>
+        <div class="relic-inspect-box" data-role="relic-inspect" hidden></div>
         <div class="rite-btn-row">
           <button type="button" class="rite-btn" data-role="drain-toggle-btn"></button>
           <button type="button" class="rite-btn" data-role="drain-dredge-btn"></button>
         </div>
       `;
+      const drainArt = card.querySelector('[data-role="drain-art"]');
+      drawActionArtwork(drainArt, 'rite', 'drain', state.drainSealed);
+
+      const chipRow = card.querySelector('[data-role="relic-chips"]');
+      const relicChips = [];
+      for (const relic of DREDGED_RELICS) {
+        const chip = document.createElement('button');
+        chip.type = 'button';
+        chip.className = 'relic-chip';
+        chip.dataset.relicId = relic.id;
+        chip.innerHTML = `
+          <canvas class="relic-chip-canvas" width="20" height="20" aria-hidden="true"></canvas>
+          <span>${relic.name}</span>
+        `;
+        chip.addEventListener('click', () => {
+          selectedRelicId = selectedRelicId === relic.id ? null : relic.id;
+          handlers.onRequestRender();
+        });
+        chipRow.appendChild(chip);
+        relicChips.push({
+          relic,
+          chip,
+          canvas: chip.querySelector('canvas'),
+          lastDredged: null,
+        });
+      }
+
       const toggleBtn = card.querySelector('[data-role="drain-toggle-btn"]');
       const dredgeBtn = card.querySelector('[data-role="drain-dredge-btn"]');
       toggleBtn.addEventListener('click', () => handlers.onToggleDrainSeal());
       dredgeBtn.addEventListener('click', () => handlers.onDredgeSump());
       els.deckContent.appendChild(card);
-      refs.drain = { metaEl: card.querySelector('[data-role="drain-meta"]'), toggleBtn, dredgeBtn };
+      refs.drain = {
+        metaEl: card.querySelector('[data-role="drain-meta"]'),
+        artCanvas: drainArt,
+        lastSealed: state.drainSealed,
+        relicChips,
+        inspectBox: card.querySelector('[data-role="relic-inspect"]'),
+        toggleBtn,
+        dredgeBtn,
+      };
     }
 
     // Excision III: Neighbor Aperture Echo Routing
@@ -786,17 +949,22 @@ export function createUiController(handlers) {
       const card = document.createElement('div');
       card.className = 'rite-card';
       card.innerHTML = `
-        <div class="rite-head">
-          <span class="rite-title">EXCISION III // NEIGHBOR APERTURE</span>
-          <span class="rite-meta" data-role="echo-meta"></span>
+        <div class="rite-head-with-art">
+          <canvas class="action-emblem" width="38" height="38" data-role="echo-art" aria-hidden="true"></canvas>
+          <div class="rite-head-text">
+            <span class="rite-title">NEIGHBOR APERTURE // M3</span>
+            <span class="rite-meta" data-role="echo-meta"></span>
+          </div>
         </div>
-        <p class="rite-desc">Divert passive Ichor through the wall slit to trigger periodic 12s Resonance Echo bursts and amplify wall anomaly yields.</p>
+        <p class="rite-desc">Let part of the flow slip through the wall slit; listen for what answers.</p>
         <div class="rite-btn-row">
           <button type="button" class="rite-btn" data-echo-pct="0">0% SEALED</button>
           <button type="button" class="rite-btn" data-echo-pct="25">25% ECHO</button>
           <button type="button" class="rite-btn" data-echo-pct="50">50% ECHO</button>
         </div>
       `;
+      const echoArt = card.querySelector('[data-role="echo-art"]');
+      drawActionArtwork(echoArt, 'rite', 'echo', state.echoDiversionPercent > 0);
       const buttons = [];
       for (const btn of card.querySelectorAll('[data-echo-pct]')) {
         const pct = Number(btn.dataset.echoPct);
@@ -804,7 +972,12 @@ export function createUiController(handlers) {
         buttons.push({ pct, btn });
       }
       els.deckContent.appendChild(card);
-      refs.echo = { metaEl: card.querySelector('[data-role="echo-meta"]'), buttons };
+      refs.echo = {
+        metaEl: card.querySelector('[data-role="echo-meta"]'),
+        artCanvas: echoArt,
+        lastActive: state.echoDiversionPercent > 0,
+        buttons,
+      };
     }
 
     // Excision IV: Valve Clamp & Marrow Bloom
@@ -812,17 +985,27 @@ export function createUiController(handlers) {
       const card = document.createElement('div');
       card.className = 'rite-card';
       card.innerHTML = `
-        <div class="rite-head">
-          <span class="rite-title">EXCISION IV // VALVE CLAMP</span>
-          <span class="rite-meta" data-role="clamp-meta"></span>
+        <div class="rite-head-with-art">
+          <canvas class="action-emblem" width="38" height="38" data-role="clamp-art" aria-hidden="true"></canvas>
+          <div class="rite-head-text">
+            <span class="rite-title">VALVE CLAMP // M4</span>
+            <span class="rite-meta" data-role="clamp-meta"></span>
+          </div>
         </div>
-        <p class="rite-desc">Bolt the valve shut for 20s to provoke a 4-anomaly Marrow Bloom and a 25s chamber output surge (×2.5, or ×3.5 with Bone Resonance).</p>
+        <p class="rite-desc">Bolt the valve shut until the walls swell and split open.</p>
         <button type="button" class="rite-btn" data-role="clamp-btn"></button>
       `;
+      const clampArt = card.querySelector('[data-role="clamp-art"]');
+      drawActionArtwork(clampArt, 'rite', 'clamp', isValveClamped(state));
       const clampBtn = card.querySelector('[data-role="clamp-btn"]');
       clampBtn.addEventListener('click', () => handlers.onActivateValveClamp());
       els.deckContent.appendChild(card);
-      refs.clamp = { metaEl: card.querySelector('[data-role="clamp-meta"]'), clampBtn };
+      refs.clamp = {
+        metaEl: card.querySelector('[data-role="clamp-meta"]'),
+        artCanvas: clampArt,
+        lastClamped: isValveClamped(state),
+        clampBtn,
+      };
     }
 
     // Excision V: Ossified Throat & Redacted Cult Dossier
@@ -830,12 +1013,16 @@ export function createUiController(handlers) {
       const card = document.createElement('div');
       card.className = 'rite-card';
       card.innerHTML = `
-        <div class="rite-head">
-          <span class="rite-title">EXCISION V // THE OSSIFIED THROAT</span>
-          <span class="rite-meta" data-role="dossier-meta"></span>
+        <div class="rite-head-with-art">
+          <canvas class="action-emblem action-emblem--accent" width="38" height="38" data-role="throat-art" aria-hidden="true"></canvas>
+          <div class="rite-head-text">
+            <span class="rite-title">THE OSSIFIED THROAT // M5</span>
+            <span class="rite-meta" data-role="dossier-meta"></span>
+          </div>
         </div>
-        <p class="rite-desc">Feed colonies into the creeping wall membrane to permanently unredact the Rite of the Quiet Vessel. Each unsealed clause compounds Ichor permanently across resets.</p>
+        <p class="rite-desc">Feed the throat in the mortar; it coughs up inked lines that were blacked out.</p>
       `;
+      drawActionArtwork(card.querySelector('[data-role="throat-art"]'), 'rite', 'throat', true);
       const rows = [];
       for (const line of CULT_DOSSIER_LINES) {
         const row = document.createElement('div');
@@ -844,16 +1031,17 @@ export function createUiController(handlers) {
         row.innerHTML = `
           <div class="rite-head">
             <span class="rite-title">${line.title}</span>
-            <span class="rite-meta">×${formatMultiplier(line.ichorMultiplier)} PERM</span>
+            <span class="rite-meta" data-role="clause-status">SEALED</span>
           </div>
           <p class="dossier-line-quote" data-role="quote"></p>
           <button type="button" class="rite-btn" data-role="offer-btn"></button>
         `;
         const quoteEl = row.querySelector('[data-role="quote"]');
         const offerBtn = row.querySelector('[data-role="offer-btn"]');
+        const statusEl = row.querySelector('[data-role="clause-status"]');
         offerBtn.addEventListener('click', () => handlers.onOfferToThroat(line.id));
         card.appendChild(row);
-        rows.push({ line, row, quoteEl, offerBtn });
+        rows.push({ line, row, quoteEl, offerBtn, statusEl });
       }
       els.deckContent.appendChild(card);
       refs.dossier = { metaEl: card.querySelector('[data-role="dossier-meta"]'), rows };
@@ -867,10 +1055,36 @@ export function createUiController(handlers) {
     if (!ritesPanelRefs) return;
 
     if (ritesPanelRefs.drain) {
-      const { metaEl, toggleBtn, dredgeBtn } = ritesPanelRefs.drain;
-      metaEl.textContent = `PRESSURE: ${Math.floor(state.drainPressure)}% · RELICS: ${state.dredgedRelics.length}/${DREDGED_RELICS.length}`;
-      toggleBtn.textContent = state.drainSealed ? 'VENT GRATE (SEALED)' : 'SEAL FLOOR GRATE';
+      const { metaEl, artCanvas, relicChips, inspectBox, toggleBtn, dredgeBtn } =
+        ritesPanelRefs.drain;
+      if (ritesPanelRefs.drain.lastSealed !== state.drainSealed) {
+        ritesPanelRefs.drain.lastSealed = state.drainSealed;
+        drawActionArtwork(artCanvas, 'rite', 'drain', state.drainSealed);
+      }
+      metaEl.textContent = `SUMP PRESSURE: ${Math.floor(state.drainPressure)}% · RELICS: ${state.dredgedRelics.length}/${DREDGED_RELICS.length}`;
+      toggleBtn.textContent = state.drainSealed ? 'VENT GRATE' : 'SEAL GRATE';
       toggleBtn.classList.toggle('rite-btn--active', state.drainSealed);
+
+      for (const entry of relicChips) {
+        const dredged = state.dredgedRelics.includes(entry.relic.id);
+        entry.chip.classList.toggle('relic-chip--dredged', dredged);
+        entry.chip.classList.toggle('relic-chip--selected', selectedRelicId === entry.relic.id);
+        if (entry.lastDredged !== dredged || entry.canvas.width <= 1) {
+          entry.lastDredged = dredged;
+          drawActionArtwork(entry.canvas, 'relic', entry.relic.id, dredged);
+        }
+      }
+
+      const inspected = DREDGED_RELICS.find((r) => r.id === selectedRelicId);
+      if (inspected) {
+        const dredged = state.dredgedRelics.includes(inspected.id);
+        inspectBox.hidden = false;
+        inspectBox.textContent = dredged
+          ? `${inspected.name}: ${inspected.hint}`
+          : `${inspected.name}: Still sunk beneath the grate. Seal the floor until it rises.`;
+      } else {
+        inspectBox.hidden = true;
+      }
 
       const nextRelic = nextDredgeableRelic(state);
       dredgeBtn.disabled = !canDredgeSump(state);
@@ -878,40 +1092,49 @@ export function createUiController(handlers) {
         ? canDredgeSump(state)
           ? `DREDGE: ${nextRelic.name}`
           : `DREDGE AT 100% (${Math.floor(state.drainPressure)}%)`
-        : 'ALL 3 RELICS DREDGED';
+        : 'ALL RELICS HAULED';
     }
 
     if (ritesPanelRefs.echo) {
-      const { metaEl, buttons } = ritesPanelRefs.echo;
-      metaEl.textContent =
-        state.echoDiversionPercent > 0
-          ? `${state.echoDiversionPercent}% ROUTED · PULSE ${Math.floor(state.echoChargeSeconds)}/12s`
-          : 'SLIT SEALED';
+      const { metaEl, artCanvas, buttons } = ritesPanelRefs.echo;
+      const active = state.echoDiversionPercent > 0;
+      if (ritesPanelRefs.echo.lastActive !== active) {
+        ritesPanelRefs.echo.lastActive = active;
+        drawActionArtwork(artCanvas, 'rite', 'echo', active);
+      }
+      metaEl.textContent = active
+        ? `${state.echoDiversionPercent}% ROUTED · ANSWERS HEARD: ${state.echoPulsesTriggered}`
+        : `SLIT SEALED · ANSWERS: ${state.echoPulsesTriggered}`;
       for (const { pct, btn } of buttons) {
         btn.classList.toggle('rite-btn--active', pct === state.echoDiversionPercent);
       }
     }
 
     if (ritesPanelRefs.clamp) {
-      const { metaEl, clampBtn } = ritesPanelRefs.clamp;
+      const { metaEl, artCanvas, clampBtn } = ritesPanelRefs.clamp;
       const clamped = isValveClamped(state);
+      if (ritesPanelRefs.clamp.lastClamped !== clamped) {
+        ritesPanelRefs.clamp.lastClamped = clamped;
+        drawActionArtwork(artCanvas, 'rite', 'clamp', clamped);
+      }
       metaEl.textContent = clamped
-        ? `HOLDING: ${Math.ceil(state.clampRemainingSeconds)}s`
+        ? `SWELLING (${Math.ceil(state.clampRemainingSeconds)}s)`
         : state.marrowBloomRemainingSeconds > 0
-          ? `BLOOM ACTIVE: ${Math.ceil(state.marrowBloomRemainingSeconds)}s`
+          ? `MARROW BLOOM (${Math.ceil(state.marrowBloomRemainingSeconds)}s)`
           : `BLOOMS: ${state.marrowBloomCount}`;
       clampBtn.disabled = clamped;
       clampBtn.textContent = clamped
-        ? `VALVE CLAMPED (${Math.ceil(state.clampRemainingSeconds)}s)`
-        : 'CLAMP VALVE (20s HOLD)';
+        ? `SWELLING (${Math.ceil(state.clampRemainingSeconds)}s)`
+        : 'CLAMP VALVE (20s)';
     }
 
     if (ritesPanelRefs.dossier) {
       const { metaEl, rows } = ritesPanelRefs.dossier;
-      metaEl.textContent = `${state.unredactedDossierLines.length}/${CULT_DOSSIER_LINES.length} UNSEALED · ×${formatMultiplier(dossierIchorMultiplier(state))}`;
-      for (const { line, row, quoteEl, offerBtn } of rows) {
+      metaEl.textContent = `${state.unredactedDossierLines.length}/${CULT_DOSSIER_LINES.length} UNSEALED`;
+      for (const { line, row, quoteEl, offerBtn, statusEl } of rows) {
         const unredacted = state.unredactedDossierLines.includes(line.id);
         row.classList.toggle('dossier-line--unredacted', unredacted);
+        statusEl.textContent = unredacted ? 'UNSEALED' : 'REDACTED';
         quoteEl.textContent = unredacted
           ? line.text
           : '[██████████████████████████████████████]';
@@ -934,13 +1157,23 @@ export function createUiController(handlers) {
     const nextM = nextExcisionMilestone(state);
     const breachReady = canBreachToArc2(state);
 
+    // Relocated Cycle / Milestone / Scar Resonance telemetry
+    const telemetryBox = document.createElement('div');
+    telemetryBox.className = 'excision-telemetry-box';
+    const cycleLine = document.createElement('div');
+    cycleLine.className = 'cycle-status';
+    const resonanceLine = document.createElement('div');
+    resonanceLine.className = 'scar-passive-status';
+    telemetryBox.append(cycleLine, resonanceLine);
+    panel.appendChild(telemetryBox);
+
     if (breachReady) {
       const breachCard = document.createElement('div');
       breachCard.className = 'file-zero-card';
       breachCard.innerHTML = `
-        <div class="file-zero-kicker">EXCISION VI // THE FINAL SEVERANCE</div>
-        <p class="file-zero-body">The mortar has thinned to cold office glass. Cut straight through the iron seam to enter Arc 2: The Inquiry.</p>
-        <button type="button" class="excision-btn excision-btn--confirm" data-role="breach-btn">BREACH WALL -> ENTER ARC 2</button>
+        <div class="file-zero-kicker">EXCISION VI // THE BREACH RITUAL</div>
+        <p class="file-zero-body">Cut past bone and mortar alike. Cross into The Inquiry while preserving this room.</p>
+        <button type="button" class="excision-btn excision-btn--confirm" data-role="breach-btn">CUT THROUGH THE MORTAR</button>
       `;
       breachCard.querySelector('[data-role="breach-btn"]').addEventListener('click', () => {
         handlers.onPerformBreachToArc2();
@@ -951,19 +1184,31 @@ export function createUiController(handlers) {
     const title = document.createElement('h3');
     title.className = 'excision-title';
     title.textContent =
-      canClearNextMilestone(state) && nextM ? nextM.code : 'HARVEST & MOLT // EXCISION';
+      canClearNextMilestone(state) && nextM ? nextM.code : 'EXCISION // MOLTING';
     const summary = document.createElement('p');
     summary.className = 'excision-summary';
     summary.textContent =
       canClearNextMilestone(state) && nextM
-        ? `${nextM.unlockSummary} Cuts the chamber back to bare tile while retaining permanent Scar Tissue, Surgical Nodes, and Cult Dossier lines.`
-        : nextM
-          ? `Harvest Scar Tissue now to strengthen your Surgical Skill Tree, or push to ${formatInteger(nextM.massThreshold)} Ichor to unlock ${nextM.code}.`
-          : 'Cut back to bare tile to harvest additional Scar Tissue.';
+        ? 'Milestone threshold breached — unlocks on severance.'
+        : 'Cut away the overgrown mass to carry its scars forward.';
+
     const reward = document.createElement('div');
     reward.className = 'excision-reward';
     reward.dataset.role = 'excision-reward';
-    panel.append(title, summary, reward);
+
+    // Next Scar Tissue visual progress indicator
+    const nextScarBlock = document.createElement('div');
+    nextScarBlock.className = 'next-scar-block';
+    const nextScarLabel = document.createElement('div');
+    nextScarLabel.className = 'next-scar-label';
+    const nextScarTrack = document.createElement('div');
+    nextScarTrack.className = 'progress-track';
+    const nextScarFill = document.createElement('div');
+    nextScarFill.className = 'progress-fill progress-fill--deep';
+    nextScarTrack.appendChild(nextScarFill);
+    nextScarBlock.append(nextScarLabel, nextScarTrack);
+
+    panel.append(title, summary, reward, nextScarBlock);
 
     if (canExcise(state)) {
       if (!excisionArmed) {
@@ -971,7 +1216,7 @@ export function createUiController(handlers) {
         armBtn.type = 'button';
         armBtn.className = 'excision-btn excision-btn--arm';
         armBtn.textContent =
-          canClearNextMilestone(state) && nextM ? `EXECUTE ${nextM.code}` : 'HARVEST & MOLT';
+          canClearNextMilestone(state) && nextM ? `EXECUTE ${nextM.code}` : 'EXCISE & MOLT';
         armBtn.addEventListener('click', () => {
           excisionArmed = true;
           lastDeckSignature = '';
@@ -1006,16 +1251,22 @@ export function createUiController(handlers) {
     }
 
     els.deckContent.appendChild(panel);
-    excisionRewardEl = reward;
+    excisionRefs = { cycleLine, resonanceLine, reward, nextScarLabel, nextScarFill };
     updateExcisionInPlace(state);
   }
 
   function updateExcisionInPlace(state) {
-    if (excisionRewardEl) {
-      excisionRewardEl.textContent = canExcise(state)
-        ? `YIELD: +${formatInteger(pendingScarTissue(state))} SCAR TISSUE`
-        : 'REACH 210,000 CYCLE ICHOR TO HARVEST';
-    }
+    if (!excisionRefs) return;
+    const { cycleLine, resonanceLine, reward, nextScarLabel, nextScarFill } = excisionRefs;
+    const totalIchorMult =
+      scarMultiplier(state) * relicIchorMultiplier(state) * dossierIchorMultiplier(state);
+    cycleLine.textContent = `CYCLE ${String(state.cycle).padStart(2, '0')} · MILESTONE M${state.highestExcisionMilestone}/6 · TOTAL SCAR ${formatInteger(state.scarTissue)}`;
+    resonanceLine.textContent = `RESONANCE: ×${formatMultiplier(totalIchorMult)} ICHOR · ×${formatMultiplier(scarStillnessMultiplier(state))} STILLNESS`;
+    reward.textContent = canExcise(state)
+      ? `HARVEST YIELD: +${formatInteger(pendingScarTissue(state))} SCAR TISSUE`
+      : 'REACH 210,000 CYCLE ICHOR TO HARVEST';
+    nextScarLabel.textContent = `NEXT SCAR TISSUE: ${formatInteger(cycleLifetimeIchorDisplay(state))} / ${formatInteger(nextBaseScarMassThreshold(state))}`;
+    nextScarFill.style.width = `${(nextScarProgress(state) * 100).toFixed(1)}%`;
   }
 
   function renderDeck(state) {
@@ -1026,12 +1277,6 @@ export function createUiController(handlers) {
     const availableTabs = resolveAvailableTabs(state);
     const activeTab = availableTabs.includes(selectedTab) ? selectedTab : 'apparatus';
     selectedTab = activeTab;
-
-    const showBanner = state.scarTissue > 0 || state.highestExcisionMilestone > 0;
-    els.prestigeBanner.hidden = !showBanner;
-    if (showBanner) {
-      els.prestigeBanner.textContent = `MILESTONE M${state.highestExcisionMilestone}/6 · AVAIL SCAR: ${formatInteger(state.availableScarTissue)} · ×${formatMultiplier(scarMultiplier(state) * relicIchorMultiplier(state) * dossierIchorMultiplier(state))} ICHOR`;
-    }
 
     const visibleCreatures = CREATURE_LIST.filter((c) => isCreatureUnlocked(state, c));
 
@@ -1311,6 +1556,9 @@ export function createUiController(handlers) {
     const entry = state.activeDialogue;
     const nextId = entry?.id ?? null;
     if (nextId === lastDialogueId && count > 0) return;
+
+    const isFreshArrival = hasHydratedDialogue && nextId != null && nextId !== lastDialogueId;
+    hasHydratedDialogue = true;
     lastDialogueId = nextId;
 
     if (!entry) {
@@ -1325,6 +1573,16 @@ export function createUiController(handlers) {
       els.ledgerDivider.hidden = false;
       els.ledgerBody.textContent = entry.lines.join('\n');
       els.ledgerBody.classList.remove('ledger-body--idle');
+      if (isFreshArrival) {
+        triggerStoryDrip(entry);
+        if (els.ledgerPanel) {
+          els.ledgerPanel.classList.add('ledger-panel--arrived');
+          window.clearTimeout(ledgerPulseTimer);
+          ledgerPulseTimer = window.setTimeout(() => {
+            els.ledgerPanel?.classList.remove('ledger-panel--arrived');
+          }, 1600);
+        }
+      }
     }
   }
 
@@ -1404,6 +1662,9 @@ export function createUiController(handlers) {
     spawnArc2Residue(label, isRaw = false) {
       spawnResidueIn(els.arc2ResidueLayer, label, isRaw);
     },
+    triggerEventDrip(text, speaker = 'CHAMBER') {
+      triggerEventDrip(text, speaker);
+    },
     openArchive(state) {
       renderArchive(state);
       els.archiveModal.hidden = false;
@@ -1415,17 +1676,24 @@ export function createUiController(handlers) {
       selectedTab = 'apparatus';
       selectedArc2Tab = 'contacts';
       selectedScarNodeId = 'first_incision';
+      selectedRelicId = null;
       excisionArmed = false;
       lastDeckSignature = '';
       lastArc2DeckSignature = '';
       lastDialogueId = null;
+      hasHydratedDialogue = false;
       lastCounterDisplay = -1;
       organismCardRefs = [];
       jarsPanelRefs = null;
       scarPanelRefs = null;
       ritesPanelRefs = null;
-      excisionRewardEl = null;
+      excisionRefs = null;
       arc2DeckRefs = null;
+      if (els.storyDripLayer) els.storyDripLayer.innerHTML = '';
+      if (els.eventDripLayer) {
+        els.eventDripLayer.innerHTML = '';
+        els.eventDripLayer.classList.remove('is-dimmed');
+      }
     },
   };
 }

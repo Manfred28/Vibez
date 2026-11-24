@@ -71,7 +71,7 @@ enum class ScarBranch(val id: String) {
 /**
  * Branching Scar Tissue surgical skill tree unlocked after Excision I.
  * - SUTURE: compresses repeat runs toward 5-7 min by eliminating early-run friction.
- * - STILLNESS: deepens depressive idle mechanics & retains bottled Specimen Jars across resets.
+ * - STILLNESS: deepens depressive idle mechanics, lowers Stillness costs & graft cooldowns, and amplifies Specimen Jars.
  * - MARROW: supercharges wall anomalies, automatic grafting, and high-tier chamber rites.
  */
 enum class ScarNodeId(

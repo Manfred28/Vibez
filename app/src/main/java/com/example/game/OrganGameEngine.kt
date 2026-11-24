@@ -65,6 +65,8 @@ object OrganGameEngine {
     val gainedStillness = preProductionState.stillnessPerSecond * deltaSeconds
     val nextGaze = max(0.0, state.gazeRemainingSeconds - deltaSeconds)
     val nextBloom = max(0.0, state.marrowBloomRemainingSeconds - deltaSeconds)
+    val nextGraftCooldown = max(0.0, state.graftCooldownRemainingSeconds - deltaSeconds)
+    val nextLungCooldown = max(0.0, state.choirLungCooldownRemainingSeconds - deltaSeconds)
 
     // Excision II: Drain Grate pressure buildup when sealed
     val nextDrainPressure =
@@ -95,6 +97,8 @@ object OrganGameEngine {
         isStillnessActive = stillnessNowActive,
         gazeRemainingSeconds = nextGaze,
         marrowBloomRemainingSeconds = nextBloom,
+        graftCooldownRemainingSeconds = nextGraftCooldown,
+        choirLungCooldownRemainingSeconds = nextLungCooldown,
         drainPressure = nextDrainPressure,
         echoChargeSeconds = if (echoPulseReady) state.echoChargeSeconds else chargedEcho,
         clampRemainingSeconds = remainingClamp,
@@ -153,16 +157,19 @@ object OrganGameEngine {
     jar: SpecimenJar,
     catalog: DialogueCatalog,
   ): OrganGameState {
-    if (jar in state.ownedJars || state.stillness < jar.stillnessCost) return state
+    if (!state.isJarUnlocked(jar) || jar in state.ownedJars) return state
+    val cost = state.effectiveJarCost(jar)
+    if (state.stillness < cost) return state
 
     val updated =
-      state.copy(stillness = state.stillness - jar.stillnessCost, ownedJars = state.ownedJars + jar)
+      state.copy(stillness = state.stillness - cost, ownedJars = state.ownedJars + jar)
     return finalizeProgression(updated, catalog)
   }
 
   fun performGraft(state: OrganGameState, catalog: DialogueCatalog): OrganGameState {
     if (!state.canAffordGraft) return state
 
+    val stillnessCost = state.graftStillnessCost.toDouble()
     val updatedCreatures = state.creatures.toMutableMap()
     updatedCreatures[CreatureType.SUTURE_HAND] =
       state.creatureCount(CreatureType.SUTURE_HAND) - OrganBalance.GRAFT_SUTURE_COST
@@ -170,20 +177,32 @@ object OrganGameEngine {
       state.creatureCount(CreatureType.LEECH_CLERK) - OrganBalance.GRAFT_LEECH_COST
 
     val updated =
-      state.copy(creatures = updatedCreatures, graftedTendrils = state.graftedTendrils + 1)
+      state.copy(
+        stillness = max(0.0, state.stillness - stillnessCost),
+        creatures = updatedCreatures,
+        graftedTendrils = state.graftedTendrils + 1,
+        graftCooldownRemainingSeconds = state.graftCooldownDurationSec,
+        lastSacrificePulse = state.lastSacrificePulse + 1L,
+        lastSacrificeKind = GraftSacrificeKind.TENDRIL,
+      )
     return finalizeProgression(updated, catalog)
   }
 
   fun performChoirLungGraft(state: OrganGameState, catalog: DialogueCatalog): OrganGameState {
     if (!state.canAffordChoirLung) return state
+    val stillnessCost = state.choirLungStillnessCost.toDouble()
     val updatedCreatures = state.creatures.toMutableMap()
     updatedCreatures[CreatureType.WEEPING_LAMP] =
       state.creatureCount(CreatureType.WEEPING_LAMP) - OrganBalance.CHOIR_LUNG_LAMP_COST
     val updated =
       state.copy(
+        stillness = max(0.0, state.stillness - stillnessCost),
         creatures = updatedCreatures,
         graftedTendrils = state.graftedTendrils - OrganBalance.CHOIR_LUNG_TENDRIL_COST,
         choirLungs = state.choirLungs + 1,
+        choirLungCooldownRemainingSeconds = state.choirLungCooldownDurationSec,
+        lastSacrificePulse = state.lastSacrificePulse + 1L,
+        lastSacrificeKind = GraftSacrificeKind.CHOIR_LUNG,
       )
     return finalizeProgression(updated, catalog)
   }
@@ -369,9 +388,6 @@ object OrganGameEngine {
       } else {
         emptyMap()
       }
-    val retainedJars =
-      if (state.hasNode(ScarNodeId.WAX_SEALED_MEMORY)) state.ownedJars else emptySet()
-
     val resetState =
       OrganGameState(
         activeArc = GameArc.ARC_1_CHAMBER,
@@ -391,7 +407,9 @@ object OrganGameEngine {
         creatures = startingCreatures,
         graftedTendrils = 0,
         choirLungs = 0,
-        ownedJars = retainedJars,
+        graftCooldownRemainingSeconds = 0.0,
+        choirLungCooldownRemainingSeconds = 0.0,
+        ownedJars = emptySet(),
         activeAnomalies = emptyList(),
         anomalyInteractions = emptyMap(),
         secondsSinceLastTap = 0.0,

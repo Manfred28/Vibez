@@ -10,10 +10,8 @@
 import {
   CREATURE_TYPES,
   GAME_ARCS,
-  ORGAN_BALANCE,
   WALL_ANOMALY_TYPES,
   activateValveClamp,
-  anomalyRewardMultiplier,
   arc2InspectYield,
   bottleJar,
   buyCreature,
@@ -28,7 +26,6 @@ import {
   devSetHighestMilestone,
   devSpawnDeskAnomaly,
   devSpawnWallAnomaly,
-  dossierIchorMultiplier,
   dredgeSump,
   enterArc3Convergence,
   formatCompactDecimal,
@@ -45,23 +42,20 @@ import {
   pinDeduction,
   pressValve,
   recruitContact,
-  relicIchorMultiplier,
-  relicStillnessMultiplier,
-  scarMultiplier,
-  scarStillnessMultiplier,
   serializeState,
   setEchoDiversion,
   tick,
   toggleDrainSeal,
   unlockScarNode,
-} from './engine.js?v=2.2';
+} from './engine.js?v=2.4';
 import {
   drawChamberBackdrop,
+  drawForegroundLampsAndSacrifice,
   drawInvestigatorDeskBackdrop,
   drawLeechClerks,
   drawValveAndHands,
-} from './chamberCanvas.js?v=2.2';
-import { createUiController } from './ui.js?v=2.2';
+} from './chamberCanvas.js?v=2.4';
+import { createUiController } from './ui.js?v=2.4';
 
 const SAVE_STORAGE_KEY_V2 = 'unnamed_organ_save_v2';
 const SAVE_STORAGE_KEY_V1 = 'unnamed_organ_save_v1';
@@ -97,7 +91,7 @@ function clearSavedRaw() {
 
 async function loadDialogueCatalog() {
   try {
-    const response = await fetch('./assets/dialogues.json?v=2.2', { cache: 'no-cache' });
+    const response = await fetch('./assets/dialogues.json?v=2.4', { cache: 'no-cache' });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     return await response.json();
   } catch (err) {
@@ -112,11 +106,15 @@ async function main() {
 
   const wallImage = new Image();
   wallImage.src = './assets/img_wall_phase1.jpg';
+  const fleshyWallImage = new Image();
+  fleshyWallImage.src = './assets/img_wall_fleshy.jpg';
 
   const backdropCanvas = document.getElementById('chamber-backdrop-canvas');
+  const lampsForegroundCanvas = document.getElementById('lamps-foreground-canvas');
   const valveHandsCanvas = document.getElementById('valve-hands-canvas');
   const leechCanvas = document.getElementById('leech-overlay-canvas');
   const deskCanvas = document.getElementById('investigator-desk-canvas');
+  const valveWheelRotator = document.getElementById('valve-wheel-rotator');
 
   const valveBtn = document.getElementById('valve-button');
   const inspectCaseBtn = document.getElementById('inspect-case-btn');
@@ -139,6 +137,34 @@ async function main() {
 
   let autosaveAccumulator = 0;
   let hasUnsavedChanges = false;
+  let valveAngleDeg = 0;
+  let handCyclePhase = 0;
+  let leechPatrolPhase = 0;
+  let lastEchoPulses = state.echoPulsesTriggered;
+  let echoRippleStartMs = -1;
+  let lastSacrificePulse = state.lastSacrificePulse ?? 0;
+  let sacrificeStartMs = -1;
+  let sacrificeKind = 'tendril';
+
+  function observeStateEvents(next) {
+    if (next.echoPulsesTriggered > lastEchoPulses) {
+      echoRippleStartMs = performance.now();
+      ui.triggerEventDrip('Something behind the mortar answers in kind.', 'APERTURE');
+    }
+    lastEchoPulses = next.echoPulsesTriggered;
+
+    const pulse = next.lastSacrificePulse ?? 0;
+    if (pulse > lastSacrificePulse) {
+      sacrificeStartMs = performance.now();
+      sacrificeKind = next.lastSacrificeKind || 'tendril';
+      const msg =
+        sacrificeKind === 'choir_lung'
+          ? 'Two lamps and a tendril collapse inward into wet breath.'
+          : 'Two hands and two leeches slacken, braided into one hum.';
+      ui.triggerEventDrip(msg, 'GRAFT');
+    }
+    lastSacrificePulse = pulse;
+  }
 
   function persistNow() {
     writeSavedRaw(serializeState(state));
@@ -153,6 +179,7 @@ async function main() {
 
   function applyState(next, { persist = true } = {}) {
     state = next;
+    observeStateEvents(next);
     if (persist) {
       persistNow();
     } else {
@@ -182,14 +209,14 @@ async function main() {
     },
     onDredgeSump() {
       applyState(dredgeSump(state, catalog));
-      ui.spawnResidue('RELIC DREDGED', true);
+      ui.triggerEventDrip('Something wet and cold comes up from beneath the grate.', 'SUMP');
     },
     onSetEchoDiversion(pct) {
       applyState(setEchoDiversion(state, pct, catalog));
     },
     onActivateValveClamp() {
       applyState(activateValveClamp(state, catalog));
-      ui.spawnResidue('VALVE CLAMPED (20s)', true);
+      ui.triggerEventDrip('The iron bolts shut; pressure thickens behind the tiles.', 'CLAMP');
     },
     onOfferToThroat(lineId) {
       applyState(offerToThroat(state, lineId, catalog));
@@ -197,22 +224,9 @@ async function main() {
     onInteractAnomaly(anomalyId) {
       const anomaly = state.activeAnomalies.find((a) => a.id === anomalyId);
       if (anomaly) {
-        const rewardBoost = anomalyRewardMultiplier(state);
-        const ichorMult =
-          scarMultiplier(state) * relicIchorMultiplier(state) * dossierIchorMultiplier(state) * rewardBoost;
-        const stillMult = scarStillnessMultiplier(state) * relicStillnessMultiplier(state) * rewardBoost;
-        if (anomaly.type === WALL_ANOMALY_TYPES.PALE_TOOTH.id) {
-          ui.spawnResidue(`${formatCompactDecimal(ORGAN_BALANCE.TOOTH_BASE_ICHOR_REWARD * ichorMult)} ICHOR · +0.5 TAP`);
-        } else if (anomaly.type === WALL_ANOMALY_TYPES.GLASS_EYE.id) {
-          ui.spawnResidue('PASSIVE ×1.6 (12s)', true);
-        } else if (anomaly.type === WALL_ANOMALY_TYPES.SWOLLEN_NODULE.id) {
-          const ichor = formatCompactDecimal(ORGAN_BALANCE.NODULE_BASE_ICHOR_REWARD * ichorMult);
-          const still = formatCompactDecimal(ORGAN_BALANCE.NODULE_BASE_STILLNESS_REWARD * stillMult);
-          ui.spawnResidue(`${ichor} ICHOR · +${still} STILL`);
-        } else if (anomaly.type === WALL_ANOMALY_TYPES.CHITIN_RIB.id) {
-          const ichor = formatCompactDecimal(ORGAN_BALANCE.RIB_BASE_ICHOR_REWARD * ichorMult);
-          const still = formatCompactDecimal(ORGAN_BALANCE.RIB_BASE_STILLNESS_REWARD * stillMult);
-          ui.spawnResidue(`${ichor} ICHOR · +${still} STILL · ×1.6`);
+        const meta = Object.values(WALL_ANOMALY_TYPES).find((t) => t.id === anomaly.type);
+        if (meta?.dripLine) {
+          ui.triggerEventDrip(meta.dripLine, 'CHAMBER');
         }
       }
       applyState(interactAnomaly(state, anomalyId, catalog));
@@ -233,7 +247,7 @@ async function main() {
     },
     onInteractDeskAnomaly(anomalyId) {
       applyState(interactDeskAnomaly(state, anomalyId, catalog));
-      ui.spawnArc2Residue('CLUE LOGGED', true);
+      ui.triggerEventDrip('Another damp slip pinned to the margin.', 'CASE DESK');
     },
     onConnectNextChapter() {
       applyState(connectNextChapter(state, catalog));
@@ -246,6 +260,7 @@ async function main() {
   function triggerValvePress() {
     if (state.activeArc !== GAME_ARCS.ARC_1_CHAMBER) return;
     if (state.clampRemainingSeconds > 0) return;
+    valveAngleDeg = (valveAngleDeg + 24) % 360000;
     const yieldLabel = formatCompactDecimal(manualTapYield(state));
     applyState(pressValve(state, catalog), { persist: false });
     ui.spawnResidue(yieldLabel);
@@ -432,6 +447,7 @@ async function main() {
     const next = tick(state, dt, catalog);
     if (next !== state) {
       state = next;
+      observeStateEvents(next);
       hasUnsavedChanges = true;
     }
     ui.render(state);
@@ -450,17 +466,72 @@ async function main() {
   });
 
   let breathOrigin = performance.now();
+  let lastFrameMs = breathOrigin;
+  function computeArterialPulse(nowMs) {
+    // Cardiac systolic/diastolic double-beat wave every 1450ms in Phase 4
+    const phase = ((nowMs - breathOrigin) % 1450) / 1450;
+    const beat1 = Math.exp(-Math.pow((phase - 0.14) / 0.055, 2));
+    const beat2 = 0.62 * Math.exp(-Math.pow((phase - 0.30) / 0.065, 2));
+    return Math.min(1, beat1 + beat2);
+  }
+
   function renderCanvasFrame(now) {
+    const dtSec = Math.min(0.1, Math.max(0, (now - lastFrameMs) / 1000));
+    lastFrameMs = now;
+
     if (!document.hidden) {
       const duration = PULSE_DURATIONS_MS[Math.min(state.phase, 4)];
       const elapsed = (now - breathOrigin) % (duration * 2);
       const breath = elapsed <= duration ? elapsed / duration : 2 - elapsed / duration;
       const dropPhase = ((now - breathOrigin) % 2200) / 2200;
+      const wallCreep = ((now - breathOrigin) % 7200) / 7200;
+      const arterialPulse = state.phase >= 4 ? computeArterialPulse(now) : 0;
 
       if (state.activeArc === GAME_ARCS.ARC_1_CHAMBER) {
-        drawChamberBackdrop(backdropCanvas, wallImage, state, breath, dropPhase);
-        drawValveAndHands(valveHandsCanvas, state, breath);
-        drawLeechClerks(leechCanvas, creatureCount(state, CREATURE_TYPES.LEECH_CLERK.id), breath);
+        const sutureCount = creatureCount(state, CREATURE_TYPES.SUTURE_HAND.id);
+        const leechCount = creatureCount(state, CREATURE_TYPES.LEECH_CLERK.id);
+        if (sutureCount > 0 && state.clampRemainingSeconds <= 0) {
+          const degPerSec = Math.min(110, 12 + 26 * Math.log(1 + sutureCount));
+          valveAngleDeg = (valveAngleDeg + degPerSec * dtSec) % 360000;
+          const handCyclesPerSec = Math.min(2.6, 0.45 + 0.55 * Math.log(1 + sutureCount));
+          handCyclePhase = (handCyclePhase + handCyclesPerSec * dtSec) % 1000;
+        }
+        if (valveWheelRotator) {
+          valveWheelRotator.style.transform = `rotate(${(valveAngleDeg % 360).toFixed(2)}deg)`;
+        }
+        if (leechCount > 0) {
+          leechPatrolPhase = (leechPatrolPhase + 0.095 * dtSec) % 1000;
+        }
+
+        const echoRipple =
+          echoRippleStartMs > 0 ? Math.min(1, (now - echoRippleStartMs) / 1100) : 0;
+        if (echoRipple >= 1) echoRippleStartMs = -1;
+
+        const sacrificeProgress =
+          sacrificeStartMs > 0 ? Math.min(1, (now - sacrificeStartMs) / 1400) : 0;
+        if (sacrificeProgress >= 1) sacrificeStartMs = -1;
+
+        drawChamberBackdrop(
+          backdropCanvas,
+          wallImage,
+          fleshyWallImage,
+          state,
+          breath,
+          dropPhase,
+          wallCreep,
+          arterialPulse,
+          echoRipple,
+        );
+        drawForegroundLampsAndSacrifice(
+          lampsForegroundCanvas,
+          state,
+          breath,
+          dropPhase,
+          sacrificeProgress,
+          sacrificeKind,
+        );
+        drawValveAndHands(valveHandsCanvas, state, breath, handCyclePhase);
+        drawLeechClerks(leechCanvas, leechCount, breath, leechPatrolPhase);
         ui.renderAnimatedGlyphs(breath);
       } else if (state.activeArc === GAME_ARCS.ARC_2_INVESTIGATION) {
         drawInvestigatorDeskBackdrop(deskCanvas, state, breath, dropPhase);

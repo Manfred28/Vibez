@@ -5,9 +5,11 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -15,6 +17,10 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
@@ -28,14 +34,15 @@ import com.example.game.CultDossierLine
 import com.example.game.DredgedRelic
 import com.example.game.OrganGameState
 import com.example.ui.theme.BleakTheme
+import java.text.NumberFormat
 import kotlin.math.ceil
 
 /**
- * Progressive Chamber Rites Deck panel hosting Excision II-V active mechanics:
- * - Excision II: Floor Drain Grate Seal/Vent + Dredged Relics
+ * Progressive Chamber Rites Deck panel hosting Excision II–V active mechanics:
+ * - Excision II: Floor Drain Grate Seal/Vent + Tappable Inspectable Dredged Relics
  * - Excision III: Neighbor Aperture Echo Diversion (0% / 25% / 50%)
- * - Excision IV: Valve Clamp (20s hold -> Marrow Bloom) & Choir-Lung Grafting
- * - Excision V: The Ossified Throat & Redacted Cult Dossier ("Rite of the Quiet Vessel")
+ * - Excision IV: Valve Clamp (20s hold -> Marrow Bloom) & Choir-Lung Grafting (with Stillness & cooldown)
+ * - Excision V: The Ossified Throat & Redacted Cult Dossier
  */
 @Composable
 fun ChamberRitesPanel(
@@ -50,16 +57,20 @@ fun ChamberRitesPanel(
 ) {
   val colorScheme = MaterialTheme.colorScheme
   val atmosphere = BleakTheme.atmosphere
+  val numberFormat = remember { NumberFormat.getIntegerInstance() }
+  var inspectedRelic by remember { mutableStateOf<DredgedRelic?>(null) }
 
   Column(
     modifier = modifier.fillMaxWidth().testTag("chamber_rites_panel"),
     verticalArrangement = Arrangement.spacedBy(10.dp),
   ) {
-    // --- Excision II: Floor Drain Grate & Dredging ---
+    // --- Excision II: Floor Drain Grate & Inspectable Dredged Relics ---
     if (state.highestExcisionMilestone >= 2) {
       RiteSectionCard(
         title = stringResource(R.string.rite_drain_title),
         subtitle = stringResource(R.string.rite_drain_desc),
+        artworkKind = RiteArtworkKind.FLOOR_DRAIN,
+        artworkActive = state.drainSealed || state.drainPressure >= 100.0,
         testTag = "rite_drain_section",
       ) {
         val pressurePct = state.drainPressure.toInt().coerceIn(0, 100)
@@ -101,16 +112,91 @@ fun ChamberRitesPanel(
             modifier = Modifier.weight(1f),
           )
         }
-        val relicsSummary =
-          DredgedRelic.entries.joinToString(" · ") { relic ->
-            val mark = if (relic in state.dredgedRelics) "✓" else "—"
-            "$mark ${relic.name.replace('_', ' ')}"
+
+        // Interactive graphic Dredged Relic tags with inline thematic inspection
+        Row(
+          modifier = Modifier.fillMaxWidth(),
+          horizontalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+          DredgedRelic.entries.forEach { relic ->
+            val owned = relic in state.dredgedRelics
+            val selected = inspectedRelic == relic
+            val relicName =
+              when (relic) {
+                DredgedRelic.PATIENT_WRISTBAND -> stringResource(R.string.relic_wristband_name)
+                DredgedRelic.BRASS_WARD_KEY -> stringResource(R.string.relic_brass_key_name)
+                DredgedRelic.BLEEDING_LOGBOOK -> stringResource(R.string.relic_logbook_name)
+              }
+
+            Surface(
+              modifier =
+                Modifier.weight(1f)
+                  .minimumInteractiveComponentSize()
+                  .testTag("relic_inspect_${relic.id}")
+                  .clickable(role = Role.Button) {
+                    inspectedRelic = if (selected) null else relic
+                  },
+              shape = MaterialTheme.shapes.extraSmall,
+              color =
+                when {
+                  selected -> colorScheme.primaryContainer.copy(alpha = 0.72f)
+                  owned -> colorScheme.surface.copy(alpha = 0.92f)
+                  else -> colorScheme.background.copy(alpha = 0.55f)
+                },
+              border =
+                BorderStroke(
+                  width = 1.dp,
+                  color =
+                    when {
+                      selected -> colorScheme.primary
+                      owned -> colorScheme.outline
+                      else -> colorScheme.outlineVariant
+                    },
+                ),
+            ) {
+              Column(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 6.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(3.dp),
+              ) {
+                RelicArtworkEmblem(relic = relic, owned = owned)
+                Text(
+                  text = if (owned) relicName else "???",
+                  style = MaterialTheme.typography.labelSmall.copy(fontSize = 8.5.sp, letterSpacing = 0.5.sp),
+                  color = if (owned) colorScheme.onBackground else colorScheme.onSurfaceVariant,
+                  maxLines = 1,
+                )
+              }
+            }
           }
-        Text(
-          text = relicsSummary,
-          style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.5.sp),
-          color = colorScheme.onSurfaceVariant,
-        )
+        }
+
+        inspectedRelic?.let { relic ->
+          val owned = relic in state.dredgedRelics
+          val hintText =
+            if (!owned) {
+              stringResource(R.string.relic_locked_hint)
+            } else {
+              when (relic) {
+                DredgedRelic.PATIENT_WRISTBAND -> stringResource(R.string.relic_wristband_hint)
+                DredgedRelic.BRASS_WARD_KEY -> stringResource(R.string.relic_brass_key_hint)
+                DredgedRelic.BLEEDING_LOGBOOK -> stringResource(R.string.relic_logbook_hint)
+              }
+            }
+          Surface(
+            modifier = Modifier.fillMaxWidth().testTag("relic_inspection_card"),
+            shape = MaterialTheme.shapes.extraSmall,
+            color = colorScheme.background.copy(alpha = 0.78f),
+            border = BorderStroke(1.dp, if (owned) colorScheme.primary.copy(alpha = 0.65f) else atmosphere.hairline),
+          ) {
+            Text(
+              text = hintText,
+              style = MaterialTheme.typography.bodySmall,
+              color = if (owned) colorScheme.onBackground else colorScheme.onSurfaceVariant,
+              modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp),
+            )
+          }
+        }
       }
     }
 
@@ -119,6 +205,8 @@ fun ChamberRitesPanel(
       RiteSectionCard(
         title = stringResource(R.string.rite_echo_title),
         subtitle = stringResource(R.string.rite_echo_desc),
+        artworkKind = RiteArtworkKind.NEIGHBOR_APERTURE,
+        artworkActive = state.echoDiversionPercent > 0,
         testTag = "rite_echo_section",
       ) {
         Text(
@@ -149,6 +237,8 @@ fun ChamberRitesPanel(
       RiteSectionCard(
         title = stringResource(R.string.rite_clamp_title),
         subtitle = stringResource(R.string.rite_clamp_desc),
+        artworkKind = RiteArtworkKind.VALVE_CLAMP,
+        artworkActive = state.isValveClamped || state.marrowBloomRemainingSeconds > 0.0,
         testTag = "rite_clamp_section",
       ) {
         val clampLabel =
@@ -166,11 +256,32 @@ fun ChamberRitesPanel(
           modifier = Modifier.fillMaxWidth(),
         )
         HorizontalDivider(color = atmosphere.hairline, thickness = 1.dp)
+
+        val onLungCooldown = state.isChoirLungOnCooldown
+        val lungActionLabel =
+          if (onLungCooldown) {
+            stringResource(
+              R.string.graft_cooldown_format,
+              ceil(state.choirLungCooldownRemainingSeconds).toInt(),
+            )
+          } else {
+            stringResource(
+              R.string.choir_lung_action_cost,
+              numberFormat.format(state.choirLungStillnessCost),
+            )
+          }
+
         Row(
           modifier = Modifier.fillMaxWidth(),
           horizontalArrangement = Arrangement.SpaceBetween,
           verticalAlignment = Alignment.CenterVertically,
         ) {
+          GraftArtworkEmblem(
+            isLung = true,
+            ready = state.canAffordChoirLung,
+            onCooldown = onLungCooldown,
+          )
+          Spacer(modifier = Modifier.width(8.dp))
           Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
             Text(
               text = "${stringResource(R.string.choir_lung_title)} [${state.choirLungs}]",
@@ -184,11 +295,24 @@ fun ChamberRitesPanel(
             )
           }
           RiteButton(
-            label = stringResource(R.string.choir_lung_action),
+            label = lungActionLabel,
             enabled = state.canAffordChoirLung,
             highlighted = state.canAffordChoirLung,
             testTag = "perform_choir_lung_button",
             onClick = onPerformChoirLungGraft,
+          )
+        }
+        if (onLungCooldown) {
+          val ratio =
+            (state.choirLungCooldownRemainingSeconds / state.choirLungCooldownDurationSec)
+              .toFloat()
+              .coerceIn(0f, 1f)
+          LinearProgressIndicator(
+            progress = { 1f - ratio },
+            modifier = Modifier.fillMaxWidth().height(3.dp).testTag("choir_lung_cooldown_bar"),
+            color = colorScheme.tertiary,
+            trackColor = atmosphere.hairline,
+            drawStopIndicator = {},
           )
         }
       }
@@ -199,6 +323,8 @@ fun ChamberRitesPanel(
       RiteSectionCard(
         title = stringResource(R.string.rite_throat_title),
         subtitle = stringResource(R.string.rite_throat_desc),
+        artworkKind = RiteArtworkKind.OSSIFIED_THROAT,
+        artworkActive = state.unredactedDossierLines.isNotEmpty(),
         testTag = "rite_throat_section",
       ) {
         CultDossierLine.entries.forEach { line ->
@@ -211,7 +337,7 @@ fun ChamberRitesPanel(
           }
           val labelText =
             if (unsealed) {
-              "LINE 0${line.lineNumber} [×${formatMultiplier(line.ichorMultiplier)}] — UNSEALED"
+              "LINE 0${line.lineNumber} — UNSEALED"
             } else {
               "LINE 0${line.lineNumber} [████████████] ($costText)"
             }
@@ -246,6 +372,8 @@ fun ChamberRitesPanel(
 private fun RiteSectionCard(
   title: String,
   subtitle: String,
+  artworkKind: RiteArtworkKind,
+  artworkActive: Boolean,
   testTag: String,
   content: @Composable () -> Unit,
 ) {
@@ -260,16 +388,25 @@ private fun RiteSectionCard(
       modifier = Modifier.fillMaxWidth().padding(10.dp),
       verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
-      Text(
-        text = title,
-        style = MaterialTheme.typography.labelLarge.copy(letterSpacing = 0.8.sp),
-        color = colorScheme.onBackground,
-      )
-      Text(
-        text = subtitle,
-        style = MaterialTheme.typography.bodySmall,
-        color = colorScheme.onSurfaceVariant,
-      )
+      Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+      ) {
+        RiteArtworkEmblem(kind = artworkKind, active = artworkActive)
+        Spacer(modifier = Modifier.width(10.dp))
+        Column(modifier = Modifier.weight(1f)) {
+          Text(
+            text = title,
+            style = MaterialTheme.typography.labelLarge.copy(letterSpacing = 0.8.sp),
+            color = colorScheme.onBackground,
+          )
+          Text(
+            text = subtitle,
+            style = MaterialTheme.typography.bodySmall,
+            color = colorScheme.onSurfaceVariant,
+          )
+        }
+      }
       content()
     }
   }

@@ -19,8 +19,10 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.test.core.app.ApplicationProvider
 import com.example.data.AssetDialogueRepository
+import com.example.data.OrganStateSerializer
 import com.example.game.ActiveWallAnomaly
 import com.example.game.CreatureType
+import com.example.game.DredgedRelic
 import com.example.game.OrganBalance
 import com.example.game.OrganGameEngine
 import com.example.game.OrganGameState
@@ -31,6 +33,7 @@ import com.example.ui.OrganScreen
 import com.example.ui.OrganViewModel
 import com.example.ui.theme.BleakTheme
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -148,7 +151,7 @@ class OrganScreenBehaviorTest {
     composeTestRule
       .onNodeWithTag("organism_status_suture_hand")
       .performScrollTo()
-      .assertTextEquals("PRESSING VALVE")
+      .assertTextEquals("TURNING IRON")
     composeTestRule
       .onNodeWithTag("organism_yield_suture_hand")
       .performScrollTo()
@@ -191,7 +194,7 @@ class OrganScreenBehaviorTest {
         OrganGameEngine.initialState(catalog).copy(
           ichor = 17_000.0,
           cycleLifetimeIchor = 17_000.0,
-          stillness = 30.0,
+          stillness = 70.0,
           phase = 3,
           phaseName = catalog.phaseName(3),
           creatures =
@@ -224,13 +227,13 @@ class OrganScreenBehaviorTest {
     composeTestRule
       .onNodeWithTag("gaze_active_badge")
       .assertIsDisplayed()
-      .assertTextEquals("EYE GAZE: PASSIVE ×1.6 (8s)")
-    // Living chamber organisms: Suture-Hands on valve, Leech-Clerks on counter glass, Weeping Lamps overhead
+      .assertTextEquals("EYE GAZE (8s)")
+    // Living chamber organisms: Suture-Hands on valve, patrolling Leech-Clerks on counter glass, foreground Weeping Lamps
     composeTestRule.onNodeWithTag("suture_hands_overlay").assertIsDisplayed()
     composeTestRule.onNodeWithTag("leech_clerks_overlay").assertIsDisplayed()
     composeTestRule.onNodeWithTag("weeping_lamps_overlay").assertIsDisplayed()
 
-    // Verify Weeping Lamp dossier card reflects active Stillness 2x state & Stillness drip telemetry
+    // Verify Weeping Lamp dossier card reflects active Stillness state & Stillness drip telemetry
     composeTestRule
       .onNodeWithTag("organism_status_leech_clerk")
       .performScrollTo()
@@ -238,7 +241,7 @@ class OrganScreenBehaviorTest {
     composeTestRule
       .onNodeWithTag("organism_status_weeping_lamp")
       .performScrollTo()
-      .assertTextEquals("WEEPING ×2")
+      .assertTextEquals("WEEPING")
     composeTestRule
       .onNodeWithTag("art_weeping_lamp", useUnmergedTree = true)
       .performScrollTo()
@@ -248,19 +251,23 @@ class OrganScreenBehaviorTest {
       .performScrollTo()
       .assertIsDisplayed()
 
-    // Switch to JARS & GRAFT tab, bottle Yesterday's Dust, and perform Graft
+    // Switch to JARS & GRAFT tab, verify action artwork medallions, bottle Yesterday's Dust, and perform Graft
     composeTestRule.onNodeWithTag("deck_tab_jars_and_graft").performScrollTo().performClick()
     composeTestRule.waitForIdle()
 
+    composeTestRule.onNodeWithTag("art_jar_yesterdays_dust", useUnmergedTree = true).performScrollTo().assertIsDisplayed()
     composeTestRule.onNodeWithTag("jar_yesterdays_dust").performScrollTo().performClick()
     composeTestRule.waitForIdle()
     assertTrue(SpecimenJar.YESTERDAYS_DUST in state.ownedJars)
     composeTestRule.onNodeWithText("SEALED").assertIsDisplayed()
 
+    composeTestRule.onNodeWithTag("art_graft_tendril", useUnmergedTree = true).performScrollTo().assertIsDisplayed()
     composeTestRule.onNodeWithTag("perform_graft_button").performScrollTo().performClick()
     composeTestRule.waitForIdle()
     assertEquals(1, state.graftedTendrils)
+    assertTrue(state.isGraftOnCooldown)
     composeTestRule.onNodeWithText("GRAFTED CHOIR-TENDRIL [1]").assertIsDisplayed()
+    composeTestRule.onNodeWithTag("graft_cooldown_bar").performScrollTo().assertIsDisplayed()
   }
 
   @Test
@@ -305,9 +312,11 @@ class OrganScreenBehaviorTest {
       .onNodeWithTag("threshold_status")
       .assertTextEquals("OVERGROWTH CRITICAL // EXCISION READY")
 
-    // Open EXCISION tab -> Arm -> Confirm Severance
+    // Open EXCISION tab -> verify Next Scar visual indicator -> Arm -> Confirm Severance
     composeTestRule.onNodeWithTag("deck_tab_excision").performScrollTo().performClick()
     composeTestRule.waitForIdle()
+    composeTestRule.onNodeWithTag("next_scar_status").performScrollTo().assertIsDisplayed()
+    composeTestRule.onNodeWithTag("next_scar_progress_bar").performScrollTo().assertIsDisplayed()
     composeTestRule.onNodeWithTag("excision_reward_text").performScrollTo().assertIsDisplayed()
 
     composeTestRule.onNodeWithTag("excision_arm_button").performScrollTo().performClick()
@@ -316,21 +325,28 @@ class OrganScreenBehaviorTest {
     composeTestRule.onNodeWithTag("excision_confirm_button").performScrollTo().performClick()
     composeTestRule.waitForIdle()
 
-    // Verify full Cycle 1 post-reset state, passive Scar multipliers, and Cycle 1 story beats in UI
+    // Verify full Cycle 1 post-reset state: top header stays decluttered (no prestige_passive_banner),
+    // and relocated cycle/resonance telemetry renders inside Excision tab
     assertEquals(1, viewModel.uiState.value.cycle)
     assertTrue(viewModel.uiState.value.scarTissue >= 1L)
 
     composeTestRule
       .onNodeWithTag("phase_header")
       .assertTextEquals("PHASE 00 // THE COUNTING ROOM")
+    composeTestRule.onNodeWithTag("prestige_passive_banner").assertDoesNotExist()
+    composeTestRule.onNodeWithTag("counter_text").performScrollTo().assertTextEquals("0")
+
+    // Switch to EXCISION tab to inspect relocated cycle & permanent resonance status
+    composeTestRule.onNodeWithTag("deck_tab_excision").performScrollTo().performClick()
+    composeTestRule.waitForIdle()
     composeTestRule
       .onNodeWithTag("cycle_status")
       .performScrollTo()
       .assertIsDisplayed()
-      .assertTextEquals("CYCLE 01 // SCAR TISSUE: ${viewModel.uiState.value.scarTissue}")
+      .assertTextEquals(
+        "CYCLE 01 · MILESTONE M1/6 · TOTAL SCAR ${viewModel.uiState.value.scarTissue}"
+      )
     composeTestRule.onNodeWithTag("scar_passive_status").performScrollTo().assertIsDisplayed()
-    composeTestRule.onNodeWithTag("prestige_passive_banner").performScrollTo().assertIsDisplayed()
-    composeTestRule.onNodeWithTag("counter_text").performScrollTo().assertTextEquals("0")
     composeTestRule
       .onNodeWithTag("dialogue_speaker")
       .assertIsDisplayed()
@@ -400,7 +416,7 @@ class OrganScreenBehaviorTest {
     composeTestRule
       .onNodeWithTag("gaze_active_badge")
       .assertIsDisplayed()
-      .assertTextEquals("EYE GAZE: PASSIVE ×1.6 (6s)")
+      .assertTextEquals("EYE GAZE (6s)")
     composeTestRule
       .onNodeWithTag("dialogue_speaker")
       .assertIsDisplayed()
@@ -499,5 +515,124 @@ class OrganScreenBehaviorTest {
     composeTestRule.onNodeWithTag("enter_arc3_button").performScrollTo().performClick()
     composeTestRule.waitForIdle()
     composeTestRule.onNodeWithTag("arc3_screen").assertIsDisplayed()
+  }
+
+  @Test
+  fun dredgedRelics_areTappableGraphicChipsRevealingThematicInspectionNotes() {
+    val context = ApplicationProvider.getApplicationContext<Context>()
+    val catalog = AssetDialogueRepository(context).loadCatalog()
+    var state by
+      mutableStateOf(
+        OrganGameEngine.initialState(catalog).copy(
+          highestExcisionMilestone = 2,
+          cycle = 1,
+          dredgedRelics = setOf(DredgedRelic.PATIENT_WRISTBAND),
+        )
+      )
+
+    composeTestRule.setContent {
+      BleakTheme(phase = state.phase) {
+        OrganScreen(
+          state = state,
+          onPressValve = {},
+          onBuyCreature = {},
+          onBottleJar = {},
+          onPerformGraft = {},
+          onInteractAnomaly = {},
+          onPerformExcision = {},
+        )
+      }
+    }
+    composeTestRule.waitForIdle()
+
+    composeTestRule.onNodeWithTag("deck_tab_chamber_rites").performScrollTo().performClick()
+    composeTestRule.waitForIdle()
+
+    // Locked relic reveals sunken thematic hint
+    composeTestRule.onNodeWithTag("relic_inspect_brass_ward_key").performScrollTo().performClick()
+    composeTestRule.waitForIdle()
+    composeTestRule.onNodeWithTag("relic_inspection_card").performScrollTo().assertIsDisplayed()
+    composeTestRule
+      .onNodeWithText("Still sunk beneath the grate. Seal the floor until it rises.")
+      .assertIsDisplayed()
+
+    // Owned relic reveals its thematic inspection note
+    composeTestRule.onNodeWithTag("relic_inspect_patient_wristband").performScrollTo().performClick()
+    composeTestRule.waitForIdle()
+    composeTestRule
+      .onNodeWithText("Sodden tag #14 — the valve pulls heavier from beneath the mortar.")
+      .assertIsDisplayed()
+
+    // Tapping the same relic again collapses inspection card
+    composeTestRule.onNodeWithTag("relic_inspect_patient_wristband").performScrollTo().performClick()
+    composeTestRule.waitForIdle()
+    composeTestRule.onNodeWithTag("relic_inspection_card").assertDoesNotExist()
+  }
+
+  @Test
+  fun drippingMarginOverlay_rendersStoryAndAnomalyEventsInSeparatePriorityLanes() {
+    val context = ApplicationProvider.getApplicationContext<Context>()
+    val catalog = AssetDialogueRepository(context).loadCatalog()
+    var state by
+      mutableStateOf(
+        OrganGameEngine.initialState(catalog).copy(
+          ichor = 90.0,
+          cycleLifetimeIchor = 90.0,
+          phase = 1,
+          phaseName = catalog.phaseName(1),
+          activeAnomalies = listOf(ActiveWallAnomaly(12L, WallAnomalyType.PALE_TOOTH, 0.2f, 0.25f)),
+        )
+      )
+
+    composeTestRule.mainClock.autoAdvance = false
+    composeTestRule.setContent {
+      BleakTheme(phase = state.phase) {
+        OrganScreen(
+          state = state,
+          onPressValve = { state = OrganGameEngine.pressValve(state, catalog) },
+          onBuyCreature = {},
+          onBottleJar = {},
+          onPerformGraft = {},
+          onInteractAnomaly = { id -> state = OrganGameEngine.interactAnomaly(state, id, catalog) },
+          onPerformExcision = {},
+        )
+      }
+    }
+    composeTestRule.mainClock.advanceTimeBy(100)
+    composeTestRule.waitForIdle()
+
+    // Pulling Pale Tooth triggers BOTH the left-margin anomaly thematic drip AND the right-margin story fragment drip
+    composeTestRule.onNodeWithTag("anomaly_pale_tooth_12").performClick()
+    composeTestRule.mainClock.advanceTimeBy(450)
+    composeTestRule.waitForIdle()
+
+    composeTestRule.onNodeWithTag("dripping_story_overlay").assertIsDisplayed()
+    composeTestRule.onNodeWithTag("dripping_event_overlay").assertIsDisplayed()
+  }
+
+  @Test
+  fun stateSerializer_roundTripsGraftCooldownsAndLateTierSpecimenJars() {
+    val context = ApplicationProvider.getApplicationContext<Context>()
+    val catalog = AssetDialogueRepository(context).loadCatalog()
+    val state =
+      OrganGameEngine.initialState(catalog).copy(
+        cycle = 1,
+        highestExcisionMilestone = 4,
+        stillness = 420.0,
+        graftedTendrils = 2,
+        choirLungs = 1,
+        graftCooldownRemainingSeconds = 4.25,
+        choirLungCooldownRemainingSeconds = 7.5,
+        ownedJars = setOf(SpecimenJar.SALT_FROM_THE_GROUT, SpecimenJar.THE_UNCOUNTED_HOUR),
+      )
+
+    val raw = OrganStateSerializer.serialize(state)
+    val restored = OrganStateSerializer.deserialize(raw, catalog)
+
+    assertNotNull(restored)
+    assertEquals(4.25, restored!!.graftCooldownRemainingSeconds, 0.001)
+    assertEquals(7.5, restored.choirLungCooldownRemainingSeconds, 0.001)
+    assertTrue(SpecimenJar.SALT_FROM_THE_GROUT in restored.ownedJars)
+    assertTrue(SpecimenJar.THE_UNCOUNTED_HOUR in restored.ownedJars)
   }
 }

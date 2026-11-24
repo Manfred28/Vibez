@@ -16,6 +16,7 @@ import com.example.game.DredgedRelic
 import com.example.game.ExcisionMilestone
 import com.example.game.GameArc
 import com.example.game.InvestigatorContact
+import com.example.game.GraftSacrificeKind
 import com.example.game.OrganBalance
 import com.example.game.OrganDevEngine
 import com.example.game.OrganGameEngine
@@ -408,27 +409,49 @@ class OrganGameEngineTest {
   }
 
   @Test
-  fun grafting_requiresPhaseThreeAndConsumesFourCreaturesForChoirTendril() {
+  fun grafting_requiresPhaseThreeStillnessCooldownAndConsumesFourCreaturesForChoirTendril() {
     val catalog = sampleCatalog()
     val lockedP2 =
       OrganGameEngine.initialState(catalog).copy(
         cycleLifetimeIchor = 2_000.0,
         phase = 2,
+        stillness = 100.0,
         creatures = mapOf(CreatureType.SUTURE_HAND to 3, CreatureType.LEECH_CLERK to 2),
       )
     assertFalse(lockedP2.canAffordGraft)
     assertEquals(0, OrganGameEngine.performGraft(lockedP2, catalog).graftedTendrils)
 
-    val readyP3 = lockedP2.copy(cycleLifetimeIchor = 16_500.0, phase = 3)
+    // Phase 3 without enough Stillness cannot graft
+    val noStillnessP3 = lockedP2.copy(cycleLifetimeIchor = 16_500.0, phase = 3, stillness = 10.0)
+    assertFalse(noStillnessP3.canAffordGraft)
+    assertEquals(35L, noStillnessP3.graftStillnessCost)
+
+    val readyP3 = noStillnessP3.copy(stillness = 100.0, creatures = mapOf(CreatureType.SUTURE_HAND to 5, CreatureType.LEECH_CLERK to 4))
     assertTrue(readyP3.canAffordGraft)
 
     val grafted = OrganGameEngine.performGraft(readyP3, catalog)
     assertEquals(1, grafted.graftedTendrils)
-    assertEquals(1, grafted.creatureCount(CreatureType.SUTURE_HAND))
-    assertEquals(0, grafted.creatureCount(CreatureType.LEECH_CLERK))
-    assertEquals(0.6 + OrganBalance.GRAFT_ICHOR_PER_SEC, grafted.ichorPerSecond, 0.001)
+    assertEquals(3, grafted.creatureCount(CreatureType.SUTURE_HAND))
+    assertEquals(2, grafted.creatureCount(CreatureType.LEECH_CLERK))
+    assertEquals(65.0, grafted.stillness, 0.001)
+    assertEquals(OrganBalance.GRAFT_COOLDOWN_SEC, grafted.graftCooldownRemainingSeconds, 0.001)
+    assertTrue(grafted.isGraftOnCooldown)
+    assertEquals(1L, grafted.lastSacrificePulse)
+    assertEquals(GraftSacrificeKind.TENDRIL, grafted.lastSacrificeKind)
+    assertFalse("Immediate second graft must be blocked while cooldown is active", grafted.canAffordGraft)
+    assertEquals(54L, grafted.graftStillnessCost) // floor(35 * 1.55)
+    assertEquals(
+      3 * 0.6 + 2 * 2.4 + OrganBalance.GRAFT_ICHOR_PER_SEC,
+      grafted.ichorPerSecond,
+      0.001,
+    )
     assertEquals(OrganBalance.GRAFT_STILLNESS_PER_SEC, grafted.stillnessPerSecond, 0.001)
     assertEquals("dlg_graft", grafted.activeDialogue?.id)
+
+    // Tick past cooldown -> second graft becomes available again
+    val cooled = OrganGameEngine.tick(grafted, OrganBalance.GRAFT_COOLDOWN_SEC + 0.5, catalog)
+    assertFalse(cooled.isGraftOnCooldown)
+    assertTrue(cooled.canAffordGraft)
   }
 
   @Test
@@ -689,7 +712,8 @@ class OrganGameEngineTest {
     // Verify Shorter Silence reduces Stillness delay to 1.5s
     assertEquals(1.5, state.stillnessIdleDelaySec, 0.001)
 
-    // Verify Wax-Sealed Memory preserves jars and Calloused Palm seeds creatures across Excision reset
+    // Verify Wax-Sealed Memory clears jars on Excision (no jar retention), cuts Stillness costs by 35%,
+    // halves graft cooldowns, boosts Jar potency 1.6x, and Calloused Palm seeds creatures across resets
     val preReset =
       state.copy(
         ichor = 220_000.0,
@@ -700,7 +724,13 @@ class OrganGameEngineTest {
     val postReset = OrganGameEngine.performExcision(preReset, catalog)
     assertEquals(3, postReset.creatureCount(CreatureType.SUTURE_HAND))
     assertEquals(1, postReset.creatureCount(CreatureType.LEECH_CLERK))
-    assertEquals(setOf(SpecimenJar.YESTERDAYS_DUST, SpecimenJar.UNSPENT_BREATH), postReset.ownedJars)
+    assertTrue("Specimen Jars must clear on Excision so deep Stillness seals stay meaningful", postReset.ownedJars.isEmpty())
+    assertEquals(0.65, postReset.stillnessCostMultiplier, 0.0001)
+    assertEquals(1.6, postReset.jarEffectBoost, 0.0001)
+    assertEquals(3.0, postReset.graftCooldownDurationSec, 0.0001)
+    assertEquals(5.0, postReset.choirLungCooldownDurationSec, 0.0001)
+    assertEquals(15.0, postReset.effectiveJarCost(SpecimenJar.YESTERDAYS_DUST), 0.0001) // floor(24 * 0.65)
+    assertEquals(22L, postReset.graftStillnessCost) // floor(35 * 0.65)
 
     // Verify Deep Weeping drips 40% Stillness even while actively tapping
     val deepWeepingState =
@@ -711,15 +741,17 @@ class OrganGameEngineTest {
       )
     assertTrue("Deep Weeping must generate Stillness even while not idle", deepWeepingState.stillnessPerSecond > 0.0)
 
-    // Verify Auto-Tendril Suture automatically grafts when 4+ Hands & 4+ Leeches exist in Phase 3+
+    // Verify Auto-Tendril Suture automatically grafts when 4+ Hands, 4+ Leeches & Stillness exist in Phase 3+
     val autoGraftReady =
       postReset.copy(
         cycleLifetimeIchor = 20_000.0,
         phase = 3,
+        stillness = 50.0,
         creatures = mapOf(CreatureType.SUTURE_HAND to 4, CreatureType.LEECH_CLERK to 4),
       )
     val afterAutoGraft = OrganGameEngine.tick(autoGraftReady, 1.0, catalog)
     assertEquals(1, afterAutoGraft.graftedTendrils)
+    assertEquals(3.0, afterAutoGraft.graftCooldownRemainingSeconds, 0.001)
 
     // Verify an upgraded Cycle 2 repeat harvest compresses cleanly from ~15 min down under 7 min
     var sim = postReset
@@ -728,6 +760,11 @@ class OrganGameEngineTest {
       if (sec % 2 == 0) sim = OrganGameEngine.pressValve(sim, catalog)
       if (sim.activeAnomalies.isNotEmpty()) {
         sim = OrganGameEngine.interactAnomaly(sim, sim.activeAnomalies.first().id, catalog)
+      }
+      SpecimenJar.entries.forEach { jar ->
+        if (sim.isJarUnlocked(jar) && jar !in sim.ownedJars && sim.stillness >= sim.effectiveJarCost(jar)) {
+          sim = OrganGameEngine.bottleJar(sim, jar, catalog)
+        }
       }
       val lampCost = sim.creatureCost(CreatureType.WEEPING_LAMP)
       val leechCost = sim.creatureCost(CreatureType.LEECH_CLERK)
@@ -786,6 +823,7 @@ class OrganGameEngineTest {
 
     s =
       s.copy(
+        stillness = 250.0,
         creatures = s.creatures + (CreatureType.WEEPING_LAMP to 3),
         graftedTendrils = 2,
       )
@@ -794,6 +832,10 @@ class OrganGameEngineTest {
     assertEquals(1, s.choirLungs)
     assertEquals(1, s.creatureCount(CreatureType.WEEPING_LAMP))
     assertEquals(1, s.graftedTendrils)
+    assertEquals(70.0, s.stillness, 0.001)
+    assertEquals(OrganBalance.CHOIR_LUNG_COOLDOWN_SEC, s.choirLungCooldownRemainingSeconds, 0.001)
+    assertEquals(GraftSacrificeKind.CHOIR_LUNG, s.lastSacrificeKind)
+    assertFalse(s.canAffordChoirLung)
 
     // Excision V: Ossified Throat unseals Redacted Cult Dossier lines permanently
     s = OrganDevEngine.setHighestMilestone(s, 5, catalog)
@@ -884,5 +926,80 @@ class OrganGameEngineTest {
     assertEquals(0, reset.highestExcisionMilestone)
     assertTrue(reset.unlockedScarNodes.isEmpty())
     assertNotNull(reset)
+  }
+
+  @Test
+  fun sixTierSpecimenJars_enforcePhaseAndCycleLocksAndApplyLateTierMultipliers() {
+    val catalog = sampleCatalog()
+    assertEquals(6, SpecimenJar.entries.size)
+
+    // Phase 2 Cycle 0: foundational 3 jars unlocked; Salt (P3), Borrowed Pulse (P4), Uncounted Hour (M1/C1) locked
+    val p2 = OrganGameEngine.initialState(catalog).copy(phase = 2, stillness = 5_000.0)
+    assertTrue(p2.isJarUnlocked(SpecimenJar.YESTERDAYS_DUST))
+    assertFalse(p2.isJarUnlocked(SpecimenJar.SALT_FROM_THE_GROUT))
+    assertFalse(p2.isJarUnlocked(SpecimenJar.A_BORROWED_PULSE))
+    assertFalse(p2.isJarUnlocked(SpecimenJar.THE_UNCOUNTED_HOUR))
+    assertEquals(p2.stillness, OrganGameEngine.bottleJar(p2, SpecimenJar.SALT_FROM_THE_GROUT, catalog).stillness, 0.001)
+
+    // Phase 3 unlocks Salt from the Grout (+45% organisms)
+    var p3 =
+      p2.copy(
+        phase = 3,
+        cycleLifetimeIchor = 17_000.0,
+        creatures = mapOf(CreatureType.SUTURE_HAND to 2),
+      )
+    assertTrue(p3.isJarUnlocked(SpecimenJar.SALT_FROM_THE_GROUT))
+    val baseSutureRate = p3.ichorPerSecond
+    p3 = OrganGameEngine.bottleJar(p3, SpecimenJar.SALT_FROM_THE_GROUT, catalog)
+    assertTrue(SpecimenJar.SALT_FROM_THE_GROUT in p3.ownedJars)
+    assertEquals(baseSutureRate * (1.0 + OrganBalance.SALT_GROUT_BONUS), p3.ichorPerSecond, 0.001)
+
+    // Phase 4 unlocks A Borrowed Pulse (+55% graft/lung Ichor & all Stillness/s)
+    var p4 =
+      p3.copy(
+        phase = 4,
+        cycleLifetimeIchor = 90_000.0,
+        graftedTendrils = 1,
+      )
+    assertTrue(p4.isJarUnlocked(SpecimenJar.A_BORROWED_PULSE))
+    val baseStillnessRate = p4.stillnessPerSecond
+    p4 = OrganGameEngine.bottleJar(p4, SpecimenJar.A_BORROWED_PULSE, catalog)
+    assertTrue(SpecimenJar.A_BORROWED_PULSE in p4.ownedJars)
+    assertEquals(baseStillnessRate * (1.0 + OrganBalance.BORROWED_PULSE_BONUS), p4.stillnessPerSecond, 0.001)
+
+    // Post-Severance (Cycle 1+) unlocks The Uncounted Hour (+75% global Ichor & all Stillness/s)
+    var cycle1 = p4.copy(cycle = 1, highestExcisionMilestone = 1)
+    assertTrue(cycle1.isJarUnlocked(SpecimenJar.THE_UNCOUNTED_HOUR))
+    val preHourIchorRate = cycle1.ichorPerSecond
+    val preHourStillRate = cycle1.stillnessPerSecond
+    cycle1 = OrganGameEngine.bottleJar(cycle1, SpecimenJar.THE_UNCOUNTED_HOUR, catalog)
+    assertTrue(SpecimenJar.THE_UNCOUNTED_HOUR in cycle1.ownedJars)
+    assertEquals(preHourIchorRate * (1.0 + OrganBalance.UNCOUNTED_HOUR_BONUS), cycle1.ichorPerSecond, 0.001)
+    assertEquals(preHourStillRate * (1.0 + OrganBalance.UNCOUNTED_HOUR_BONUS), cycle1.stillnessPerSecond, 0.001)
+  }
+
+  @Test
+  fun nextScarProgressIndicator_tracksQuadraticScarThresholdsAccurately() {
+    val catalog = sampleCatalog()
+    val start = OrganGameEngine.initialState(catalog)
+    assertEquals(0L, start.currentBaseScarHarvest)
+    assertEquals(210_000L, start.nextBaseScarMassThreshold)
+    assertEquals(0.0f, start.nextScarProgress, 0.001f)
+
+    val halfFirst = start.copy(cycleLifetimeIchor = 105_000.0)
+    assertEquals(0.5f, halfFirst.nextScarProgress, 0.001f)
+
+    val firstScar = start.copy(cycleLifetimeIchor = 210_000.0)
+    assertEquals(1L, firstScar.currentBaseScarHarvest)
+    assertEquals(840_000L, firstScar.nextBaseScarMassThreshold)
+    assertEquals(0.0f, firstScar.nextScarProgress, 0.001f)
+
+    val midSecond = start.copy(cycleLifetimeIchor = 525_000.0) // 210k + 315k / 630k = 0.5
+    assertEquals(1L, midSecond.currentBaseScarHarvest)
+    assertEquals(0.5f, midSecond.nextScarProgress, 0.001f)
+
+    val secondScar = start.copy(cycleLifetimeIchor = 840_000.0)
+    assertEquals(2L, secondScar.currentBaseScarHarvest)
+    assertEquals(1_890_000L, secondScar.nextBaseScarMassThreshold)
   }
 }

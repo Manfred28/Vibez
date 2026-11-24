@@ -8,7 +8,7 @@
  * - Weeping Lamp specimen portrait & anatomical Wall Anomaly glyphs
  */
 
-import { CREATURE_TYPES, creatureCount } from './engine.js?v=2.2';
+import { CREATURE_TYPES, creatureCount } from './engine.js?v=2.4';
 
 const PALETTE = Object.freeze({
   voidAbyss: '#0A0B0B',
@@ -83,7 +83,38 @@ function syncCanvasSize(canvas) {
   return { ctx, width: w, height: h };
 }
 
-export function drawChamberBackdrop(canvas, wallImage, state, breath, dropPhase = breath) {
+function drawCoverImage(ctx, img, width, height, alpha) {
+  if (!img || !img.complete || img.naturalWidth <= 0 || alpha <= 0) return;
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  const imgRatio = img.naturalWidth / img.naturalHeight;
+  const boxRatio = width / height;
+  let drawW = width;
+  let drawH = height;
+  let dx = 0;
+  let dy = 0;
+  if (imgRatio > boxRatio) {
+    drawW = height * imgRatio;
+    dx = (width - drawW) / 2;
+  } else {
+    drawH = width / imgRatio;
+    dy = (height - drawH) / 2;
+  }
+  ctx.drawImage(img, dx, dy, drawW, drawH);
+  ctx.restore();
+}
+
+export function drawChamberBackdrop(
+  canvas,
+  wallImage,
+  fleshyWallImage,
+  state,
+  breath,
+  dropPhase = breath,
+  wallCreep = 0,
+  arterialPulse = 0,
+  echoRipple = 0,
+) {
   const { ctx, width, height } = syncCanvasSize(canvas);
   ctx.clearRect(0, 0, width, height);
 
@@ -91,66 +122,61 @@ export function drawChamberBackdrop(canvas, wallImage, state, breath, dropPhase 
   const distortion = Math.min(1, phase * 0.25);
   const valveCenter = { x: width * 0.5, y: height * 0.65 };
 
-  // 1. Damp cracked wall photo with phase-appropriate opacity & tint
-  if (wallImage && wallImage.complete && wallImage.naturalWidth > 0) {
-    const alphas = [0.26, 0.66, 0.72, 0.78, 0.84];
-    ctx.save();
-    ctx.globalAlpha = alphas[Math.min(phase, 4)];
-    const imgRatio = wallImage.naturalWidth / wallImage.naturalHeight;
-    const boxRatio = width / height;
-    let drawW = width;
-    let drawH = height;
-    let dx = 0;
-    let dy = 0;
-    if (imgRatio > boxRatio) {
-      drawW = height * imgRatio;
-      dx = (width - drawW) / 2;
-    } else {
-      drawH = width / imgRatio;
-      dy = (height - drawH) / 2;
-    }
-    ctx.drawImage(wallImage, dx, dy, drawW, drawH);
-    ctx.restore();
+  // 1. Damp cracked wall photo with phase-appropriate opacity
+  const tileAlphas = [0.24, 0.62, 0.58, 0.44, 0.34];
+  drawCoverImage(ctx, wallImage, width, height, tileAlphas[Math.min(phase, 4)]);
+
+  // 1b. Progressive veiny & fleshy sub-wall texture across Phases 2..4
+  if (phase >= 2) {
+    const fleshAlpha =
+      phase === 2
+        ? 0.2 + breath * 0.04
+        : phase === 3
+          ? 0.44 + breath * 0.06
+          : 0.6 + arterialPulse * 0.14;
+    drawCoverImage(ctx, fleshyWallImage, width, height, Math.min(0.84, fleshAlpha));
   }
 
-  // 2. Phase atmospheric vertical gradient veil
+  // 2. Phase atmospheric vertical gradient veil (subtler outer tint, focus stays on fleshy wall)
   const midTints = [
-    rgba(PALETTE.voidAbyss, 0.44),
-    rgba(PALETTE.voidAbyss, 0.30),
-    rgba(PALETTE.bileShadow, 0.38),
-    rgba(PALETTE.clotShadow, 0.44),
-    rgba(PALETTE.clotShadow, 0.54),
+    rgba(PALETTE.voidAbyss, 0.46),
+    rgba(PALETTE.voidAbyss, 0.32),
+    rgba(PALETTE.bileShadow, 0.32),
+    rgba(PALETTE.clotShadow, 0.36),
+    rgba(PALETTE.clotShadow, 0.42),
   ];
   const veil = ctx.createLinearGradient(0, 0, 0, height);
-  veil.addColorStop(0, rgba(PALETTE.voidAbyss, 0.78));
+  veil.addColorStop(0, rgba(PALETTE.voidAbyss, 0.76));
   veil.addColorStop(0.5, midTints[Math.min(phase, 4)]);
-  veil.addColorStop(1, rgba(PALETTE.voidAbyss, 0.74));
+  veil.addColorStop(1, rgba(PALETTE.voidAbyss, 0.72));
   ctx.fillStyle = veil;
   ctx.fillRect(0, 0, width, height);
 
-  // Phase 0 sterile fluorescent top wash
   if (phase === 0) {
     const glow = ctx.createRadialGradient(width * 0.5, 0, 0, width * 0.5, 0, width * 0.65);
-    glow.addColorStop(0, rgba(PALETTE.bleachedBone, 0.08));
+    glow.addColorStop(0, rgba(PALETTE.bleachedBone, 0.06));
     glow.addColorStop(1, 'transparent');
     ctx.fillStyle = glow;
     ctx.fillRect(0, 0, width, height);
   }
 
-  // 3. Tile grout grid (warps inward around valve in Phases 3-4)
+  // 3. Tile grout grid (warps inward + Phase 3 peristaltic creep)
   const tileStep = 38;
   ctx.strokeStyle =
     phase >= 2
-      ? rgba(PALETTE.driedClot, 0.14 + phase * 0.04)
-      : rgba(PALETTE.hairlineAsh, 0.28);
+      ? rgba(PALETTE.driedClot, 0.16 + phase * 0.045 + arterialPulse * 0.08)
+      : rgba(PALETTE.hairlineAsh, 0.26);
   ctx.lineWidth = phase >= 3 ? 1.15 : 1;
-  const warpStrength = phase >= 4 ? 18 + breath * 5 : phase === 3 ? 10 + breath * 3 : 0;
+  const warpStrength =
+    phase >= 4 ? 17 + breath * 4 + arterialPulse * 6 : phase === 3 ? 10 + breath * 3.5 : 0;
+  const creepAngle = wallCreep * Math.PI * 2;
 
   for (let x = tileStep; x < width; x += tileStep) {
     ctx.beginPath();
     ctx.moveTo(x, 0);
     if (warpStrength > 0) {
-      const pull = ((valveCenter.x - x) / width) * warpStrength * 2.2;
+      const creepWave = phase >= 3 ? Math.sin(creepAngle + x * 0.045) * 4.2 : 0;
+      const pull = ((valveCenter.x - x) / width) * warpStrength * 2.2 + creepWave;
       ctx.quadraticCurveTo(x + pull, valveCenter.y, x, height);
     } else {
       ctx.lineTo(x, height);
@@ -161,7 +187,8 @@ export function drawChamberBackdrop(canvas, wallImage, state, breath, dropPhase 
     ctx.beginPath();
     ctx.moveTo(0, y);
     if (warpStrength > 0) {
-      const pull = ((valveCenter.y - y) / height) * warpStrength * 1.8;
+      const creepWave = phase >= 3 ? Math.cos(creepAngle + y * 0.05) * 3.6 : 0;
+      const pull = ((valveCenter.y - y) / height) * warpStrength * 1.8 + creepWave;
       ctx.quadraticCurveTo(valveCenter.x, y + pull, width, y);
     } else {
       ctx.lineTo(width, y);
@@ -172,7 +199,7 @@ export function drawChamberBackdrop(canvas, wallImage, state, breath, dropPhase 
   // 4. Phase 1+ damp corner seepage stains
   if (phase >= 1) {
     const r = Math.min(width, height) * (0.28 + phase * 0.05);
-    const stain = phase >= 3 ? rgba(PALETTE.clotShadow, 0.44) : rgba(PALETTE.voidAbyss, 0.48);
+    const stain = phase >= 3 ? rgba(PALETTE.clotShadow, 0.44) : rgba(PALETTE.voidAbyss, 0.46);
     for (const [sx, sy] of [[0, height], [width, height * 0.85]]) {
       const g = ctx.createRadialGradient(sx, sy, 0, sx, sy, r);
       g.addColorStop(0, stain);
@@ -190,47 +217,83 @@ export function drawChamberBackdrop(canvas, wallImage, state, breath, dropPhase 
     for (let s = 1; s <= 5; s += 1) {
       const sx = width * (s / 6);
       const topY = height * (0.12 + (s % 3) * 0.14);
-      const len = height * (0.24 + breath * 0.08);
-      ctx.strokeStyle = rgba(PALETTE.paleLichen, 0.16);
-      ctx.lineWidth = 1.2;
+      const len = height * (0.22 + breath * 0.08);
+      ctx.strokeStyle = rgba(PALETTE.paleLichen, 0.14);
+      ctx.lineWidth = 1.1;
       ctx.beginPath();
       ctx.moveTo(sx, topY);
       ctx.lineTo(sx, topY + len);
       ctx.stroke();
-      ctx.fillStyle = rgba(PALETTE.paleLichen, 0.24);
+      ctx.fillStyle = rgba(PALETTE.paleLichen, 0.22);
       ctx.beginPath();
-      ctx.arc(sx, topY + len, 1.8, 0, Math.PI * 2);
+      ctx.arc(sx, topY + len, 1.7, 0, Math.PI * 2);
       ctx.fill();
     }
   }
 
-  // 6. Phase 3+ bruised tissue pockets along wall margins
+  // 6. Phase 3+ living peristaltic tissue pockets & subcutaneous weeping seam pores
   if (phase >= 3) {
-    const pocket = 46;
-    ctx.fillStyle = rgba(PALETTE.driedClot, 0.26 + breath * 0.08);
+    const leftBulge = 42 + Math.sin(creepAngle) * 9 + arterialPulse * 8;
+    const rightBulge = 42 + Math.sin(creepAngle + Math.PI * 0.85) * 9 + arterialPulse * 8;
+    ctx.fillStyle = rgba(PALETTE.driedClot, 0.26 + breath * 0.07 + arterialPulse * 0.12);
     ctx.strokeStyle = rgba(PALETTE.fractureOutline, 0.65);
     ctx.lineWidth = 1.2;
+
     ctx.beginPath();
-    ctx.moveTo(0, height * 0.36);
-    ctx.quadraticCurveTo(pocket * 0.85, height * 0.44, 0, height * 0.56);
+    ctx.moveTo(0, height * 0.34);
+    ctx.quadraticCurveTo(leftBulge, height * 0.45, 0, height * 0.58);
     ctx.closePath();
     ctx.fill();
     ctx.stroke();
 
     ctx.beginPath();
-    ctx.moveTo(width, height * 0.42);
-    ctx.quadraticCurveTo(width - pocket * 0.85, height * 0.50, width, height * 0.64);
+    ctx.moveTo(width, height * 0.40);
+    ctx.quadraticCurveTo(width - rightBulge, height * 0.51, width, height * 0.66);
     ctx.closePath();
     ctx.fill();
     ctx.stroke();
+
+    // Subcutaneous weeping pores contracting along grout seams
+    const poreAnchors = [
+      [0.18, 0.32],
+      [0.82, 0.35],
+      [0.24, 0.72],
+      [0.77, 0.74],
+      [0.34, 0.24],
+    ];
+    for (let p = 0; p < poreAnchors.length; p += 1) {
+      const px = width * poreAnchors[p][0];
+      const py = height * poreAnchors[p][1];
+      const swell = (Math.sin(creepAngle * 2 + p * 1.4) + 1) * 0.5;
+      const pr = 2.6 + swell * 2.2 + arterialPulse * 1.6;
+      ctx.fillStyle = rgba(PALETTE.clotShadow, 0.82);
+      ctx.beginPath();
+      ctx.arc(px, py, pr + 2.2, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = rgba(PALETTE.driedClot, 0.5 + swell * 0.32);
+      ctx.beginPath();
+      ctx.arc(px, py, pr, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Slow seepage droplet sliding down from pore
+      const ooze = (wallCreep + p * 0.23) % 1;
+      const oozeLen = 4 + ooze * 16;
+      ctx.strokeStyle = rgba(PALETTE.driedClot, 0.34 * (1 - ooze));
+      ctx.lineWidth = 1.2;
+      ctx.beginPath();
+      ctx.moveTo(px, py + pr * 0.6);
+      ctx.lineTo(px, py + pr * 0.6 + oozeLen);
+      ctx.stroke();
+    }
   }
 
-  // 7. Phase 4 encroaching chitinous rib arches
+  // 7. Phase 4 encroaching chitinous rib arches + rhythmic cardiac arterial pulse wave
   if (phase >= 4) {
     ctx.lineCap = 'round';
     for (let r = 0; r <= 3; r += 1) {
       const baseY = height * (0.22 + r * 0.20);
-      const reach = width * (0.20 + (r === 1 || r === 2 ? 0.07 : 0) + breath * 0.02);
+      const reach =
+        width * (0.19 + (r === 1 || r === 2 ? 0.065 : 0) + breath * 0.018 + arterialPulse * 0.022);
       for (const side of [-1, 1]) {
         const edgeX = side === -1 ? 0 : width;
         const ctrlX = side === -1 ? reach : width - reach;
@@ -240,17 +303,41 @@ export function drawChamberBackdrop(canvas, wallImage, state, breath, dropPhase 
         ctx.strokeStyle = rgba(PALETTE.voidAbyss, 0.78);
         ctx.lineWidth = 6;
         ctx.stroke();
-        ctx.strokeStyle = rgba(PALETTE.weatheredAsh, 0.34 + breath * 0.10);
+        ctx.strokeStyle = rgba(PALETTE.weatheredAsh, 0.32 + breath * 0.08 + arterialPulse * 0.14);
         ctx.lineWidth = 2.6;
         ctx.stroke();
       }
+    }
+
+    // Expanding cardiac systolic/diastolic pulse wave radiating from valve
+    if (arterialPulse > 0.02) {
+      const pulseR = Math.max(width, height) * (0.14 + (1 - arterialPulse) * 0.52);
+      const pulseGrad = ctx.createRadialGradient(
+        valveCenter.x,
+        valveCenter.y,
+        Math.max(1, pulseR - 28),
+        valveCenter.x,
+        valveCenter.y,
+        pulseR + 18,
+      );
+      pulseGrad.addColorStop(0, 'transparent');
+      pulseGrad.addColorStop(0.55, rgba(PALETTE.driedClot, arterialPulse * 0.28));
+      pulseGrad.addColorStop(1, 'transparent');
+      ctx.fillStyle = pulseGrad;
+      ctx.fillRect(0, 0, width, height);
+
+      ctx.strokeStyle = rgba(PALETTE.driedClot, arterialPulse * 0.34);
+      ctx.lineWidth = 1.6 + arterialPulse * 2.0;
+      ctx.beginPath();
+      ctx.arc(valveCenter.x, valveCenter.y, pulseR, 0, Math.PI * 2);
+      ctx.stroke();
     }
   }
 
   // 8. Permanent Scar Tissue stitched seams across Cycles 1+
   if (state.scarTissue > 0) {
     const seams = Math.min(state.scarTissue, 4);
-    ctx.strokeStyle = rgba(PALETTE.bleachedBone, 0.36);
+    ctx.strokeStyle = rgba(PALETTE.bleachedBone, 0.34);
     for (let s = 0; s < seams; s += 1) {
       const startY = height * (0.14 + s * 0.22);
       const endY = startY + height * 0.16;
@@ -272,18 +359,22 @@ export function drawChamberBackdrop(canvas, wallImage, state, breath, dropPhase 
     }
   }
 
-  // 9. Radiating cracks & arterial veins from the recessed valve
+  // 9. Radiating cracks & organic branching arterial veins from the recessed valve
   if (phase >= 1) {
     const count = phase * 2 + 2 + Math.min(state.graftedTendrils, 4);
-    ctx.strokeStyle =
+    const veinAlpha =
       phase >= 2
-        ? rgba(PALETTE.driedClot, 0.24 + distortion * 0.30)
-        : rgba(PALETTE.fractureOutline, 0.56);
-    ctx.lineWidth = 1.3 + phase * 0.45;
+        ? Math.min(0.86, 0.26 + distortion * 0.32 + arterialPulse * 0.26)
+        : 0.54;
+    ctx.strokeStyle =
+      phase >= 2 ? rgba(PALETTE.driedClot, veinAlpha) : rgba(PALETTE.fractureOutline, veinAlpha);
+    ctx.lineWidth = 1.3 + phase * 0.45 + arterialPulse * 1.1;
     ctx.lineCap = 'round';
     for (let i = 0; i < count; i += 1) {
-      const angle = i * ((2 * Math.PI) / count) + (breath - 0.5) * 0.08;
-      const reach = Math.min(width, height) * (0.36 + phase * 0.11 + breath * 0.03);
+      const creepOffset = phase >= 3 ? Math.sin(creepAngle + i * 1.1) * 0.045 : 0;
+      const angle = i * ((2 * Math.PI) / count) + (breath - 0.5) * 0.07 + creepOffset;
+      const reach =
+        Math.min(width, height) * (0.36 + phase * 0.11 + breath * 0.025 + arterialPulse * 0.03);
       const midX = valveCenter.x + Math.cos(angle + 0.14) * reach * 0.52;
       const midY = valveCenter.y + Math.sin(angle - 0.12) * reach * 0.52;
       const endX = valveCenter.x + Math.cos(angle) * reach;
@@ -292,20 +383,34 @@ export function drawChamberBackdrop(canvas, wallImage, state, breath, dropPhase 
       ctx.moveTo(valveCenter.x, valveCenter.y);
       ctx.quadraticCurveTo(midX, midY, endX, endY);
       ctx.stroke();
+
+      // Secondary capillary fork in Phase 2+
+      if (phase >= 2) {
+        const forkAngle = angle + (i % 2 === 0 ? 0.34 : -0.34);
+        const forkEndX = midX + Math.cos(forkAngle) * reach * 0.38;
+        const forkEndY = midY + Math.sin(forkAngle) * reach * 0.38;
+        ctx.save();
+        ctx.lineWidth = Math.max(0.9, (1.3 + phase * 0.45) * 0.52);
+        ctx.strokeStyle = rgba(PALETTE.driedClot, veinAlpha * 0.72);
+        ctx.beginPath();
+        ctx.moveTo(midX, midY);
+        ctx.quadraticCurveTo(
+          (midX + forkEndX) * 0.5 + Math.sin(angle) * 6,
+          (midY + forkEndY) * 0.5 - Math.cos(angle) * 6,
+          forkEndX,
+          forkEndY,
+        );
+        ctx.stroke();
+        ctx.restore();
+      }
     }
   }
 
-  // 10. Suspended Weeping Lamps hanging from the ceiling
-  const lampCount = creatureCount(state, CREATURE_TYPES.WEEPING_LAMP.id);
-  if (lampCount > 0) {
-    drawWeepingLampsCeiling(ctx, width, lampCount, state.isStillnessActive, breath, dropPhase);
-  }
-
-  // 11. Excision II-V Chamber Mutations
-  drawExcisionChamberMutations(ctx, width, height, state, breath);
+  // 10. Excision II-V Chamber Mutations (Weeping Lamps now render in foreground layer over counter!)
+  drawExcisionChamberMutations(ctx, width, height, state, breath, echoRipple);
 }
 
-function drawExcisionChamberMutations(ctx, width, height, state, breath) {
+function drawExcisionChamberMutations(ctx, width, height, state, breath, echoRipple = 0) {
   // Excision II: Floor Drain Grate & pooled sump runoff at bottom center
   if (state.highestExcisionMilestone >= 2) {
     const grateW = width * 0.42;
@@ -349,7 +454,7 @@ function drawExcisionChamberMutations(ctx, width, height, state, breath) {
     }
   }
 
-  // Excision III: Unbricked Neighbor Aperture slit in upper-right masonry
+  // Excision III: Unbricked Neighbor Aperture slit in upper-right masonry + Echo answer ripples
   if (state.highestExcisionMilestone >= 3) {
     const sx = width * 0.85;
     const sy = height * 0.16;
@@ -368,6 +473,20 @@ function drawExcisionChamberMutations(ctx, width, height, state, breath) {
     ctx.beginPath();
     ctx.arc(sx, sy, 2.6, 0, Math.PI * 2);
     ctx.fill();
+
+    if (echoRipple > 0 && echoRipple < 1) {
+      const fade = 1 - echoRipple;
+      for (let ring = 0; ring < 2; ring += 1) {
+        const ringT = Math.max(0, echoRipple - ring * 0.16);
+        if (ringT <= 0) continue;
+        const r = 8 + ringT * 68;
+        ctx.strokeStyle = rgba(PALETTE.paleLichen, fade * (ring === 0 ? 0.72 : 0.42));
+        ctx.lineWidth = ring === 0 ? 1.8 : 1.1;
+        ctx.beginPath();
+        ctx.arc(sx, sy, r, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+    }
   }
 
   // Excision IV: Clamped Valve / Marrow Bloom crimson pressure pulse
@@ -411,14 +530,164 @@ function drawExcisionChamberMutations(ctx, width, height, state, breath) {
   }
 }
 
+export function drawForegroundLampsAndSacrifice(
+  canvas,
+  state,
+  breath,
+  dropPhase,
+  sacrificeProgress = 0,
+  sacrificeKind = 'tendril',
+) {
+  const { ctx, width, height } = syncCanvasSize(canvas);
+  ctx.clearRect(0, 0, width, height);
+
+  const lampCount = creatureCount(state, CREATURE_TYPES.WEEPING_LAMP.id);
+  if (lampCount > 0) {
+    drawWeepingLampsCeiling(ctx, width, lampCount, state.isStillnessActive, breath, dropPhase);
+  }
+
+  if (sacrificeProgress > 0 && sacrificeProgress < 1) {
+    drawGraftSacrificeOverlay(ctx, width, height, sacrificeProgress, sacrificeKind);
+  }
+}
+
+function drawGraftSacrificeOverlay(ctx, width, height, progress, kind) {
+  const cx = width * 0.5;
+  const cy = height * 0.64;
+  const fade = Math.max(0, 1 - Math.pow(progress, 1.5));
+  const collapse = Math.pow(progress, 0.75);
+
+  // Dark clot flash ring contracting toward valve
+  const ringR = Math.max(8, (1 - collapse) * 92 + 16);
+  ctx.strokeStyle = rgba(PALETTE.driedClot, fade * 0.68);
+  ctx.lineWidth = 2.4 * fade;
+  ctx.beginPath();
+  ctx.arc(cx, cy, ringR, 0, Math.PI * 2);
+  ctx.stroke();
+
+  if (kind === 'choir_lung') {
+    // Two shattering ceiling lamp vessels + severed tendril pulled inward
+    for (const side of [-1, 1]) {
+      const startX = cx + side * 86;
+      const startY = height * 0.24;
+      const px = startX + (cx - startX) * collapse;
+      const py = startY + (cy - startY) * collapse;
+      const jitter = Math.sin(progress * 28 + side) * 4 * (1 - progress);
+      ctx.save();
+      ctx.translate(px + jitter, py);
+      ctx.rotate(side * progress * 1.4);
+      // Cracked glass shards
+      ctx.fillStyle = rgba(PALETTE.paleLichen, fade * 0.75);
+      ctx.strokeStyle = rgba(PALETTE.bleachedBone, fade * 0.85);
+      ctx.lineWidth = 1.1;
+      for (let sh = 0; sh < 4; sh += 1) {
+        const a = sh * 1.55 + progress * 2.5;
+        const d = progress * 18;
+        ctx.beginPath();
+        ctx.moveTo(Math.cos(a) * d, Math.sin(a) * d);
+        ctx.lineTo(Math.cos(a) * d + 5, Math.sin(a) * d + 2);
+        ctx.lineTo(Math.cos(a) * d + 1, Math.sin(a) * d + 7);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+  } else {
+    // Two severed Suture-Hands & two curling Leech-Clerks dissolving into the valve
+    const actors = [
+      { sx: cx - 96, sy: cy - 26, type: 'hand', side: -1 },
+      { sx: cx + 96, sy: cy - 22, type: 'hand', side: 1 },
+      { sx: cx - 72, sy: height * 0.28, type: 'leech', side: -1 },
+      { sx: cx + 72, sy: height * 0.28, type: 'leech', side: 1 },
+    ];
+    for (let i = 0; i < actors.length; i += 1) {
+      const a = actors[i];
+      const px = a.sx + (cx - a.sx) * collapse;
+      const py = a.sy + (cy - a.sy) * collapse;
+      const spasm = Math.sin(progress * 34 + i * 1.7) * 5.5 * (1 - progress);
+      ctx.save();
+      ctx.translate(px + spasm, py);
+      ctx.rotate(a.side * progress * 2.2);
+      if (a.type === 'hand') {
+        // Curling pale finger silhouettes + snapping suture red wisps
+        ctx.strokeStyle = rgba(PALETTE.bleachedBone, fade * 0.9);
+        ctx.lineWidth = 2.0;
+        for (let f = -1; f <= 1; f += 1) {
+          ctx.beginPath();
+          ctx.moveTo(0, 0);
+          ctx.quadraticCurveTo(f * 6, -8 + progress * 5, f * 9 * (1 - progress * 0.4), -14);
+          ctx.stroke();
+        }
+        ctx.strokeStyle = rgba(PALETTE.driedClot, fade * 0.9);
+        ctx.lineWidth = 1.4;
+        ctx.beginPath();
+        ctx.moveTo(-6, 3);
+        ctx.lineTo(6, -3);
+        ctx.stroke();
+      } else {
+        // Curled olive leech body dissolving into dark segments
+        for (let seg = 0; seg < 5; seg += 1) {
+          const ang = seg * 0.65 + progress * 3.0;
+          ctx.fillStyle =
+            seg % 2 === 0
+              ? rgba(PALETTE.bileOlive, fade * 0.92)
+              : rgba(PALETTE.clotShadow, fade * 0.9);
+          ctx.beginPath();
+          ctx.arc(Math.cos(ang) * (6 - seg * 0.8), Math.sin(ang) * (5 - seg * 0.6), 3.2 - seg * 0.35, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+      ctx.restore();
+    }
+  }
+
+  // Dark clot spatter droplets dispersing outward
+  for (let d = 0; d < 10; d += 1) {
+    const ang = d * ((Math.PI * 2) / 10) + 0.3;
+    const dist = 14 + progress * (44 + (d % 3) * 14);
+    ctx.fillStyle = rgba(PALETTE.driedClot, fade * 0.72);
+    ctx.beginPath();
+    ctx.arc(cx + Math.cos(ang) * dist, cy + Math.sin(ang) * dist, 2.2 * fade + 0.6, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
 function drawWeepingLampsCeiling(ctx, width, lampCount, isStillnessActive, breath, dropPhase) {
   const visible = Math.min(lampCount, 5);
-  const spacing = width / (visible + 1);
+  // Flanking-biased x fractions so foreground lamps frame & drape over the counter without obscuring digits
+  const layouts = {
+    1: [{ x: 0.17, cord: 26 }],
+    2: [
+      { x: 0.15, cord: 26 },
+      { x: 0.85, cord: 30 },
+    ],
+    3: [
+      { x: 0.14, cord: 28 },
+      { x: 0.5, cord: 10 },
+      { x: 0.86, cord: 28 },
+    ],
+    4: [
+      { x: 0.12, cord: 30 },
+      { x: 0.3, cord: 16 },
+      { x: 0.7, cord: 16 },
+      { x: 0.88, cord: 30 },
+    ],
+    5: [
+      { x: 0.1, cord: 32 },
+      { x: 0.27, cord: 18 },
+      { x: 0.5, cord: 9 },
+      { x: 0.73, cord: 18 },
+      { x: 0.9, cord: 32 },
+    ],
+  };
+  const slots = layouts[visible] ?? layouts[5];
 
-  for (let i = 1; i <= visible; i += 1) {
-    const anchorX = spacing * i;
-    const sway = Math.sin(breath * 2 * Math.PI + i * 0.95) * 6.5;
-    const cordLen = 24 + (i % 2) * 8;
+  for (let idx = 0; idx < slots.length; idx += 1) {
+    const i = idx + 1;
+    const anchorX = width * slots[idx].x;
+    const sway = Math.sin(breath * 2 * Math.PI + i * 0.95) * 5.8;
+    const cordLen = slots[idx].cord;
     const sx = anchorX + sway;
     const sy = cordLen;
 
@@ -516,7 +785,7 @@ function drawWeepingLampsCeiling(ctx, width, lampCount, isStillnessActive, breat
   }
 }
 
-export function drawValveAndHands(canvas, state, breath) {
+export function drawValveAndHands(canvas, state, breath, handCyclePhase = breath) {
   const { ctx, width, height } = syncCanvasSize(canvas);
   ctx.clearRect(0, 0, width, height);
 
@@ -595,22 +864,22 @@ export function drawValveAndHands(canvas, state, breath) {
     ctx.fill();
   }
 
-  // Grotesque, emaciated 5-fingered stitched Suture-Hands clawing and drumming the valve rim
+  // Grotesque, emaciated 5-fingered stitched Suture-Hands clawing & turning the valve rim clockwise
   const visibleHands = Math.min(sutureCount, 8);
   for (let i = 0; i < visibleHands; i += 1) {
-    const baseAngle = i * ((2 * Math.PI) / visibleHands) - Math.PI / 2 + Math.PI / 8;
+    const handAnglePhase = handCyclePhase * 2 * Math.PI + i * 1.15;
+    // Slight clockwise rim tug synced with pressWave
+    const pressWave =
+      (Math.sin(handAnglePhase) * 0.78 + Math.sin(handAnglePhase * 3) * 0.22 + 1) * 0.5;
+    const cwTugAngle = (pressWave - 0.5) * 0.085;
+    const baseAngle = i * ((2 * Math.PI) / visibleHands) - Math.PI / 2 + Math.PI / 8 + cwTugAngle;
     const handedness = i % 2 === 0 ? 1 : -1;
     const dx = Math.cos(baseAngle);
     const dy = Math.sin(baseAngle);
     const px = -dy * handedness;
     const py = dx * handedness;
 
-    const pressWave =
-      (Math.sin(breath * 2 * Math.PI + i * 1.15) * 0.78 +
-        Math.sin(breath * 6 * Math.PI + i * 2.3) * 0.22 +
-        1) *
-      0.5;
-    const pressInset = pressWave * 6.8;
+    const pressInset = pressWave * 7.2;
 
     const wristR = armStartRadius;
     const seamR = armStartRadius - 7.5;
@@ -904,28 +1173,54 @@ export function drawValveAndHands(canvas, state, breath) {
   }
 }
 
-export function drawLeechClerks(canvas, leechCount, breath) {
+function sampleBezelPerimeter(t, left, top, right, bottom) {
+  const w = Math.max(8, right - left);
+  const h = Math.max(8, bottom - top);
+  const perim = 2 * (w + h);
+  let dist = (((t % 1) + 1) % 1) * perim;
+  if (dist < w) {
+    return { x: left + dist, y: top, tx: 1, ty: 0, nx: 0, ny: -1 };
+  }
+  dist -= w;
+  if (dist < h) {
+    return { x: right, y: top + dist, tx: 0, ty: 1, nx: 1, ny: 0 };
+  }
+  dist -= h;
+  if (dist < w) {
+    return { x: right - dist, y: bottom, tx: -1, ty: 0, nx: 0, ny: 1 };
+  }
+  dist -= w;
+  return { x: left, y: bottom - dist, tx: 0, ty: -1, nx: -1, ny: 0 };
+}
+
+export function drawLeechClerks(canvas, leechCount, breath, patrolPhase = breath) {
   const { ctx, width, height } = syncCanvasSize(canvas);
   ctx.clearRect(0, 0, width, height);
   if (leechCount <= 0) return;
 
+  // Track hugs the counter glass bezel with generous outer margin so tails never clip
+  const left = 28;
+  const right = Math.max(left + 12, width - 28);
+  const top = 8;
+  const bottom = Math.max(top + 12, height - 8);
+  const perim = 2 * (right - left + (bottom - top));
+  const segStepT = 3.2 / Math.max(40, perim);
+
   const visible = Math.min(leechCount, 6);
   for (let i = 0; i < visible; i += 1) {
-    const onLeft = i % 2 === 0;
-    const row = Math.floor(i / 2);
-    const phaseAngle = breath * 2 * Math.PI + i * 1.15;
-    const crawl = Math.sin(phaseAngle);
-    // Anchored at the inner glass plate bezel (32px outer clearance keeps tails 100% unclipped)
-    const headX = onLeft ? 34 + crawl * 2.0 : width - 34 - crawl * 2.0;
-    const baseY = height * (0.25 + row * 0.25);
+    const direction = i % 2 === 0 ? 1 : -1;
+    const speed = 0.72 + (i % 3) * 0.22;
+    const headT = (i / visible + direction * patrolPhase * speed) % 1;
+    const wavePhase = patrolPhase * Math.PI * 10 + i * 1.45;
 
     for (let seg = 6; seg >= 0; seg -= 1) {
-      const dir = onLeft ? -1 : 1;
-      const segWave = Math.sin(phaseAngle - seg * 0.62) * (1.7 + seg * 0.24);
-      const sx = headX + dir * seg * 3.0;
-      const sy = baseY + segWave;
+      const segT = headT - direction * seg * segStepT;
+      const pt = sampleBezelPerimeter(segT, left, top, right, bottom);
+      const undulate = Math.sin(wavePhase - seg * 0.68) * (1.4 + seg * 0.22);
+      const sx = pt.x + pt.nx * undulate;
+      const sy = pt.y + pt.ny * undulate;
       const r =
-        seg === 0 ? 3.9 : seg <= 3 ? 4.3 - seg * 0.24 : Math.max(1.5, 3.4 - (seg - 3) * 0.58);
+        seg === 0 ? 3.8 : seg <= 3 ? 4.2 - seg * 0.24 : Math.max(1.5, 3.3 - (seg - 3) * 0.55);
 
       ctx.fillStyle = rgba(PALETTE.voidAbyss, 0.88);
       ctx.beginPath();
@@ -943,20 +1238,22 @@ export function drawLeechClerks(canvas, leechCount, breath) {
       ctx.fill();
     }
 
-    const mouthPulse = 1 + 0.14 * Math.sin(phaseAngle * 2);
-    const mx = headX + (onLeft ? 2.2 : -2.2);
-    ctx.fillStyle = rgba(PALETTE.driedClot, 0.65);
+    const head = sampleBezelPerimeter(headT, left, top, right, bottom);
+    const mouthPulse = 1 + 0.14 * Math.sin(wavePhase * 1.4);
+    const mx = head.x + head.tx * direction * 2.2;
+    const my = head.y + head.ty * direction * 2.2;
+    ctx.fillStyle = rgba(PALETTE.driedClot, 0.68);
     ctx.beginPath();
-    ctx.arc(mx, baseY, 4.6 * mouthPulse, 0, Math.PI * 2);
+    ctx.arc(mx, my, 4.4 * mouthPulse, 0, Math.PI * 2);
     ctx.fill();
     ctx.fillStyle = rgba(PALETTE.voidAbyss, 0.92);
     ctx.beginPath();
-    ctx.arc(mx, baseY, 2.0 * mouthPulse, 0, Math.PI * 2);
+    ctx.arc(mx, my, 1.9 * mouthPulse, 0, Math.PI * 2);
     ctx.fill();
     ctx.strokeStyle = rgba(PALETTE.paleLichen, 0.55);
     ctx.lineWidth = 0.9;
     ctx.beginPath();
-    ctx.arc(mx, baseY, 4.6 * mouthPulse, 0, Math.PI * 2);
+    ctx.arc(mx, my, 4.4 * mouthPulse, 0, Math.PI * 2);
     ctx.stroke();
   }
 }
@@ -1388,4 +1685,252 @@ export function drawDeskAnomalyGlyph(canvas, type, breath) {
     ctx.stroke();
   }
 }
+
+/* ==================== CLINICAL ACTION & RELIC ARTWORK MEDALLIONS ==================== */
+
+export function drawActionArtwork(canvas, kind, id, active = false) {
+  const { ctx, width, height } = syncCanvasSize(canvas);
+  ctx.clearRect(0, 0, width, height);
+  const cx = width * 0.5;
+  const cy = height * 0.5;
+  const s = Math.min(width, height) / 40;
+
+  ctx.save();
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+
+  if (kind === 'jar') {
+    const accent = active ? PALETTE.paleLichen : PALETTE.weatheredAsh;
+    const fluid = active ? rgba(PALETTE.paleLichen, 0.24) : rgba(PALETTE.bileShadow, 0.58);
+    // Wax cork stopper
+    ctx.fillStyle = active ? PALETTE.driedClot : PALETTE.fractureOutline;
+    ctx.fillRect(cx - 6 * s, cy - 15 * s, 12 * s, 4.5 * s);
+    // Jar shoulders & body
+    ctx.beginPath();
+    ctx.moveTo(cx - 7 * s, cy - 10.5 * s);
+    ctx.lineTo(cx - 11 * s, cy - 5 * s);
+    ctx.lineTo(cx - 11 * s, cy + 12 * s);
+    ctx.quadraticCurveTo(cx - 11 * s, cy + 15 * s, cx - 8 * s, cy + 15 * s);
+    ctx.lineTo(cx + 8 * s, cy + 15 * s);
+    ctx.quadraticCurveTo(cx + 11 * s, cy + 15 * s, cx + 11 * s, cy + 12 * s);
+    ctx.lineTo(cx + 11 * s, cy - 5 * s);
+    ctx.lineTo(cx + 7 * s, cy - 10.5 * s);
+    ctx.closePath();
+    ctx.fillStyle = fluid;
+    ctx.fill();
+    ctx.strokeStyle = accent;
+    ctx.lineWidth = 1.25 * s;
+    ctx.stroke();
+
+    // Unique specimen motif inside jar
+    if (id === 'yesterdays_dust') {
+      ctx.fillStyle = rgba(PALETTE.bleachedBone, 0.58);
+      for (const [dx, dy, r] of [
+        [-4, 10, 1.5],
+        [0, 11, 2.0],
+        [4, 9.5, 1.4],
+        [-2, 5, 1.0],
+        [3, 4, 1.1],
+      ]) {
+        ctx.beginPath();
+        ctx.arc(cx + dx * s, cy + dy * s, r * s, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    } else if (id === 'unspent_breath') {
+      ctx.strokeStyle = rgba(PALETTE.paleLichen, 0.85);
+      ctx.lineWidth = 1.1 * s;
+      ctx.beginPath();
+      ctx.arc(cx - 1 * s, cy + 2 * s, 5.5 * s, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.arc(cx + 4 * s, cy - 3 * s, 2.2 * s, 0, Math.PI * 2);
+      ctx.stroke();
+    } else if (id === 'almost_a_name') {
+      ctx.strokeStyle = rgba(PALETTE.bleachedBone, 0.75);
+      ctx.lineWidth = 1.1 * s;
+      ctx.strokeRect(cx - 6 * s, cy - 1 * s, 12 * s, 9 * s);
+      ctx.beginPath();
+      ctx.moveTo(cx - 4 * s, cy + 2.5 * s);
+      ctx.lineTo(cx + 4 * s, cy + 2.5 * s);
+      ctx.moveTo(cx - 4 * s, cy + 5.5 * s);
+      ctx.lineTo(cx + 1 * s, cy + 5.5 * s);
+      ctx.stroke();
+    } else if (id === 'salt_from_the_grout') {
+      ctx.fillStyle = rgba(PALETTE.bleachedBone, 0.72);
+      for (const [dx, dy] of [
+        [-4, 8],
+        [0, 5],
+        [4, 9],
+      ]) {
+        ctx.beginPath();
+        ctx.moveTo(cx + dx * s, cy + (dy - 4) * s);
+        ctx.lineTo(cx + (dx + 2.8) * s, cy + dy * s);
+        ctx.lineTo(cx + dx * s, cy + (dy + 3.5) * s);
+        ctx.lineTo(cx + (dx - 2.8) * s, cy + dy * s);
+        ctx.closePath();
+        ctx.fill();
+      }
+    } else if (id === 'a_borrowed_pulse') {
+      ctx.strokeStyle = PALETTE.driedClot;
+      ctx.lineWidth = 1.5 * s;
+      ctx.beginPath();
+      ctx.moveTo(cx - 8 * s, cy + 4 * s);
+      ctx.lineTo(cx - 4 * s, cy + 4 * s);
+      ctx.lineTo(cx - 2 * s, cy - 3 * s);
+      ctx.lineTo(cx + 1 * s, cy + 8 * s);
+      ctx.lineTo(cx + 3.5 * s, cy + 1 * s);
+      ctx.lineTo(cx + 8 * s, cy + 4 * s);
+      ctx.stroke();
+    } else {
+      // the_uncounted_hour: handless tilted clock face
+      ctx.strokeStyle = rgba(PALETTE.bleachedBone, 0.85);
+      ctx.lineWidth = 1.2 * s;
+      ctx.beginPath();
+      ctx.arc(cx, cy + 3 * s, 6.5 * s, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.fillStyle = PALETTE.driedClot;
+      ctx.beginPath();
+      ctx.arc(cx, cy + 3 * s, 1.6 * s, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  } else if (kind === 'graft') {
+    if (id === 'choir_lung') {
+      ctx.strokeStyle = PALETTE.paleLichen;
+      ctx.lineWidth = 1.6 * s;
+      ctx.beginPath();
+      ctx.moveTo(cx, cy - 14 * s);
+      ctx.lineTo(cx, cy - 4 * s);
+      ctx.moveTo(cx, cy - 5 * s);
+      ctx.lineTo(cx - 6 * s, cy + 1 * s);
+      ctx.moveTo(cx, cy - 5 * s);
+      ctx.lineTo(cx + 6 * s, cy + 1 * s);
+      ctx.stroke();
+      for (const side of [-1, 1]) {
+        ctx.fillStyle = rgba(PALETTE.driedClot, active ? 0.55 : 0.34);
+        ctx.strokeStyle = active ? PALETTE.driedClot : PALETTE.fractureOutline;
+        ctx.lineWidth = 1.3 * s;
+        ctx.beginPath();
+        ctx.ellipse(cx + side * 7.5 * s, cy + 5.5 * s, 5.5 * s, 8.5 * s, side * -0.18, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+      }
+    } else {
+      // Braided tendril knot
+      ctx.strokeStyle = PALETTE.driedClot;
+      ctx.lineWidth = 2.6 * s;
+      ctx.beginPath();
+      ctx.moveTo(cx - 12 * s, cy + 12 * s);
+      ctx.bezierCurveTo(cx - 4 * s, cy - 10 * s, cx + 6 * s, cy + 10 * s, cx + 12 * s, cy - 12 * s);
+      ctx.stroke();
+      ctx.strokeStyle = PALETTE.bleachedBone;
+      ctx.lineWidth = 1.5 * s;
+      ctx.beginPath();
+      ctx.moveTo(cx - 12 * s, cy - 10 * s);
+      ctx.bezierCurveTo(cx - 3 * s, cy + 10 * s, cx + 5 * s, cy - 10 * s, cx + 12 * s, cy + 11 * s);
+      ctx.stroke();
+      ctx.fillStyle = PALETTE.paleLichen;
+      ctx.beginPath();
+      ctx.arc(cx, cy, 3 * s, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  } else if (kind === 'rite') {
+    if (id === 'drain') {
+      ctx.fillStyle = rgba(PALETTE.voidAbyss, 0.9);
+      ctx.strokeStyle = active ? PALETTE.driedClot : PALETTE.fractureOutline;
+      ctx.lineWidth = 1.3 * s;
+      ctx.fillRect(cx - 13 * s, cy - 8 * s, 26 * s, 16 * s);
+      ctx.strokeRect(cx - 13 * s, cy - 8 * s, 26 * s, 16 * s);
+      for (let i = -2; i <= 2; i += 1) {
+        ctx.beginPath();
+        ctx.moveTo(cx + i * 4.5 * s, cy - 8 * s);
+        ctx.lineTo(cx + i * 4.5 * s, cy + 8 * s);
+        ctx.stroke();
+      }
+    } else if (id === 'echo') {
+      ctx.fillStyle = PALETTE.voidAbyss;
+      ctx.strokeStyle = active ? PALETTE.paleLichen : PALETTE.fractureOutline;
+      ctx.lineWidth = 1.3 * s;
+      ctx.fillRect(cx - 3.5 * s, cy - 13 * s, 7 * s, 26 * s);
+      ctx.strokeRect(cx - 3.5 * s, cy - 13 * s, 7 * s, 26 * s);
+      ctx.strokeStyle = rgba(PALETTE.paleLichen, active ? 0.85 : 0.42);
+      for (const r of [8, 13]) {
+        ctx.beginPath();
+        ctx.arc(cx, cy, r * s, -0.7, 0.7);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(cx, cy, r * s, Math.PI - 0.7, Math.PI + 0.7);
+        ctx.stroke();
+      }
+    } else if (id === 'clamp') {
+      ctx.strokeStyle = active ? PALETTE.driedClot : PALETTE.bleachedBone;
+      ctx.lineWidth = 2.4 * s;
+      ctx.beginPath();
+      ctx.arc(cx, cy, 10 * s, 0.4, Math.PI * 2 - 0.4);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(cx - 13 * s, cy);
+      ctx.lineTo(cx + 13 * s, cy);
+      ctx.stroke();
+      ctx.fillStyle = PALETTE.driedClot;
+      ctx.beginPath();
+      ctx.arc(cx, cy, 3 * s, 0, Math.PI * 2);
+      ctx.fill();
+    } else {
+      // throat
+      ctx.fillStyle = rgba(PALETTE.clotShadow, 0.88);
+      ctx.strokeStyle = PALETTE.driedClot;
+      ctx.lineWidth = 1.4 * s;
+      ctx.beginPath();
+      ctx.ellipse(cx, cy, 11 * s, 14 * s, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+      ctx.strokeStyle = PALETTE.bleachedBone;
+      ctx.lineWidth = 1.2 * s;
+      ctx.beginPath();
+      ctx.moveTo(cx, cy - 10 * s);
+      ctx.quadraticCurveTo(cx - 4 * s, cy, cx, cy + 10 * s);
+      ctx.moveTo(cx, cy - 10 * s);
+      ctx.quadraticCurveTo(cx + 4 * s, cy, cx, cy + 10 * s);
+      ctx.stroke();
+    }
+  } else if (kind === 'relic') {
+    const stroke = active ? PALETTE.paleLichen : PALETTE.weatheredAsh;
+    ctx.strokeStyle = stroke;
+    ctx.fillStyle = active ? rgba(PALETTE.paleLichen, 0.24) : rgba(PALETTE.voidAbyss, 0.5);
+    ctx.lineWidth = 1.5 * s;
+    if (id === 'patient_wristband') {
+      ctx.beginPath();
+      ctx.ellipse(cx, cy, 12 * s, 7 * s, -0.3, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+      ctx.fillStyle = active ? PALETTE.driedClot : PALETTE.fractureOutline;
+      ctx.fillRect(cx - 4 * s, cy - 2 * s, 8 * s, 4 * s);
+    } else if (id === 'brass_ward_key') {
+      ctx.beginPath();
+      ctx.arc(cx - 6 * s, cy, 5.5 * s, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(cx - 0.5 * s, cy);
+      ctx.lineTo(cx + 12 * s, cy);
+      ctx.moveTo(cx + 7 * s, cy);
+      ctx.lineTo(cx + 7 * s, cy + 5 * s);
+      ctx.moveTo(cx + 11 * s, cy);
+      ctx.lineTo(cx + 11 * s, cy + 4 * s);
+      ctx.stroke();
+    } else {
+      ctx.fillRect(cx - 9 * s, cy - 11 * s, 18 * s, 22 * s);
+      ctx.strokeRect(cx - 9 * s, cy - 11 * s, 18 * s, 22 * s);
+      ctx.beginPath();
+      ctx.moveTo(cx - 5 * s, cy - 11 * s);
+      ctx.lineTo(cx - 5 * s, cy + 11 * s);
+      ctx.stroke();
+      ctx.fillStyle = active ? PALETTE.driedClot : PALETTE.fractureOutline;
+      ctx.beginPath();
+      ctx.arc(cx + 3 * s, cy + 4 * s, 3 * s, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+  ctx.restore();
+}
+
 

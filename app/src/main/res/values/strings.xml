@@ -2,14 +2,14 @@
     <string name="app_name">Tap Counter</string>
     <string name="phase_readout">PHASE %1$02d // %2$s</string>
     <string name="cycle_readout">CYCLE %1$02d // SCAR TISSUE: %2$s</string>
-    <string name="scar_passive_readout">SCAR PASSIVE: ×%1$s ICHOR · ×%2$s STILLNESS</string>
+    <string name="scar_passive_readout">RESONANCE: ×%1$s ICHOR · ×%2$s STILLNESS</string>
     <string name="scar_wallet_readout">AVAILABLE SCAR: %1$s · MILESTONE: M%2$d/6</string>
     <string name="ichor_label">ICHOR</string>
     <string name="ichor_rate_format">%1$s /s</string>
     <string name="stillness_readout">STILLNESS: %1$s</string>
     <string name="stillness_active_tag">STILLNESS DRIPPING</string>
-    <string name="gaze_active_tag">EYE GAZE: PASSIVE ×1.6 (%1$ds)</string>
-    <string name="bloom_active_tag">MARROW BLOOM: ×%1$s (%2$ds)</string>
+    <string name="gaze_active_tag">EYE GAZE (%1$ds)</string>
+    <string name="bloom_active_tag">MARROW BLOOM (%1$ds)</string>
     <string name="valve_plus_format">+%1$s</string>
     <string name="valve_action_label">VALVE</string>
     <string name="valve_clamped_label">CLAMPED (%1$ds)</string>
@@ -28,25 +28,31 @@
 
     <!-- Graphic asset content descriptions -->
     <string name="art_wall_phase1_cd">Damp cracked tiled chamber wall</string>
+    <string name="art_wall_fleshy_cd">Veined damp fleshy chamber wall beneath cracked tiles</string>
     <string name="art_recessed_valve_cd">Tarnished iron and bone recessed wall valve</string>
     <string name="art_suture_hand_cd">Stitched pale anatomical Suture-Hand specimen</string>
     <string name="art_leech_clerk_cd">Blind segmented Leech-Clerk specimen</string>
     <string name="art_weeping_lamp_cd">Suspended glass Weeping Lamp specimen</string>
     <string name="art_sump_siphon_cd">Ribbed leather Sump-Siphon drawing dark runoff from the floor drain</string>
 
-    <!-- Wall anomaly interactive objects -->
+    <!-- Wall anomaly interactive objects & thematic drip lines -->
     <string name="anomaly_tooth_label">PULL</string>
     <string name="anomaly_tooth_cd">Pull pale tooth protruding from plaster crack</string>
-    <string name="anomaly_tooth_feedback">+%1$s ICHOR · +0.5 TAP</string>
     <string name="anomaly_eye_label">WIPE</string>
     <string name="anomaly_eye_cd">Wipe condensation from blinking glass eye</string>
-    <string name="anomaly_eye_feedback">PASSIVE ×1.6 (12s)</string>
     <string name="anomaly_nodule_label">PROD</string>
     <string name="anomaly_nodule_cd">Prod swollen nodule pulsing along fissure</string>
-    <string name="anomaly_nodule_feedback">+%1$s ICHOR · +%2$s STILL</string>
     <string name="anomaly_rib_label">PRY</string>
     <string name="anomaly_rib_cd">Pry cracked calcified rib parting the chamber wall</string>
-    <string name="anomaly_rib_feedback">+%1$s ICHOR · +%2$s STILL · ×1.6</string>
+
+    <string name="drip_event_speaker">CHAMBER</string>
+    <string name="drip_anomaly_tooth">Enamel gives way; the iron valve drinks deeper.</string>
+    <string name="drip_anomaly_eye">The glass blinks clean; the colony quickens under its gaze.</string>
+    <string name="drip_anomaly_nodule">The blister splits warm; ichor and quiet seep down the grout.</string>
+    <string name="drip_anomaly_rib">The pale rib snaps free; everything in the wall surges.</string>
+    <string name="drip_echo_answer">Something behind the mortar answers in kind.</string>
+    <string name="drip_sacrifice_tendril">Two hands and two leeches slacken, braided into one hum.</string>
+    <string name="drip_sacrifice_lung">Two lamps and a tendril collapse inward into wet breath.</string>
 
     <!-- Apparatus deck tabs & organisms -->
     <string name="tab_organisms">ORGANISMS</string>
@@ -55,55 +61,64 @@
     <string name="tab_rites">RITES</string>
     <string name="tab_excision">EXCISION</string>
     <string name="cost_ichor_format">%1$s ICHOR</string>
-    <string name="cost_stillness_format">%1$s STILLNESS</string>
+    <string name="cost_stillness_format">%1$s STILL</string>
     <string name="owned_count_format">[%1$d]</string>
 
     <string name="creature_suture_code">SPEC-01</string>
     <string name="creature_suture_name">SUTURE-HAND</string>
-    <string name="creature_suture_desc">Stitched appendage gripping and pressing the wall valve.</string>
+    <string name="creature_suture_desc">Stitched fingers that will not stop turning the iron.</string>
     <string name="creature_leech_code">SPEC-02</string>
     <string name="creature_leech_name">LEECH-CLERK</string>
-    <string name="creature_leech_desc">Blind annelid clinging to the counter glass, chewing digits.</string>
+    <string name="creature_leech_desc">Blind wet mouth grazing across the counter glass.</string>
     <string name="creature_lamp_code">SPEC-03</string>
     <string name="creature_lamp_name">WEEPING LAMP</string>
-    <string name="creature_lamp_desc">Ceiling vessel that drips Stillness &amp; 2× Ichor after idle pause.</string>
+    <string name="creature_lamp_desc">Only weeps when your hands leave the room alone.</string>
     <string name="creature_siphon_code">SPEC-04</string>
     <string name="creature_siphon_name">SUMP-SIPHON</string>
-    <string name="creature_siphon_desc">Ribbed floor-drain bladder drawing thick runoff &amp; speeding drain pressure.</string>
+    <string name="creature_siphon_desc">Ribbed leather bladder pulling what settled beneath the tiles.</string>
 
     <string name="organism_status_dormant">DORMANT</string>
-    <string name="organism_status_suture_active">PRESSING VALVE</string>
+    <string name="organism_status_suture_active">TURNING IRON</string>
     <string name="organism_status_leech_active">GRAZING GLASS</string>
-    <string name="organism_status_lamp_idle">IDLE 3s TO WEEP</string>
-    <string name="organism_status_lamp_weeping">WEEPING ×2</string>
+    <string name="organism_status_lamp_idle">AWAITING QUIET</string>
+    <string name="organism_status_lamp_weeping">WEEPING</string>
     <string name="organism_status_siphon_active">DREDGING SUMP</string>
     <string name="organism_yield_each_format">EACH: +%1$s/s</string>
     <string name="organism_yield_colony_format">EACH: +%1$s/s · COLONY: +%2$s/s</string>
-    <string name="organism_lamp_stillness_format">IDLE DRIP: +%1$s STILLNESS/s</string>
+    <string name="organism_lamp_stillness_format">QUIET DRIP: +%1$s STILL/s</string>
     <string name="organism_action_cultivate">CULTIVATE</string>
 
-    <!-- Specimen jars & grafting -->
+    <!-- 6-Tier Specimen Jars & Grafting (Theme over Descriptiveness) -->
     <string name="jar_dust_name">YESTERDAY\'S DUST</string>
-    <string name="jar_dust_effect">Valve extraction +3 base Ichor</string>
+    <string name="jar_dust_effect">The iron valve turns heavier, and yields thicker.</string>
     <string name="jar_breath_name">UNSPENT BREATH</string>
-    <string name="jar_breath_effect">Suture-Hands &amp; Leech-Clerks ×1.75</string>
+    <string name="jar_breath_effect">Hands and leeches draw from what you held back.</string>
     <string name="jar_name_title">A NAME YOU ALMOST REMEMBER</string>
-    <string name="jar_name_effect">Weeping Lamps &amp; wall anomalies ×1.8</string>
+    <string name="jar_name_effect">Lamps weep warmer; the cracks part wider.</string>
+    <string name="jar_grout_name">SALT FROM THE GROUT</string>
+    <string name="jar_grout_effect">Every tending creature drinks brine from the seams.</string>
+    <string name="jar_pulse_name">A BORROWED PULSE</string>
+    <string name="jar_pulse_effect">The room\'s quiet beats twice beneath your palm.</string>
+    <string name="jar_hour_name">THE UNCOUNTED HOUR</string>
+    <string name="jar_hour_effect">Even the wall forgets how long you have been here.</string>
     <string name="jar_sealed_badge">SEALED</string>
     <string name="jar_bottle_action">BOTTLE</string>
+    <string name="jar_locked_phase_hint">UNSEALS AT PHASE %1$02d</string>
+    <string name="jar_locked_cycle_hint">UNSEALS AFTER FIRST SEVERANCE</string>
 
     <string name="graft_title">GRAFTED CHOIR-TENDRIL</string>
-    <string name="graft_desc">Fuse 2 Suture-Hands + 2 Leech-Clerks (+18/s Ichor, +0.7/s Stillness)</string>
-    <string name="graft_action">GRAFT</string>
+    <string name="graft_desc">Bind 2 Hands &amp; 2 Leeches into one braided hum.</string>
+    <string name="graft_action_cost">GRAFT · %1$s STILL</string>
+    <string name="graft_cooldown_format">SETTLING (%1$ds)</string>
     <string name="graft_locked_hint">UNLOCKS AT PHASE 03</string>
 
     <string name="choir_lung_title">GRAFTED CHOIR-LUNG</string>
-    <string name="choir_lung_desc">Fuse 2 Weeping Lamps + 1 Tendril (+260/s Ichor, +4.5/s Stillness, ×2 while Still)</string>
-    <string name="choir_lung_action">GRAFT LUNG</string>
+    <string name="choir_lung_desc">Bind 2 Lamps &amp; 1 Tendril; it breathes deepest in quiet.</string>
+    <string name="choir_lung_action_cost">GRAFT · %1$s STILL</string>
 
-    <!-- Surgical Scar Skill Tree -->
+    <!-- Surgical Scar Skill Tree (Cryptic Theme-First) -->
     <string name="scar_tree_title">SURGICAL SCAR CHART</string>
-    <string name="scar_tree_available">AVAILABLE SCAR TISSUE: %1$s</string>
+    <string name="scar_tree_available">AVAILABLE SCAR: %1$s</string>
     <string name="scar_branch_suture">SUTURE</string>
     <string name="scar_branch_stillness">STILLNESS</string>
     <string name="scar_branch_marrow">MARROW</string>
@@ -112,60 +127,70 @@
     <string name="scar_status_locked">PREREQ LOCKED</string>
 
     <string name="scar_node_first_incision_name">FIRST INCISION</string>
-    <string name="scar_node_first_incision_desc">×1.5 Ichor &amp; ×1.25 Stillness resonance; opens all 3 surgical branches.</string>
+    <string name="scar_node_first_incision_desc">The first mark remembers how to bleed; three paths open.</string>
     <string name="scar_node_calloused_palm_name">CALLOUSED PALM</string>
-    <string name="scar_node_calloused_palm_desc">Start every cycle with 3 Suture-Hands &amp; 1 Leech-Clerk; Valve ×2.2.</string>
+    <string name="scar_node_calloused_palm_desc">Old hands wait at the valve before you even wake.</string>
     <string name="scar_node_twin_stitch_name">TWIN STITCH</string>
-    <string name="scar_node_twin_stitch_desc">Each Valve tap echoes +3s passive Ichor; Suture &amp; Leech output ×2.5.</string>
+    <string name="scar_node_twin_stitch_desc">Every turn of iron wakes a second tremor in the colony.</string>
     <string name="scar_node_colony_inertia_name">COLONY INERTIA</string>
-    <string name="scar_node_colony_inertia_desc">Flattens organism cost scaling (-0.05) and multiplies all organisms ×3.2.</string>
+    <string name="scar_node_colony_inertia_desc">The flesh multiplies with less persuasion.</string>
     <string name="scar_node_shorter_silence_name">SHORTER SILENCE</string>
-    <string name="scar_node_shorter_silence_desc">Stillness ignites in 1.5s (down from 3s); Stillness rate ×1.6.</string>
+    <string name="scar_node_shorter_silence_desc">The room falls quiet almost as soon as you let go.</string>
     <string name="scar_node_wax_sealed_memory_name">WAX-SEALED MEMORY</string>
-    <string name="scar_node_wax_sealed_memory_desc">Retains bottled Specimen Jars across Excision resets; Jar potency ×1.6.</string>
+    <string name="scar_node_wax_sealed_memory_desc">Wax softens the quiet\'s price; fresh grafts knit twice as fast.</string>
     <string name="scar_node_deep_weeping_name">DEEP WEEPING</string>
-    <string name="scar_node_deep_weeping_desc">Stillness ticks at 40% while tapping; Lamps &amp; Choir-Lungs ×3.5.</string>
+    <string name="scar_node_deep_weeping_desc">Even while you press the iron, the lamps keep weeping.</string>
     <string name="scar_node_softened_mortar_name">SOFTENED MORTAR</string>
-    <string name="scar_node_softened_mortar_desc">Wall anomalies spawn 2× faster (cap 4) and yield ×3 rewards.</string>
+    <string name="scar_node_softened_mortar_desc">The plaster gives way easily to what pushes through.</string>
     <string name="scar_node_auto_tendril_suture_name">AUTO-TENDRIL SUTURE</string>
-    <string name="scar_node_auto_tendril_suture_desc">Auto-grafts Choir-Tendrils when 4+ Hands/Leeches exist; Grafts &amp; Siphons ×3.</string>
+    <string name="scar_node_auto_tendril_suture_desc">Spare hands and leeches braid themselves without your consent.</string>
     <string name="scar_node_bone_resonance_name">BONE RESONANCE</string>
-    <string name="scar_node_bone_resonance_desc">Global Ichor ×4.0 and amplifies Excision II–V chamber rites ×2.5.</string>
+    <string name="scar_node_bone_resonance_desc">The masonry hums in tune with your deeper rites.</string>
 
     <!-- Excision II-V Chamber Rites -->
-    <string name="rite_drain_title">FLOOR DRAIN GRATE // EXCISION II</string>
-    <string name="rite_drain_desc" formatted="false">Seal grate (-15% Ichor) to build pressure to 100%, then Dredge sunken relics.</string>
+    <string name="rite_drain_title">FLOOR DRAIN GRATE // M2</string>
+    <string name="rite_drain_desc">Stop the grate to build weight beneath the tiles, then haul up what sank.</string>
     <string name="rite_drain_pressure">SUMP PRESSURE: %1$d%%</string>
     <string name="rite_drain_seal">SEAL GRATE</string>
     <string name="rite_drain_vent">VENT GRATE</string>
     <string name="rite_drain_dredge">DREDGE RELIC</string>
-    <string name="rite_drain_complete">ALL SUMP RELICS DREDGED</string>
+    <string name="rite_drain_complete">ALL RELICS HAULED</string>
 
-    <string name="rite_echo_title">NEIGHBOR APERTURE // EXCISION III</string>
-    <string name="rite_echo_desc">Divert passive Ichor through the wall slit for 12s Resonance Echo bursts &amp; richer anomalies.</string>
-    <string name="rite_echo_pulses">RESONANCE ECHOES RECEIVED: %1$d</string>
+    <string name="relic_wristband_name">WRISTBAND</string>
+    <string name="relic_wristband_hint">Sodden tag #14 — the valve pulls heavier from beneath the mortar.</string>
+    <string name="relic_brass_key_name">BRASS KEY</string>
+    <string name="relic_brass_key_hint">Bent ward key — the room settles into quiet deeper than before.</string>
+    <string name="relic_logbook_name">LOGBOOK</string>
+    <string name="relic_logbook_hint">Bled-ink ledger — every tending thing works a fraction harder.</string>
+    <string name="relic_locked_hint">Still sunk beneath the grate. Seal the floor until it rises.</string>
 
-    <string name="rite_clamp_title">VALVE CLAMP // EXCISION IV</string>
-    <string name="rite_clamp_desc">Bolt the valve shut for 20s to rupture a 4-anomaly Marrow Bloom &amp; ×2.5 surge.</string>
+    <string name="rite_echo_title">NEIGHBOR APERTURE // M3</string>
+    <string name="rite_echo_desc">Let part of the flow slip through the wall slit; listen for what answers.</string>
+    <string name="rite_echo_pulses">ANSWERS HEARD: %1$d</string>
+
+    <string name="rite_clamp_title">VALVE CLAMP // M4</string>
+    <string name="rite_clamp_desc">Bolt the valve shut until the walls swell and split open.</string>
     <string name="rite_clamp_action">CLAMP VALVE (20s)</string>
-    <string name="rite_clamp_active">PRESSURE BUILDING (%1$ds)</string>
+    <string name="rite_clamp_active">SWELLING (%1$ds)</string>
 
-    <string name="rite_throat_title">THE OSSIFIED THROAT // EXCISION V</string>
-    <string name="rite_throat_desc">Feed Sump-Siphons, Tendrils, and sealed Jars to permanently un-redact cult dossier lines (×2.4–3.2 each).</string>
-    <string name="rite_throat_offer">FEED &amp; UN-REDACT</string>
-    <string name="rite_throat_unsealed">UN-REDACTED</string>
+    <string name="rite_throat_title">THE OSSIFIED THROAT // M5</string>
+    <string name="rite_throat_desc">Feed the throat in the mortar; it coughs up inked lines that were blacked out.</string>
+    <string name="rite_throat_offer">FEED</string>
+    <string name="rite_throat_unsealed">UNSEALED</string>
 
     <!-- Excision / milestone prestige panel -->
     <string name="excision_title">EXCISION // MOLTING</string>
-    <string name="excision_summary" formatted="false">Harvest Scar Tissue to suture permanent Surgical Tree nodes, or push past the next Milestone mass to unlock a new chamber mutation.</string>
+    <string name="excision_summary">Cut away the overgrown mass to carry its scars forward.</string>
+    <string name="excision_cycle_summary">CYCLE %1$02d · MILESTONE M%2$d/6 · TOTAL SCAR %3$s</string>
     <string name="excision_milestone_progress">NEXT MILESTONE: %1$s (%2$s / %3$s)</string>
-    <string name="excision_milestone_cleared_banner">MILESTONE THRESHOLD BREACHED — WILL UNLOCK ON SEVERANCE</string>
+    <string name="excision_milestone_cleared_banner">MILESTONE THRESHOLD BREACHED — UNLOCKS ON SEVERANCE</string>
+    <string name="excision_next_scar_format">NEXT SCAR TISSUE: %1$s / %2$s</string>
     <string name="excision_reward_format">HARVEST YIELD: +%1$s SCAR TISSUE</string>
     <string name="excision_action_arm">EXCISE &amp; MOLT</string>
     <string name="excision_action_confirm">CONFIRM SEVERANCE</string>
     <string name="excision_action_cancel">HOLD</string>
     <string name="excision_breach_title">EXCISION VI // THE BREACH RITUAL</string>
-    <string name="excision_breach_desc">Cut past bone and mortar alike. Cross into Arc 2: The Inquiry while preserving your Arc 1 ledger.</string>
+    <string name="excision_breach_desc">Cut past bone and mortar alike. Cross into The Inquiry while preserving this room.</string>
     <string name="excision_breach_action">CUT THROUGH THE MORTAR</string>
 
     <!-- Arc 2 Haunted Investigator Desk -->
@@ -175,7 +200,7 @@
     <string name="arc2_inspect_label">STAMP FILE</string>
     <string name="arc2_inspect_cd">Inspect case folder and stamp leads</string>
     <string name="arc2_silence_badge">LATE-NIGHT SILENCE</string>
-    <string name="arc2_focus_badge">LENS FOCUS ×1.8 (%1$ds)</string>
+    <string name="arc2_focus_badge">LENS FOCUS (%1$ds)</string>
     <string name="arc2_tab_contacts">CONTACTS</string>
     <string name="arc2_tab_deductions">DEDUCTIONS</string>
     <string name="arc2_tab_board">PINBOARD</string>
@@ -188,11 +213,11 @@
     <string name="arc2_contact_transcriber">AUDIO TRANSCRIBER</string>
     <string name="arc2_contact_transcriber_desc">Loops sub-basement valve recordings for buried voices.</string>
     <string name="arc2_deduction_invoices">HYDRO-WARD INVOICES</string>
-    <string name="arc2_deduction_invoices_desc">Stamp inspection +4 base Leads</string>
+    <string name="arc2_deduction_invoices_desc">Each stamped page turns up sharper ink.</string>
     <string name="arc2_deduction_roster">CARETAKER ROSTER</string>
-    <string name="arc2_deduction_roster_desc">Contacts &amp; tools ×2.0 Leads</string>
+    <string name="arc2_deduction_roster_desc">The contacts find names twice as fast.</string>
     <string name="arc2_deduction_mortar">MORTAR SAMPLE MATCH</string>
-    <string name="arc2_deduction_mortar_desc">Silence rate &amp; desk anomalies ×2.2</string>
+    <string name="arc2_deduction_mortar_desc">Late-night quiet deepens; oddities surface clearer.</string>
     <string name="arc2_pin_action">PIN</string>
     <string name="arc2_chapter_connect">CONNECT RED STRING</string>
     <string name="arc2_chapter_sealed">CONNECTED</string>

@@ -98,6 +98,7 @@ internal fun ValveApertureArt(
 @Composable
 internal fun RecessedValveButton(
   yieldLabel: String,
+  wheelRotationDegreesProvider: () -> Float,
   onPress: () -> Unit,
   modifier: Modifier = Modifier,
 ) {
@@ -169,16 +170,43 @@ internal fun RecessedValveButton(
         ),
     ) {
       Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        Image(
-          painter = painterResource(id = R.drawable.img_recessed_valve),
-          contentDescription = null,
-          contentScale = ContentScale.Crop,
+        // Rotating iron valve wheel & radial spoke notches (turns monotonically clockwise)
+        Box(
           modifier =
-            Modifier.fillMaxSize()
-              .clip(CircleShape)
-              .alpha(if (isPressed) 0.46f else 0.58f)
-              .testTag("valve_artwork"),
-        )
+            Modifier.fillMaxSize().graphicsLayer {
+              rotationZ = wheelRotationDegreesProvider()
+            }
+        ) {
+          Image(
+            painter = painterResource(id = R.drawable.img_recessed_valve),
+            contentDescription = null,
+            contentScale = ContentScale.Crop,
+            modifier =
+              Modifier.fillMaxSize()
+                .clip(CircleShape)
+                .alpha(if (isPressed) 0.48f else 0.62f)
+                .testTag("valve_artwork"),
+          )
+
+          Canvas(modifier = Modifier.fillMaxSize()) {
+            val c = Offset(size.width * 0.5f, size.height * 0.5f)
+            val outerR = size.minDimension * 0.47f
+            val innerR = size.minDimension * 0.34f
+            val spokeColor = colorScheme.onBackground.copy(alpha = 0.24f)
+            val notchColor = colorScheme.tertiary.copy(alpha = 0.42f)
+            for (k in 0 until 6) {
+              val ang = k * (Math.PI / 3.0)
+              val dx = kotlin.math.cos(ang).toFloat()
+              val dy = kotlin.math.sin(ang).toFloat()
+              drawLine(
+                color = if (k == 0) notchColor else spokeColor,
+                start = Offset(c.x + dx * innerR, c.y + dy * innerR),
+                end = Offset(c.x + dx * outerR, c.y + dy * outerR),
+                strokeWidth = if (k == 0) 2.4.dp.toPx() else 1.4.dp.toPx(),
+              )
+            }
+          }
+        }
 
         Box(
           modifier =
@@ -188,8 +216,8 @@ internal fun RecessedValveButton(
                   colors =
                     listOf(
                       (if (isPressed) colorScheme.tertiaryContainer else colorScheme.background)
-                        .copy(alpha = if (isPressed) 0.76f else 0.72f),
-                      colorScheme.background.copy(alpha = 0.50f),
+                        .copy(alpha = if (isPressed) 0.74f else 0.70f),
+                      colorScheme.background.copy(alpha = 0.46f),
                     )
                 )
               )
