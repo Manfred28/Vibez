@@ -1,9 +1,8 @@
 <resources>
     <string name="app_name">Tap Counter</string>
-    <string name="phase_readout">PHASE %1$02d // %2$s</string>
+    <string name="phase_readout">%1$s</string>
     <string name="cycle_readout">CYCLE %1$02d // SCAR TISSUE: %2$s</string>
     <string name="scar_passive_readout">RESONANCE: ×%1$s ICHOR · ×%2$s STILLNESS</string>
-    <string name="scar_wallet_readout">AVAILABLE SCAR: %1$s · MILESTONE: M%2$d/6</string>
     <string name="ichor_label">ICHOR</string>
     <string name="ichor_rate_format">%1$s /s</string>
     <string name="stillness_readout">STILLNESS: %1$s</string>
@@ -15,11 +14,9 @@
     <string name="valve_clamped_label">CLAMPED (%1$ds)</string>
     <string name="valve_content_description">Press the recessed wall valve to extract ichor</string>
     <string name="counter_value_content_description">Current ichor count: %1$s</string>
-    <string name="threshold_progress_format">NEXT FRACTURE: %1$s / %2$s</string>
-    <string name="threshold_excision_progress_format">EXCISION MASS: %1$s / %2$s</string>
     <string name="threshold_excision_ready">OVERGROWTH CRITICAL // EXCISION READY</string>
     <string name="threshold_breach_ready">SEAM UNSEALED // PLEAD FOR SALVATION</string>
-    <string name="threshold_endless_label">NO SUMMIT REMAINS</string>
+    <string name="tab_alert_state_desc">Unseen or ready</string>
     <string name="default_phase_0_name">THE COUNTING ROOM</string>
     <string name="default_phase_1_name">UNCANNY DRIFT</string>
     <string name="default_phase_2_name">APPARATUS &amp; FLESH</string>
@@ -56,7 +53,7 @@
 
     <!-- Apparatus deck tabs & organisms -->
     <string name="tab_organisms">ORGANISMS</string>
-    <string name="tab_jars_graft">JARS &amp; GRAFT</string>
+    <string name="tab_jars_graft">JARS</string>
     <string name="tab_scar_tree">SCARS</string>
     <string name="tab_rites">RITES</string>
     <string name="tab_excision">EXCISION</string>
@@ -87,6 +84,9 @@
     <string name="organism_yield_colony_format">EACH: +%1$s/s · COLONY: +%2$s/s</string>
     <string name="organism_lamp_stillness_format">QUIET DRIP: +%1$s STILL/s</string>
     <string name="organism_action_cultivate">CULTIVATE</string>
+    <string name="organism_action_proliferate">PROLIFERATE</string>
+    <string name="organism_action_proliferate_count">PROLIFERATE ×%1$d</string>
+    <string name="organism_action_proliferate_empty">INSUFFICIENT ICHOR</string>
 
     <!-- 6-Tier Specimen Jars & Grafting (Theme over Descriptiveness) -->
     <string name="jar_dust_name">YESTERDAY\'S DUST</string>
@@ -103,14 +103,11 @@
     <string name="jar_hour_effect">Even the wall forgets how long you have been here.</string>
     <string name="jar_sealed_badge">SEALED</string>
     <string name="jar_bottle_action">BOTTLE</string>
-    <string name="jar_locked_phase_hint">UNSEALS AT PHASE %1$02d</string>
-    <string name="jar_locked_cycle_hint">UNSEALS AFTER FIRST SEVERANCE</string>
 
     <string name="graft_title">GRAFTED CHOIR-TENDRIL</string>
     <string name="graft_desc">Bind 2 Hands &amp; 2 Leeches into one braided hum.</string>
     <string name="graft_action_cost">GRAFT · %1$s STILL</string>
     <string name="graft_cooldown_format">SETTLING (%1$ds)</string>
-    <string name="graft_locked_hint">UNLOCKS AT PHASE 03</string>
 
     <string name="choir_lung_title">GRAFTED CHOIR-LUNG</string>
     <string name="choir_lung_desc">Bind 2 Lamps &amp; 1 Tendril; it breathes deepest in quiet.</string>
@@ -124,7 +121,7 @@
     <string name="scar_branch_marrow">MARROW</string>
     <string name="scar_action_suture">SUTURE (%1$s SCAR)</string>
     <string name="scar_status_sutured">SUTURED</string>
-    <string name="scar_status_locked">PREREQ LOCKED</string>
+    <string name="scar_status_requires">REQUIRES: %1$s</string>
 
     <string name="scar_node_first_incision_name">FIRST INCISION</string>
     <string name="scar_node_first_incision_desc">The first mark remembers how to bleed; three paths open.</string>
@@ -137,7 +134,7 @@
     <string name="scar_node_membrane_recall_name">MEMBRANE RECALL</string>
     <string name="scar_node_membrane_recall_desc">A lamp and a sump-bladder already hang where you left them.</string>
     <string name="scar_node_perpetual_seam_name">PERPETUAL SEAM</string>
-    <string name="scar_node_perpetual_seam_desc">The valve turns on its own without disturbing the room\'s quiet.</string>
+    <string name="scar_node_perpetual_seam_desc">The valve turns on its own without breaking the quiet; every stitch and lung answers harder.</string>
     <string name="scar_node_shorter_silence_name">SHORTER SILENCE</string>
     <string name="scar_node_shorter_silence_desc">The room falls quiet almost as soon as you let go.</string>
     <string name="scar_node_wax_sealed_memory_name">WAX-SEALED MEMORY</string>
@@ -147,7 +144,7 @@
     <string name="scar_node_hollow_lung_choir_name">HOLLOW LUNG CHOIR</string>
     <string name="scar_node_hollow_lung_choir_desc">When the room goes still, the grafted lungs draw twice as deep.</string>
     <string name="scar_node_catatonic_tide_name">CATATONIC TIDE</string>
-    <string name="scar_node_catatonic_tide_desc">Stillness becomes a heavy tide carrying every jar and vein.</string>
+    <string name="scar_node_catatonic_tide_desc">Quiet settles in a heartbeat and rises like a heavy tide carrying every jar and vein.</string>
     <string name="scar_node_softened_mortar_name">SOFTENED MORTAR</string>
     <string name="scar_node_softened_mortar_desc">The plaster gives way easily to what pushes through.</string>
     <string name="scar_node_auto_tendril_suture_name">AUTO-TENDRIL SUTURE</string>
@@ -159,10 +156,9 @@
     <string name="scar_node_bone_resonance_name">BONE RESONANCE</string>
     <string name="scar_node_bone_resonance_desc">The masonry hums in tune with every unsealed line and drowned relic.</string>
 
-    <!-- Repeatable Surgical Scar Grafts -->
-    <string name="scar_repeatables_title">REPEATABLE SURGICAL GRAFTS</string>
-    <string name="scar_repeatables_locked">SUTURE FIRST INCISION TO OPEN REPEATABLE GRAFTS</string>
-    <string name="scar_repeatable_rank_format">RANK %1$d</string>
+    <!-- Layered Surgical Scar Grafts -->
+    <string name="scar_repeatables_title">LAYERED SURGICAL GRAFTS</string>
+    <string name="scar_repeatable_rank_format">[%1$d]</string>
     <string name="scar_repeatable_action_format">GRAFT · %1$s SCAR</string>
     <string name="scar_repeatable_keloid_name">KELOID THICKENING</string>
     <string name="scar_repeatable_keloid_desc">Layered scar ridges thicken every flow in the room.</string>
@@ -171,8 +167,8 @@
     <string name="scar_repeatable_hook_name">SCAR-HARVEST HOOK</string>
     <string name="scar_repeatable_hook_desc">Curved steel brings up more scar tissue on every excision.</string>
 
-    <!-- Excision II-V Chamber Rites -->
-    <string name="rite_drain_title">FLOOR DRAIN GRATE // M2</string>
+    <!-- Chamber Rites -->
+    <string name="rite_drain_title">FLOOR DRAIN GRATE</string>
     <string name="rite_drain_desc">Stop the grate to build weight beneath the tiles, then haul up what sank.</string>
     <string name="rite_drain_pressure">SUMP PRESSURE: %1$d%%</string>
     <string name="rite_drain_seal">SEAL GRATE</string>
@@ -188,40 +184,42 @@
     <string name="relic_logbook_hint">Bled-ink ledger — every tending thing works a fraction harder.</string>
     <string name="relic_locked_hint">Still sunk beneath the grate. Seal the floor until it rises.</string>
 
-    <string name="rite_echo_title">NEIGHBOR APERTURE // M3</string>
+    <string name="rite_echo_title">NEIGHBOR APERTURE</string>
     <string name="rite_echo_desc">Let part of the flow slip through the wall slit; listen for what answers.</string>
     <string name="rite_echo_pulses">ANSWERS HEARD: %1$d</string>
 
-    <string name="rite_clamp_title">VALVE CLAMP // M4</string>
+    <string name="rite_clamp_title">VALVE CLAMP</string>
     <string name="rite_clamp_desc">Bolt the valve shut until the walls swell and split open.</string>
     <string name="rite_clamp_action">CLAMP VALVE (%1$ds)</string>
     <string name="rite_clamp_active">SWELLING (%1$ds)</string>
 
-    <string name="rite_throat_title">THE OSSIFIED THROAT // M5</string>
+    <string name="rite_throat_title">THE OSSIFIED THROAT</string>
     <string name="rite_throat_desc">Feed the throat in the mortar; it coughs up inked lines that were blacked out.</string>
     <string name="rite_throat_offer">FEED</string>
     <string name="rite_throat_unsealed">UNSEALED</string>
 
-    <!-- Excision / milestone prestige panel -->
+    <!-- Excision panel -->
     <string name="excision_title">EXCISION // MOLTING</string>
     <string name="excision_summary">Cut away the overgrown mass to carry its scars forward.</string>
-    <string name="excision_cycle_summary">CYCLE %1$02d · MILESTONE M%2$d/6 · TOTAL SCAR %3$s</string>
-    <string name="excision_milestone_progress">NEXT MILESTONE: %1$s (%2$s / %3$s)</string>
-    <string name="excision_milestone_cleared_banner">SEAM READY — SEVERING UNLOCKS THIS MILESTONE</string>
+    <string name="excision_cycle_summary">CYCLE %1$02d · %2$s · TOTAL SCAR %3$s</string>
+    <string name="excision_cycle_summary_unmarked">CYCLE %1$02d · TOTAL SCAR %2$s</string>
+    <string name="excision_milestone_progress">%1$s · %2$s / %3$s</string>
+    <string name="excision_milestone_cleared_banner">SEAM READY — CUTTING OPENS THIS SEAM</string>
     <string name="excision_seam_hold_note">ONLY ONE SEAM GIVES WAY PER EXCISION — SURPLUS MASS STILL HARVESTS AS SCARS</string>
     <string name="excision_next_scar_format">NEXT SCAR TISSUE: %1$s / %2$s</string>
     <string name="excision_reward_format">HARVEST YIELD: +%1$s SCAR TISSUE</string>
     <string name="excision_action_arm">EXCISE &amp; MOLT</string>
     <string name="excision_action_arm_farm">HARVEST SCARS EARLY (+%1$s)</string>
-    <string name="excision_action_arm_milestone">SEVER EXCISION %1$d (+%2$s SCAR)</string>
+    <string name="excision_action_arm_milestone">SEVER: %1$s (+%2$s SCAR)</string>
     <string name="excision_action_confirm">CONFIRM SEVERANCE</string>
     <string name="excision_action_cancel">HOLD</string>
-    <string name="excision_breach_title">EXCISION VI // PLEAD FOR SALVATION</string>
+    <string name="excision_breach_title">PLEAD FOR SALVATION</string>
     <string name="excision_breach_desc">Lay your palm against the last wet seam. Ask the rain outside for salvation—whether that means being found, or finally forgetting there was ever a door.</string>
     <string name="excision_breach_action">PLEAD FOR SALVATION</string>
 
-    <!-- Arc 2 Haunted Investigator Desk -->
-    <string name="arc2_header">CASE #14-B // THE INQUIRY (CH %1$d/4)</string>
+    <!-- The Inquiry — Haunted Investigator Desk -->
+    <string name="arc2_header">THE INQUIRY · CASE #14-B</string>
+    <string name="arc2_header_file_zero">FILE #00 — SUBJECT INTAKE</string>
     <string name="arc2_complicity_readout">COMPLICITY: %1$d%% · SILENCE: %2$s</string>
     <string name="arc2_leads_label">CASE LEADS</string>
     <string name="arc2_inspect_label">STAMP FILE</string>
@@ -249,13 +247,13 @@
     <string name="arc2_chapter_connect">CONNECT RED STRING</string>
     <string name="arc2_chapter_sealed">CONNECTED</string>
     <string name="arc2_file_zero_banner">FILE #00 UNSEALED — SUBJECT SCAR MATCHES LEFT THUMB</string>
-    <string name="arc2_enter_arc3">STEP PAST THE SEAM (ARC 3)</string>
+    <string name="arc2_enter_arc3">STEP PAST THE SEAM</string>
 
-    <!-- Arc 3 Convergence Threshold -->
-    <string name="arc3_title">ARC 03 // CONVERGENCE THRESHOLD</string>
-    <string name="arc3_subtitle">The desk blotter and damp tiled wall share one floor. Both ledgers are preserved for future expansion.</string>
-    <string name="arc3_return_chamber">INSPECT ARC 1 CHAMBER</string>
-    <string name="arc3_return_desk">INSPECT ARC 2 DESK</string>
+    <!-- Convergence Threshold -->
+    <string name="arc3_title">CONVERGENCE THRESHOLD</string>
+    <string name="arc3_subtitle">The desk blotter and the damp tiled wall share one floor. Both ledgers keep counting—what rises next beyond this seam remains unwritten.</string>
+    <string name="arc3_return_chamber">RETURN TO THE CHAMBER</string>
+    <string name="arc3_return_desk">RETURN TO THE DESK</string>
 
     <!-- Clinical Dev Console & Audio Control -->
     <string name="dev_button_label">DEV</string>
@@ -275,5 +273,4 @@
     <string name="transmission_archive_title">// RECOVERED FRAGMENTS</string>
     <string name="transmission_archive_empty">NO FRAGMENTS RECOVERED YET</string>
     <string name="transmission_open_archive_cd">Open recovered notes archive</string>
-    <string name="transmission_phase_badge">P%1$d</string>
 </resources>

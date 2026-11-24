@@ -60,6 +60,7 @@ internal fun OrganismSpecimenCard(
   type: CreatureType,
   state: OrganGameState,
   onBuy: () -> Unit,
+  onBuyMax: () -> Unit = {},
   modifier: Modifier = Modifier,
 ) {
   val colorScheme = MaterialTheme.colorScheme
@@ -307,6 +308,51 @@ internal fun OrganismSpecimenCard(
               textAlign = TextAlign.Center,
             )
           }
+        }
+      }
+
+      if (state.isColonyProliferationUnlocked) {
+        val bulkQuote = state.maxAffordableCreatureQuote(type)
+        val canProliferate = bulkQuote.count > 0
+        HorizontalDivider(color = atmosphere.hairline.copy(alpha = 0.72f), thickness = 1.dp)
+        Row(
+          modifier =
+            Modifier.fillMaxWidth()
+              .minimumInteractiveComponentSize()
+              .background(
+                if (canProliferate) colorScheme.tertiaryContainer.copy(alpha = 0.42f)
+                else colorScheme.background.copy(alpha = 0.42f)
+              )
+              .testTag("proliferate_${type.id}")
+              .clickable(enabled = canProliferate, role = Role.Button, onClick = onBuyMax)
+              .padding(horizontal = 12.dp, vertical = 10.dp),
+          horizontalArrangement = Arrangement.SpaceBetween,
+          verticalAlignment = Alignment.CenterVertically,
+        ) {
+          Text(
+            text =
+              if (canProliferate) {
+                stringResource(R.string.organism_action_proliferate_count, bulkQuote.count)
+              } else {
+                stringResource(R.string.organism_action_proliferate)
+              },
+            style = MaterialTheme.typography.labelSmall.copy(letterSpacing = 1.0.sp),
+            color =
+              if (canProliferate) colorScheme.onBackground.copy(alpha = 0.92f)
+              else colorScheme.onSurfaceVariant,
+          )
+          Text(
+            text =
+              if (canProliferate) {
+                stringResource(R.string.cost_ichor_format, numberFormat.format(bulkQuote.totalCost))
+              } else {
+                stringResource(R.string.organism_action_proliferate_empty)
+              },
+            style = MaterialTheme.typography.labelSmall.copy(letterSpacing = 0.6.sp),
+            color =
+              if (canProliferate) colorScheme.primary.copy(alpha = 0.90f)
+              else colorScheme.onSurfaceVariant.copy(alpha = 0.72f),
+          )
         }
       }
 

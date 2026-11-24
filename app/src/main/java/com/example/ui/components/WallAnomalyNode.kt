@@ -15,12 +15,15 @@ import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.testTag
@@ -33,6 +36,43 @@ import androidx.compose.ui.unit.sp
 import com.example.R
 import com.example.game.ActiveWallAnomaly
 import com.example.game.WallAnomalyType
+import kotlin.math.PI
+import kotlin.math.abs
+import kotlin.math.sin
+
+/**
+ * Pure organic breathing transform `(scaleX, scaleY)` for wall anomaly nodes so each anomaly
+ * subtly expands and settles out of phase with neighboring anomalies, matching the Web CSS
+ * `wall-anomaly-breathe` / `wall-anomaly-pulse` keyframes 1:1.
+ */
+internal fun computeWallAnomalyBreathScale(
+  anomalyId: Long,
+  type: WallAnomalyType,
+  breathPhase: Float,
+): Pair<Float, Float> {
+  val offset = ((abs(anomalyId) * 0.29f) % 1f)
+  val cycle = (breathPhase.coerceIn(0f, 1f) + offset) % 1f
+  val wave =
+    if (type == WallAnomalyType.SWOLLEN_NODULE) {
+      // Heavy arterial double-beat throb mirroring CSS `wall-anomaly-pulse`
+      val primary = ((sin(cycle * 2.0 * PI) + 1.0) * 0.5).toFloat()
+      val echo = ((sin((cycle * 4.0 - 0.35) * PI) + 1.0) * 0.5).toFloat()
+      (primary * 0.72f + echo * 0.28f).coerceIn(0f, 1f)
+    } else {
+      // Reluctant asymmetric inhalation + brief hold mirroring CSS `wall-anomaly-breathe`
+      val primary = ((sin((cycle - 0.12) * 2.0 * PI) + 1.0) * 0.5).toFloat()
+      val secondary = ((sin(cycle * 4.0 * PI) + 1.0) * 0.5).toFloat()
+      (primary * 0.84f + secondary * 0.16f).coerceIn(0f, 1f)
+    }
+  val (minX, ampX, minY, ampY) =
+    when (type) {
+      WallAnomalyType.PALE_TOOTH -> floatArrayOf(0.984f, 0.044f, 0.988f, 0.038f)
+      WallAnomalyType.GLASS_EYE -> floatArrayOf(0.982f, 0.052f, 0.988f, 0.044f)
+      WallAnomalyType.SWOLLEN_NODULE -> floatArrayOf(0.980f, 0.064f, 0.986f, 0.052f)
+      WallAnomalyType.CHITIN_RIB -> floatArrayOf(0.982f, 0.056f, 0.988f, 0.046f)
+    }
+  return (minX + ampX * wave) to (minY + ampY * wave)
+}
 
 @Composable
 internal fun WallAnomalyNode(
@@ -73,6 +113,22 @@ internal fun WallAnomalyNode(
       modifier
         .size(62.dp)
         .minimumInteractiveComponentSize()
+        .drawBehind {
+          val (sx, _) = computeWallAnomalyBreathScale(anomaly.id, anomaly.type, breathPhaseProvider())
+          val glowStrength = ((sx - 0.98f) / 0.064f).coerceIn(0f, 1f)
+          val pad = (2.5f + glowStrength * 3.5f).dp.toPx()
+          drawRoundRect(
+            color = accentColor.copy(alpha = 0.06f + glowStrength * 0.18f),
+            topLeft = Offset(-pad, -pad),
+            size = Size(size.width + pad * 2f, size.height + pad * 2f),
+            cornerRadius = CornerRadius(6.dp.toPx(), 6.dp.toPx()),
+          )
+        }
+        .graphicsLayer {
+          val (sx, sy) = computeWallAnomalyBreathScale(anomaly.id, anomaly.type, breathPhaseProvider())
+          scaleX = sx
+          scaleY = sy
+        }
         .testTag("anomaly_${anomaly.type.id}_${anomaly.id}")
         .semantics { contentDescription = cd }
         .clickable(

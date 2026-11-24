@@ -1,5 +1,6 @@
 package com.example.audio
 
+import com.example.game.CreatureType
 import com.example.game.DeskAnomalyType
 import com.example.game.GameArc
 import com.example.game.OrganGameState
@@ -8,13 +9,16 @@ import com.example.game.WallAnomalyType
 /** Semantic sound cues shared 1:1 between the Android and Web procedural foley engines. */
 enum class SoundCue(val id: String, val minIntervalMs: Long = 55L) {
   VALVE_PRESS("valve_press", minIntervalMs = 62L),
-  CREATURE_BUY("creature_buy", minIntervalMs = 80L),
+  CREATURE_BUY_SUTURE_HAND("creature_buy_suture_hand", minIntervalMs = 80L),
+  CREATURE_BUY_LEECH_CLERK("creature_buy_leech_clerk", minIntervalMs = 85L),
+  CREATURE_BUY_WEEPING_LAMP("creature_buy_weeping_lamp", minIntervalMs = 95L),
+  CREATURE_BUY_SUMP_SIPHON("creature_buy_sump_siphon", minIntervalMs = 100L),
   ANOMALY_TOOTH("anomaly_tooth", minIntervalMs = 90L),
   ANOMALY_EYE("anomaly_eye", minIntervalMs = 110L),
   ANOMALY_NODULE("anomaly_nodule", minIntervalMs = 110L),
   ANOMALY_RIB("anomaly_rib", minIntervalMs = 120L),
   JAR_BOTTLE("jar_bottle", minIntervalMs = 120L),
-  GRAFT_PERFORM("graft_perform", minIntervalMs = 180L),
+  GRAFT_PERFORM("graft_perform", minIntervalMs = 260L),
   SCAR_UNLOCK("scar_unlock", minIntervalMs = 110L),
   DRAIN_TOGGLE("drain_toggle", minIntervalMs = 110L),
   SUMP_DREDGE("sump_dredge", minIntervalMs = 180L),
@@ -97,8 +101,16 @@ object SoundCueResolver {
         }
       }
       SoundActionHint.CREATURE_BUY -> {
-        if (next.creatures != prev.creatures) {
-          cues.add(SoundCue.CREATURE_BUY)
+        val boughtType =
+          CreatureType.entries.firstOrNull { type ->
+            next.creatureCount(type) > prev.creatureCount(type)
+          }
+        when (boughtType) {
+          CreatureType.SUTURE_HAND -> cues.add(SoundCue.CREATURE_BUY_SUTURE_HAND)
+          CreatureType.LEECH_CLERK -> cues.add(SoundCue.CREATURE_BUY_LEECH_CLERK)
+          CreatureType.WEEPING_LAMP -> cues.add(SoundCue.CREATURE_BUY_WEEPING_LAMP)
+          CreatureType.SUMP_SIPHON -> cues.add(SoundCue.CREATURE_BUY_SUMP_SIPHON)
+          null -> Unit
         }
       }
       SoundActionHint.JAR_BOTTLE -> {

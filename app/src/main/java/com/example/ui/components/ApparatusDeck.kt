@@ -17,6 +17,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -33,6 +34,7 @@ import androidx.compose.ui.unit.sp
 import com.example.R
 import com.example.game.CreatureType
 import com.example.game.CultDossierLine
+import com.example.game.ExcisionMilestone
 import com.example.game.OrganDeckTab
 import com.example.game.OrganGameState
 import com.example.game.RepeatableScarGraft
@@ -51,6 +53,7 @@ fun ApparatusDeck(
   onBottleJar: (SpecimenJar) -> Unit,
   onPerformGraft: () -> Unit,
   onPerformExcision: () -> Unit,
+  onBuyMaxCreature: (CreatureType) -> Unit = {},
   onUnlockScarNode: (ScarNodeId) -> Unit = {},
   onBuyRepeatableScarGraft: (RepeatableScarGraft) -> Unit = {},
   onToggleDrainSeal: () -> Unit = {},
@@ -70,12 +73,25 @@ fun ApparatusDeck(
     if (state.isJarsAndGraftUnlocked) add(OrganDeckTab.JARS_AND_GRAFT)
     if (state.isScarTreeUnlocked) add(OrganDeckTab.SCAR_TREE)
     if (state.isChamberRitesUnlocked) add(OrganDeckTab.CHAMBER_RITES)
-    if (state.canExcise || state.canBreachToArc2 || state.cycle > 0 || state.phase >= 4) {
+    if (state.canExcise || state.canBreachToArc2 || state.cycle > 0 || state.highestExcisionMilestone > 0) {
       add(OrganDeckTab.EXCISION)
     }
   }
 
   val activeTab = if (selectedTab in availableTabs) selectedTab else OrganDeckTab.APPARATUS
+  var seenKeysByTab by remember {
+    mutableStateOf(
+      mapOf(activeTab to TabAlertEvaluator.arc1UnlockKeys(state, activeTab))
+    )
+  }
+
+  val activeTabKeys = TabAlertEvaluator.arc1UnlockKeys(state, activeTab)
+  LaunchedEffect(activeTab, activeTabKeys) {
+    val existing = seenKeysByTab[activeTab].orEmpty()
+    if (!existing.containsAll(activeTabKeys)) {
+      seenKeysByTab = seenKeysByTab + (activeTab to (existing + activeTabKeys))
+    }
+  }
 
   Surface(
     modifier = modifier.fillMaxWidth().testTag("apparatus_deck"),
@@ -95,36 +111,28 @@ fun ApparatusDeck(
               OrganDeckTab.CHAMBER_RITES -> stringResource(R.string.tab_rites)
               OrganDeckTab.EXCISION -> stringResource(R.string.tab_excision)
             }
-          val isExcisionTab = tab == OrganDeckTab.EXCISION
-
-          Surface(
-            modifier =
-              Modifier.weight(1f)
-                .minimumInteractiveComponentSize()
-                .testTag("deck_tab_${tab.name.lowercase()}")
-                .clickable(role = Role.Tab) { onSelectTab(tab) },
-            color =
-              when {
-                isSelected && isExcisionTab -> colorScheme.tertiaryContainer
-                isSelected -> colorScheme.surfaceVariant
-                else -> colorScheme.surface
-              },
-          ) {
-            Text(
-              text = label,
-              style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.5.sp, letterSpacing = 0.5.sp),
-              color =
-                when {
-                  isExcisionTab && (state.canExcise || state.canBreachToArc2) -> colorScheme.tertiary
-                  isSelected -> colorScheme.onBackground
-                  else -> colorScheme.onSurfaceVariant
-                },
-              maxLines = 1,
-              overflow = TextOverflow.Ellipsis,
-              textAlign = TextAlign.Center,
-              modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 12.dp),
+          val isAlerting =
+            TabAlertEvaluator.shouldAlertArc1Tab(
+              state = state,
+              tab = tab,
+              activeTab = activeTab,
+              seenKeysByTab = seenKeysByTab,
             )
-          }
+
+          DeckTabCell(
+            label = label,
+            isSelected = isSelected,
+            isAlerting = isAlerting,
+            isExcisionAccent = tab == OrganDeckTab.EXCISION,
+            tabTestTag = "deck_tab_${tab.name.lowercase()}",
+            alertPipTestTag = "deck_tab_alert_${tab.name.lowercase()}",
+            onClick = {
+              val unlocked = TabAlertEvaluator.arc1UnlockKeys(state, tab)
+              seenKeysByTab = seenKeysByTab + (tab to (seenKeysByTab[tab].orEmpty() + unlocked))
+              onSelectTab(tab)
+            },
+            modifier = Modifier.weight(1f),
+          )
         }
       }
 
@@ -136,12 +144,17 @@ fun ApparatusDeck(
       ) {
         when (activeTab) {
           OrganDeckTab.APPARATUS ->
-            OrganismsList(state = state, onBuyCreature = onBuyCreature)
+            OrganismsList(
+              state = state,
+              onBuyCreature = onBuyCreature,
+              onBuyMaxCreature = onBuyMaxCreature,
+              onPerformGraft = onPerformGraft,
+              onPerformChoirLungGraft = onPerformChoirLungGraft,
+            )
           OrganDeckTab.JARS_AND_GRAFT ->
-            JarsAndGraftList(
+            JarsList(
               state = state,
               onBottleJar = onBottleJar,
-              onPerformGraft = onPerformGraft,
             )
           OrganDeckTab.SCAR_TREE ->
             ScarTreePanel(
@@ -156,7 +169,6 @@ fun ApparatusDeck(
               onDredgeSump = onDredgeSump,
               onSetEchoDiversion = onSetEchoDiversion,
               onActivateValveClamp = onActivateValveClamp,
-              onPerformChoirLungGraft = onPerformChoirLungGraft,
               onOfferToThroat = onOfferToThroat,
             )
           OrganDeckTab.EXCISION ->
@@ -175,84 +187,31 @@ fun ApparatusDeck(
 private fun OrganismsList(
   state: OrganGameState,
   onBuyCreature: (CreatureType) -> Unit,
+  onBuyMaxCreature: (CreatureType) -> Unit,
+  onPerformGraft: () -> Unit,
+  onPerformChoirLungGraft: () -> Unit,
 ) {
+  val numberFormat = remember { NumberFormat.getIntegerInstance() }
+  val colorScheme = MaterialTheme.colorScheme
+  val atmosphere = BleakTheme.atmosphere
+
   val visibleCreatures = CreatureType.entries.filter { state.isCreatureUnlocked(it) }
   visibleCreatures.forEach { type ->
     OrganismSpecimenCard(
       type = type,
       state = state,
       onBuy = { onBuyCreature(type) },
-    )
-  }
-}
-
-@Composable
-private fun JarsAndGraftList(
-  state: OrganGameState,
-  onBottleJar: (SpecimenJar) -> Unit,
-  onPerformGraft: () -> Unit,
-) {
-  val numberFormat = remember { NumberFormat.getIntegerInstance() }
-  val colorScheme = MaterialTheme.colorScheme
-  val atmosphere = BleakTheme.atmosphere
-
-  SpecimenJar.entries.forEach { jar ->
-    val unlocked = state.isJarUnlocked(jar)
-    val owned = jar in state.ownedJars
-    val cost = state.effectiveJarCost(jar)
-    val canAfford = unlocked && !owned && state.stillness >= cost
-
-    val title =
-      when (jar) {
-        SpecimenJar.YESTERDAYS_DUST -> stringResource(R.string.jar_dust_name)
-        SpecimenJar.UNSPENT_BREATH -> stringResource(R.string.jar_breath_name)
-        SpecimenJar.ALMOST_A_NAME -> stringResource(R.string.jar_name_title)
-        SpecimenJar.SALT_FROM_THE_GROUT -> stringResource(R.string.jar_grout_name)
-        SpecimenJar.A_BORROWED_PULSE -> stringResource(R.string.jar_pulse_name)
-        SpecimenJar.THE_UNCOUNTED_HOUR -> stringResource(R.string.jar_hour_name)
-      }
-    val effect =
-      if (!unlocked) {
-        if (jar.requiresCycleOrMilestone) stringResource(R.string.jar_locked_cycle_hint)
-        else stringResource(R.string.jar_locked_phase_hint, jar.unlockPhase)
-      } else {
-        when (jar) {
-          SpecimenJar.YESTERDAYS_DUST -> stringResource(R.string.jar_dust_effect)
-          SpecimenJar.UNSPENT_BREATH -> stringResource(R.string.jar_breath_effect)
-          SpecimenJar.ALMOST_A_NAME -> stringResource(R.string.jar_name_effect)
-          SpecimenJar.SALT_FROM_THE_GROUT -> stringResource(R.string.jar_grout_effect)
-          SpecimenJar.A_BORROWED_PULSE -> stringResource(R.string.jar_pulse_effect)
-          SpecimenJar.THE_UNCOUNTED_HOUR -> stringResource(R.string.jar_hour_effect)
-        }
-      }
-
-    val actionLabel =
-      when {
-        owned -> stringResource(R.string.jar_sealed_badge)
-        !unlocked -> "LOCKED"
-        else ->
-          "${stringResource(R.string.jar_bottle_action)} · ${
-            stringResource(R.string.cost_stillness_format, numberFormat.format(cost.toLong()))
-          }"
-      }
-
-    DeckActionRow(
-      title = title,
-      subtitle = effect,
-      actionLabel = actionLabel,
-      enabled = canAfford,
-      accentAction = owned,
-      testTag = "jar_${jar.id}",
-      leadingArtwork = {
-        JarArtworkEmblem(jar = jar, owned = owned, affordable = canAfford)
-      },
-      onClick = { onBottleJar(jar) },
+      onBuyMax = { onBuyMaxCreature(type) },
     )
   }
 
-  HorizontalDivider(color = atmosphere.hairline, thickness = 1.dp)
+  val hasTendril = state.isGraftUnlocked
+  val hasLung = state.highestExcisionMilestone >= 4
+  if (hasTendril || hasLung) {
+    HorizontalDivider(color = atmosphere.hairline, thickness = 1.dp)
+  }
 
-  if (state.isGraftUnlocked) {
+  if (hasTendril) {
     val graftCost = state.graftStillnessCost
     val onCooldown = state.isGraftOnCooldown
     val actionLabel =
@@ -296,12 +255,112 @@ private fun JarsAndGraftList(
         )
       }
     }
-  } else {
-    Text(
-      text = stringResource(R.string.graft_locked_hint),
-      style = MaterialTheme.typography.labelSmall,
-      color = colorScheme.onSurfaceVariant,
-      modifier = Modifier.padding(vertical = 4.dp),
+  }
+
+  if (hasLung) {
+    val onLungCooldown = state.isChoirLungOnCooldown
+    val lungActionLabel =
+      if (onLungCooldown) {
+        stringResource(
+          R.string.graft_cooldown_format,
+          ceil(state.choirLungCooldownRemainingSeconds).toInt(),
+        )
+      } else {
+        stringResource(
+          R.string.choir_lung_action_cost,
+          numberFormat.format(state.choirLungStillnessCost),
+        )
+      }
+
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+      DeckActionRow(
+        title =
+          "${stringResource(R.string.choir_lung_title)} ${
+            stringResource(R.string.owned_count_format, state.choirLungs)
+          }",
+        subtitle = stringResource(R.string.choir_lung_desc),
+        actionLabel = lungActionLabel,
+        enabled = state.canAffordChoirLung,
+        accentAction = true,
+        testTag = "perform_choir_lung_button",
+        leadingArtwork = {
+          GraftArtworkEmblem(
+            isLung = true,
+            ready = state.canAffordChoirLung,
+            onCooldown = onLungCooldown,
+          )
+        },
+        onClick = onPerformChoirLungGraft,
+      )
+      if (onLungCooldown) {
+        val ratio =
+          (state.choirLungCooldownRemainingSeconds / state.choirLungCooldownDurationSec)
+            .toFloat()
+            .coerceIn(0f, 1f)
+        LinearProgressIndicator(
+          progress = { 1f - ratio },
+          modifier = Modifier.fillMaxWidth().height(3.dp).testTag("choir_lung_cooldown_bar"),
+          color = colorScheme.tertiary,
+          trackColor = atmosphere.hairline,
+          drawStopIndicator = {},
+        )
+      }
+    }
+  }
+}
+
+@Composable
+private fun JarsList(
+  state: OrganGameState,
+  onBottleJar: (SpecimenJar) -> Unit,
+) {
+  val numberFormat = remember { NumberFormat.getIntegerInstance() }
+  val visibleJars = SpecimenJar.entries.filter { state.isJarUnlocked(it) }
+
+  visibleJars.forEach { jar ->
+    val owned = jar in state.ownedJars
+    val cost = state.effectiveJarCost(jar)
+    val canAfford = !owned && state.stillness >= cost
+
+    val title =
+      when (jar) {
+        SpecimenJar.YESTERDAYS_DUST -> stringResource(R.string.jar_dust_name)
+        SpecimenJar.UNSPENT_BREATH -> stringResource(R.string.jar_breath_name)
+        SpecimenJar.ALMOST_A_NAME -> stringResource(R.string.jar_name_title)
+        SpecimenJar.SALT_FROM_THE_GROUT -> stringResource(R.string.jar_grout_name)
+        SpecimenJar.A_BORROWED_PULSE -> stringResource(R.string.jar_pulse_name)
+        SpecimenJar.THE_UNCOUNTED_HOUR -> stringResource(R.string.jar_hour_name)
+      }
+    val effect =
+      when (jar) {
+        SpecimenJar.YESTERDAYS_DUST -> stringResource(R.string.jar_dust_effect)
+        SpecimenJar.UNSPENT_BREATH -> stringResource(R.string.jar_breath_effect)
+        SpecimenJar.ALMOST_A_NAME -> stringResource(R.string.jar_name_effect)
+        SpecimenJar.SALT_FROM_THE_GROUT -> stringResource(R.string.jar_grout_effect)
+        SpecimenJar.A_BORROWED_PULSE -> stringResource(R.string.jar_pulse_effect)
+        SpecimenJar.THE_UNCOUNTED_HOUR -> stringResource(R.string.jar_hour_effect)
+      }
+
+    val actionLabel =
+      if (owned) {
+        stringResource(R.string.jar_sealed_badge)
+      } else {
+        "${stringResource(R.string.jar_bottle_action)} · ${
+          stringResource(R.string.cost_stillness_format, numberFormat.format(cost.toLong()))
+        }"
+      }
+
+    DeckActionRow(
+      title = title,
+      subtitle = effect,
+      actionLabel = actionLabel,
+      enabled = canAfford,
+      accentAction = owned,
+      testTag = "jar_${jar.id}",
+      leadingArtwork = {
+        JarArtworkEmblem(jar = jar, owned = owned, affordable = canAfford)
+      },
+      onClick = { onBottleJar(jar) },
     )
   }
 }
@@ -321,8 +380,14 @@ private fun ExcisionRitualPanel(
     modifier = Modifier.fillMaxWidth().testTag("excision_panel"),
     verticalArrangement = Arrangement.spacedBy(8.dp),
   ) {
+    val activeExcisionHeading =
+      if (state.canClearNextMilestone && state.nextExcisionMilestone != null) {
+        state.nextExcisionMilestone!!.code
+      } else {
+        stringResource(R.string.excision_title)
+      }
     Text(
-      text = stringResource(R.string.excision_title),
+      text = activeExcisionHeading,
       style = MaterialTheme.typography.titleMedium,
       color = colorScheme.tertiary,
     )
@@ -332,8 +397,24 @@ private fun ExcisionRitualPanel(
       color = colorScheme.onSurfaceVariant,
     )
 
-    // Relocated cycle / milestone / permanent scar resonance ledger (keeps top header uncluttered)
+    // Relocated cycle / last severance / permanent scar resonance ledger (keeps top header uncluttered)
     if (state.cycle > 0 || state.scarTissue > 0L || state.highestExcisionMilestone > 0) {
+      val lastExcisionName = ExcisionMilestone.byNumber(state.highestExcisionMilestone)?.code
+      val cycleSummary =
+        if (lastExcisionName != null) {
+          stringResource(
+            R.string.excision_cycle_summary,
+            state.cycle,
+            lastExcisionName,
+            numberFormat.format(state.scarTissue),
+          )
+        } else {
+          stringResource(
+            R.string.excision_cycle_summary_unmarked,
+            state.cycle,
+            numberFormat.format(state.scarTissue),
+          )
+        }
       Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.extraSmall,
@@ -345,13 +426,7 @@ private fun ExcisionRitualPanel(
           verticalArrangement = Arrangement.spacedBy(3.dp),
         ) {
           Text(
-            text =
-              stringResource(
-                R.string.excision_cycle_summary,
-                state.cycle,
-                state.highestExcisionMilestone,
-                numberFormat.format(state.scarTissue),
-              ),
+            text = cycleSummary,
             style = MaterialTheme.typography.labelSmall,
             color = colorScheme.primary,
             modifier = Modifier.testTag("cycle_status"),
@@ -443,7 +518,7 @@ private fun ExcisionRitualPanel(
           state.canClearNextMilestone && state.nextExcisionMilestone != null ->
             stringResource(
               R.string.excision_action_arm_milestone,
-              state.nextExcisionMilestone!!.number,
+              state.nextExcisionMilestone!!.code,
               numberFormat.format(state.pendingScarTissue),
             )
           else ->

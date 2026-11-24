@@ -705,13 +705,20 @@ class OrganGameEngineTest {
     assertEquals(24L, state.availableScarTissue)
     assertEquals("dlg_scar_first", state.activeDialogue?.id)
 
-    // Unlock Suture + Stillness + Marrow Tier 1-2 nodes
+    // Verify reduced Stillness column (column 2) costs: 1, 3, 6, 22, 45
+    assertEquals(1L, ScarNodeId.SHORTER_SILENCE.cost)
+    assertEquals(3L, ScarNodeId.WAX_SEALED_MEMORY.cost)
+    assertEquals(6L, ScarNodeId.DEEP_WEEPING.cost)
+    assertEquals(22L, ScarNodeId.HOLLOW_LUNG_CHOIR.cost)
+    assertEquals(45L, ScarNodeId.CATATONIC_TIDE.cost)
+
+    // Unlock Suture + Stillness + Marrow Tier 1-2 nodes (costs: 1 + 2 + 1 + 3 + 2 + 6 = 15)
     state = OrganGameEngine.unlockScarNode(state, ScarNodeId.CALLOUSED_PALM, catalog)
     state = OrganGameEngine.unlockScarNode(state, ScarNodeId.SHORTER_SILENCE, catalog)
     state = OrganGameEngine.unlockScarNode(state, ScarNodeId.WAX_SEALED_MEMORY, catalog)
     state = OrganGameEngine.unlockScarNode(state, ScarNodeId.SOFTENED_MORTAR, catalog)
     state = OrganGameEngine.unlockScarNode(state, ScarNodeId.AUTO_TENDRIL_SUTURE, catalog)
-    assertEquals(7L, state.availableScarTissue)
+    assertEquals(10L, state.availableScarTissue)
 
     // Verify Shorter Silence reduces Stillness delay to 1.5s
     assertEquals(1.5, state.stillnessIdleDelaySec, 0.001)
@@ -1030,6 +1037,94 @@ class OrganGameEngineTest {
   }
 
   @Test
+  fun nextScarThreshold_clampsToCurrentMilestoneAndGrantsPulledScarEarly() {
+    val catalog = sampleCatalog()
+    val base = OrganGameEngine.initialState(catalog)
+
+    // M1 (210k) sits on the base threshold itself and still yields 2 Scars (no spurious extra scar)
+    val atM1 = base.copy(highestExcisionMilestone = 0, cycleLifetimeIchor = 210_000.0)
+    assertEquals(2L, atM1.currentBaseScarHarvest)
+    assertEquals(2L, atM1.pendingScarTissue)
+
+    // For M2..M6, next scar never exceeds the active milestone threshold and hitting M grants +1 early
+    val expectedAtActiveMilestone =
+      listOf(
+        1 to (1_800_000L to 4L),
+        2 to (16_000_000L to 8L),
+        3 to (140_000_000L to 15L),
+        4 to (1_250_000_000L to 28L),
+        5 to (36_000_000_000L to 75L),
+      )
+    for ((cleared, pair) in expectedAtActiveMilestone) {
+      val (milestoneMass, expectedScars) = pair
+      val justBefore =
+        base.copy(
+          highestExcisionMilestone = cleared,
+          cycleLifetimeIchor = (milestoneMass - 1L).toDouble(),
+        )
+      assertEquals(expectedScars - 1L, justBefore.currentBaseScarHarvest)
+      assertEquals(milestoneMass, justBefore.nextBaseScarMassThreshold)
+      assertTrue(justBefore.nextScarProgress > 0.99f)
+
+      val exactMilestone =
+        base.copy(
+          highestExcisionMilestone = cleared,
+          cycleLifetimeIchor = milestoneMass.toDouble(),
+        )
+      assertEquals(expectedScars, exactMilestone.currentBaseScarHarvest)
+      assertEquals(expectedScars, exactMilestone.pendingScarTissue)
+      assertEquals(0.0f, exactMilestone.nextScarProgress, 0.001f)
+      assertTrue(exactMilestone.nextBaseScarMassThreshold > milestoneMass)
+    }
+
+    // M2 detailed progression: 1.2M clamps to 1.8M, 1.8M yields 4, 2.12M does not double-grant, 5th follows natural curve
+    val m2Base = base.copy(highestExcisionMilestone = 1)
+    val at1200k = m2Base.copy(cycleLifetimeIchor = 1_200_000.0)
+    assertEquals(3L, at1200k.currentBaseScarHarvest)
+    assertEquals(1_800_000L, at1200k.nextBaseScarMassThreshold)
+
+    val at2120k = m2Base.copy(cycleLifetimeIchor = 2_120_000.0)
+    assertEquals(4L, at2120k.currentBaseScarHarvest)
+    val fifthScarThreshold = m2Base.massRequiredForScarCount(5L)
+    assertEquals(fifthScarThreshold, at2120k.nextBaseScarMassThreshold)
+    assertEquals(5L, m2Base.copy(cycleLifetimeIchor = fifthScarThreshold.toDouble()).currentBaseScarHarvest)
+
+    // Performing Excision right at M2 actually banks the 4 pulled Scars
+    val excisedAtM2 =
+      OrganGameEngine.performExcision(
+        m2Base.copy(ichor = 1_800_000.0, cycleLifetimeIchor = 1_800_000.0, phase = 4),
+        catalog,
+      )
+    assertEquals(2, excisedAtM2.highestExcisionMilestone)
+    assertEquals(4L, excisedAtM2.scarTissue)
+
+    // Exact inverse invariant holds across 3..30 even with active M2 clamp (base and Scar-Harvest Hook)
+    val hookedM2 =
+      m2Base.copy(
+        unlockedScarNodes = setOf(ScarNodeId.FIRST_INCISION),
+        repeatableScarRanks = mapOf(RepeatableScarGraft.SCAR_HARVEST_HOOK to 1),
+      )
+    for (candidateState in listOf(m2Base, hookedM2)) {
+      for (target in 3L..30L) {
+        val reqMass = candidateState.massRequiredForScarCount(target)
+        assertTrue(
+          "Harvest at massRequiredForScarCount($target) = $reqMass must be >= $target",
+          candidateState.copy(cycleLifetimeIchor = reqMass.toDouble()).currentBaseScarHarvest >= target,
+        )
+        assertTrue(
+          "Harvest at massRequiredForScarCount($target) - 1 must be < $target",
+          candidateState.copy(cycleLifetimeIchor = (reqMass - 1L).toDouble()).currentBaseScarHarvest < target,
+        )
+      }
+    }
+
+    // After M6 cleared, no milestone clamp applies
+    val postM6 = base.copy(highestExcisionMilestone = 6, cycleLifetimeIchor = 1_800_000.0)
+    assertEquals(3L, postM6.currentBaseScarHarvest)
+    assertTrue(postM6.nextBaseScarMassThreshold > 1_800_000L)
+  }
+
+  @Test
   fun excisionAntiSkipCap_advancesAtMostOneMilestoneRemovesBonusScarsAndGatesArc2BehindM5() {
     val catalog = sampleCatalog()
 
@@ -1063,11 +1158,19 @@ class OrganGameEngineTest {
     val afterM4 = OrganGameEngine.performExcision(massiveM4, catalog)
     assertEquals(5, afterM4.highestExcisionMilestone)
 
-    // M5 with 12B mass unlocks Breach to Arc 2 and awards zero bonus Scars on Breach
-    val readyM5 =
+    // M5 with 12B is no longer enough for Breach; 36B opens Breach to Arc 2 and awards zero bonus Scars
+    val shortM5 =
       afterM4.copy(
         ichor = 12_000_000_000.0,
         cycleLifetimeIchor = 12_000_000_000.0,
+        phase = 4,
+      )
+    assertFalse("12B must not yet open Excision VI (36B threshold)", shortM5.canBreachToArc2)
+
+    val readyM5 =
+      afterM4.copy(
+        ichor = 36_000_000_000.0,
+        cycleLifetimeIchor = 36_000_000_000.0,
         phase = 4,
       )
     assertFalse(readyM5.hasExcessMilestoneMass)
@@ -1083,7 +1186,7 @@ class OrganGameEngineTest {
   fun expandedScarTreeTiersFourAndFive_applyAllSixNewNodeMechanics() {
     val catalog = sampleCatalog()
 
-    // 1. MEMBRANE_RECALL: Excision seeds +1 Weeping Lamp & +1 Sump-Siphon (when M2+) and boosts Siphon/Tendril 1.6x
+    // 1. MEMBRANE_RECALL: Excision seeds +1 Weeping Lamp & +1 Sump-Siphon (when M2+) and boosts Siphon/Tendril 1.85x
     val baseRecall =
       OrganGameEngine.initialState(catalog).copy(
         highestExcisionMilestone = 2,
@@ -1092,33 +1195,40 @@ class OrganGameEngineTest {
         cycleLifetimeIchor = 300_000.0,
         phase = 4,
         creatures = mapOf(CreatureType.SUMP_SIPHON to 1),
+        graftedTendrils = 1,
       )
     val withRecall = baseRecall.copy(unlockedScarNodes = setOf(ScarNodeId.MEMBRANE_RECALL))
     assertEquals(
-      baseRecall.effectiveCreatureIchorPerSec(CreatureType.SUMP_SIPHON) * 1.6,
+      baseRecall.effectiveCreatureIchorPerSec(CreatureType.SUMP_SIPHON) * 1.85,
       withRecall.effectiveCreatureIchorPerSec(CreatureType.SUMP_SIPHON),
       0.001,
     )
+    assertEquals(baseRecall.rawIchorPerSecond * 1.85, withRecall.rawIchorPerSecond, 0.001)
     val resetWithRecall = OrganGameEngine.performExcision(withRecall, catalog)
     assertEquals(1, resetWithRecall.creatureCount(CreatureType.WEEPING_LAMP))
     assertEquals(1, resetWithRecall.creatureCount(CreatureType.SUMP_SIPHON))
 
-    // 2. PERPETUAL_SEAM: auto-presses valve every 1.2s without breaking Stillness + 1.8x manual & organisms
-    val perpetual =
+    // 2. PERPETUAL_SEAM: auto-presses valve every 0.75s without breaking Stillness + 2.25x manual, organisms, Tendrils & Lungs
+    val perpetualBase =
       OrganGameEngine.initialState(catalog).copy(
-        unlockedScarNodes = setOf(ScarNodeId.PERPETUAL_SEAM),
         creatures = mapOf(CreatureType.WEEPING_LAMP to 1),
+        graftedTendrils = 1,
+        choirLungs = 1,
         secondsSinceLastTap = 5.0,
         isStillnessActive = true,
       )
-    val afterPerpetualTick = OrganGameEngine.tick(perpetual, OrganBalance.PERPETUAL_SEAM_INTERVAL_SEC + 0.1, catalog)
+    val perpetual = perpetualBase.copy(unlockedScarNodes = setOf(ScarNodeId.PERPETUAL_SEAM))
+    assertEquals(0.75, OrganBalance.PERPETUAL_SEAM_INTERVAL_SEC, 0.0001)
+    assertEquals(perpetualBase.rawIchorPerSecond * 2.25, perpetual.rawIchorPerSecond, 0.001)
+    assertEquals(perpetualBase.manualTapYield * 2.25, perpetual.manualTapYield, 0.001)
+    val afterPerpetualTick = OrganGameEngine.tick(perpetual, OrganBalance.PERPETUAL_SEAM_INTERVAL_SEC + 0.05, catalog)
     assertTrue("Perpetual Seam auto-valve press must not break active Stillness", afterPerpetualTick.isStillnessActive)
     assertTrue(
       "Perpetual Seam must add manualTapYield on top of passive production",
       afterPerpetualTick.ichor >= perpetual.manualTapYield,
     )
 
-    // 3. HOLLOW_LUNG_CHOIR: boosts Choir-Lung 1.85x, Stillness Lung bonus 2.0x (vs 1.5x), Stillness Lamp bonus 2.4x (vs 2.0x)
+    // 3. HOLLOW_LUNG_CHOIR: boosts Choir-Lung 2.10x, Stillness Lung bonus 2.0x (vs 1.5x), Stillness Lamp bonus 2.6x (vs 2.0x)
     val baseLung =
       OrganGameEngine.initialState(catalog).copy(
         creatures = mapOf(CreatureType.WEEPING_LAMP to 1),
@@ -1127,26 +1237,28 @@ class OrganGameEngineTest {
       )
     val hollowLung = baseLung.copy(unlockedScarNodes = setOf(ScarNodeId.HOLLOW_LUNG_CHOIR))
     assertEquals(
-      baseLung.effectiveCreatureIchorPerSec(CreatureType.WEEPING_LAMP) * (2.4 / 2.0),
+      baseLung.effectiveCreatureIchorPerSec(CreatureType.WEEPING_LAMP) * (2.6 / 2.0),
       hollowLung.effectiveCreatureIchorPerSec(CreatureType.WEEPING_LAMP),
       0.001,
     )
-    assertTrue(hollowLung.stillnessPerSecond > baseLung.stillnessPerSecond * 1.5)
+    assertTrue(hollowLung.stillnessPerSecond > baseLung.stillnessPerSecond * 2.0)
 
-    // 4. CATATONIC_TIDE: active-only 1.75x global Ichor & Stillness + 0.35 Jar boost
-    val tideInactive =
+    // 4. CATATONIC_TIDE: 0.8s Stillness onset, 2.60x idle / 1.45x unbroken active floor + 0.50 Jar boost
+    val tideBase =
       OrganGameEngine.initialState(catalog).copy(
-        unlockedScarNodes = setOf(ScarNodeId.CATATONIC_TIDE),
         creatures = mapOf(CreatureType.SUTURE_HAND to 2),
         isStillnessActive = false,
       )
+    val tideInactive = tideBase.copy(unlockedScarNodes = setOf(ScarNodeId.CATATONIC_TIDE))
     val tideActive = tideInactive.copy(isStillnessActive = true)
-    assertEquals(1.0, tideInactive.catatonicTideMultiplier, 0.0001)
-    assertEquals(1.75, tideActive.catatonicTideMultiplier, 0.0001)
-    assertEquals(1.35, tideInactive.jarEffectBoost, 0.0001)
-    assertEquals(tideInactive.ichorPerSecond * 1.75, tideActive.ichorPerSecond, 0.001)
+    assertEquals(0.8, tideInactive.stillnessIdleDelaySec, 0.0001)
+    assertEquals(1.45, tideInactive.catatonicTideMultiplier, 0.0001)
+    assertEquals(2.60, tideActive.catatonicTideMultiplier, 0.0001)
+    assertEquals(1.50, tideInactive.jarEffectBoost, 0.0001)
+    assertEquals(tideBase.ichorPerSecond * 1.45, tideInactive.ichorPerSecond, 0.001)
+    assertEquals(tideBase.ichorPerSecond * 2.60, tideActive.ichorPerSecond, 0.001)
 
-    // 5. ECHO_OSSUARY: 1.45x drain pressure speed, 9s echo pulse interval, 1.45x relic amp
+    // 5. ECHO_OSSUARY & BONE_RESONANCE: 1.45x drain pressure speed, 9s echo pulse interval, 1.35x relic amp each
     val baseDrain =
       OrganGameEngine.initialState(catalog).copy(
         highestExcisionMilestone = 3,
@@ -1156,13 +1268,33 @@ class OrganGameEngineTest {
         creatures = mapOf(CreatureType.SUMP_SIPHON to 2),
       )
     val ossuary = baseDrain.copy(unlockedScarNodes = setOf(ScarNodeId.ECHO_OSSUARY))
+    val ossuaryAndBone =
+      baseDrain.copy(unlockedScarNodes = setOf(ScarNodeId.ECHO_OSSUARY, ScarNodeId.BONE_RESONANCE))
     assertEquals(9.0, ossuary.echoPulseIntervalSec, 0.001)
-    assertEquals(1.45, ossuary.relicAmplifier, 0.001)
+    assertEquals(1.35, ossuary.relicAmplifier, 0.001)
+    assertEquals(1.35 * 1.35, ossuaryAndBone.relicAmplifier, 0.001)
     val tickedBase = OrganGameEngine.tick(baseDrain, 9.2, catalog)
     val tickedOssuary = OrganGameEngine.tick(ossuary, 9.2, catalog)
     assertEquals(0, tickedBase.echoPulsesTriggered)
     assertEquals(1, tickedOssuary.echoPulsesTriggered)
     assertEquals(tickedBase.drainPressure * 1.45, tickedOssuary.drainPressure, 0.01)
+
+    // Verify rebalanced Echo burst scaling (50% diversion = 18x raw/sec, 25% = 10.5x raw/sec)
+    val echoBase50 =
+      OrganGameEngine.initialState(catalog).copy(
+        highestExcisionMilestone = 3,
+        echoDiversionPercent = 50,
+        echoChargeSeconds = 11.9,
+        creatures = mapOf(CreatureType.SUMP_SIPHON to 4),
+      )
+    val afterEcho50 = OrganGameEngine.tick(echoBase50, 0.2, catalog)
+    val expectedBurst50 = echoBase50.rawIchorPerSecond * 18.0
+    assertEquals(1, afterEcho50.echoPulsesTriggered)
+    assertEquals(
+      expectedBurst50 + echoBase50.ichorPerSecond * 0.2,
+      afterEcho50.ichor,
+      0.5,
+    )
 
     // 6. BLOOM_INCISION: 15s clamp, 32s bloom at 2.9x, +40% anomaly yield during bloom
     val bloomState =
@@ -1181,6 +1313,57 @@ class OrganGameEngineTest {
   }
 
   @Test
+  fun colonyProliferation_unlocksAtExcisionThreeAndMatchesExactSequentialSingleBuys() {
+    val catalog = sampleCatalog()
+
+    // Locked before Excision III (M2 cannot bulk-buy)
+    val m2State =
+      OrganGameEngine.initialState(catalog).copy(
+        highestExcisionMilestone = 2,
+        cycle = 2,
+        ichor = 50_000.0,
+        cycleLifetimeIchor = 50_000.0,
+      )
+    assertFalse(m2State.isColonyProliferationUnlocked)
+    assertEquals(m2State, OrganGameEngine.buyMaxCreature(m2State, CreatureType.SUTURE_HAND, catalog))
+
+    // Unlocked at Excision III (M3): bulk quote & buyMaxCreature match sequential buyCreature exactly (with and without Colony Inertia)
+    for (withInertia in listOf(false, true)) {
+      val start =
+        OrganGameEngine.initialState(catalog).copy(
+          highestExcisionMilestone = 3,
+          cycle = 3,
+          ichor = 250_000.0,
+          cycleLifetimeIchor = 250_000.0,
+          unlockedScarNodes = if (withInertia) setOf(ScarNodeId.COLONY_INERTIA) else emptySet(),
+          creatures = mapOf(CreatureType.SUTURE_HAND to 3, CreatureType.LEECH_CLERK to 1),
+        )
+      assertTrue(start.isColonyProliferationUnlocked)
+
+      for (type in CreatureType.entries) {
+        val quote = start.maxAffordableCreatureQuote(type)
+        assertTrue("${type.id} should afford >= 1 unit with 250k Ichor", quote.count > 0)
+
+        var sequential = start
+        var seqCount = 0
+        while (sequential.ichor >= sequential.creatureCost(type).toDouble()) {
+          sequential = OrganGameEngine.buyCreature(sequential, type, catalog)
+          seqCount += 1
+        }
+        val bulk = OrganGameEngine.buyMaxCreature(start, type, catalog)
+
+        assertEquals("Bulk quote count must match sequential buys for ${type.id}", seqCount, quote.count)
+        assertEquals(sequential.creatureCount(type), bulk.creatureCount(type))
+        assertEquals(sequential.ichor, bulk.ichor, 0.001)
+        assertTrue(
+          "Remaining Ichor after Proliferate must be less than next single unit cost",
+          bulk.ichor < bulk.creatureCost(type).toDouble(),
+        )
+      }
+    }
+  }
+
+  @Test
   fun repeatableScarGrafts_enforceRootGateScaleCostsPersistAcrossExcisionsAndClearInDevReset() {
     val catalog = sampleCatalog()
     val locked =
@@ -1193,18 +1376,34 @@ class OrganGameEngineTest {
     assertFalse(locked.canBuyRepeatableGraft(RepeatableScarGraft.KELOID_THICKENING))
     assertEquals(0, OrganGameEngine.buyRepeatableScarGraft(locked, RepeatableScarGraft.KELOID_THICKENING, catalog).repeatableRank(RepeatableScarGraft.KELOID_THICKENING))
 
-    // Unlock FIRST_INCISION -> repeatable grafts open
+    // Unlock FIRST_INCISION -> repeatable grafts open with 1, 1, 2, 3... progression
     var state = OrganGameEngine.unlockScarNode(locked, ScarNodeId.FIRST_INCISION, catalog)
     assertTrue(state.isRepeatableGraftsUnlocked)
-    assertEquals(3L, state.repeatableCost(RepeatableScarGraft.KELOID_THICKENING))
-    assertEquals(3L, state.repeatableCost(RepeatableScarGraft.SEDIMENT_WELL))
-    assertEquals(4L, state.repeatableCost(RepeatableScarGraft.SCAR_HARVEST_HOOK))
+    assertEquals(1L, state.repeatableCost(RepeatableScarGraft.KELOID_THICKENING))
+    assertEquals(1L, state.repeatableCost(RepeatableScarGraft.SEDIMENT_WELL))
+    assertEquals(1L, state.repeatableCost(RepeatableScarGraft.SCAR_HARVEST_HOOK))
+    assertEquals(
+      listOf(1L, 1L, 2L, 3L, 4L, 6L),
+      (0..5).map { rank ->
+        state
+          .copy(repeatableScarRanks = mapOf(RepeatableScarGraft.KELOID_THICKENING to rank))
+          .repeatableCost(RepeatableScarGraft.KELOID_THICKENING)
+      },
+    )
+    assertEquals(
+      listOf(1L, 1L, 2L, 3L, 5L, 8L),
+      (0..5).map { rank ->
+        state
+          .copy(repeatableScarRanks = mapOf(RepeatableScarGraft.SCAR_HARVEST_HOOK to rank))
+          .repeatableCost(RepeatableScarGraft.SCAR_HARVEST_HOOK)
+      },
+    )
 
     val baseScarMult = state.scarMultiplier
     val baseStillMult = state.scarStillnessMultiplier
     state = OrganGameEngine.buyRepeatableScarGraft(state, RepeatableScarGraft.KELOID_THICKENING, catalog)
     assertEquals(1, state.repeatableRank(RepeatableScarGraft.KELOID_THICKENING))
-    assertEquals(5L, state.repeatableCost(RepeatableScarGraft.KELOID_THICKENING)) // ceil(3 * 1.45)
+    assertEquals(1L, state.repeatableCost(RepeatableScarGraft.KELOID_THICKENING)) // floor(1 * 1.45^1)
     assertEquals(baseScarMult * 1.18, state.scarMultiplier, 0.001)
 
     state = OrganGameEngine.buyRepeatableScarGraft(state, RepeatableScarGraft.SEDIMENT_WELL, catalog)

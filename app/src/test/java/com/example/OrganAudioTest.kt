@@ -120,12 +120,21 @@ class OrganAudioTest {
           ),
       )
 
-    // Creature buy
-    val bought = OrganGameEngine.buyCreature(base, CreatureType.SUTURE_HAND, DialogueCatalog.Empty)
-    assertEquals(
-      listOf(SoundCue.CREATURE_BUY),
-      SoundCueResolver.resolveTransitionCues(base, bought, SoundActionHint.CREATURE_BUY),
-    )
+    // All 4 purchasable organisms map to distinct signature foley cues
+    val creatureExpectations =
+      listOf(
+        CreatureType.SUTURE_HAND to SoundCue.CREATURE_BUY_SUTURE_HAND,
+        CreatureType.LEECH_CLERK to SoundCue.CREATURE_BUY_LEECH_CLERK,
+        CreatureType.WEEPING_LAMP to SoundCue.CREATURE_BUY_WEEPING_LAMP,
+        CreatureType.SUMP_SIPHON to SoundCue.CREATURE_BUY_SUMP_SIPHON,
+      )
+    for ((creature, expectedCue) in creatureExpectations) {
+      val bought = OrganGameEngine.buyCreature(base, creature, DialogueCatalog.Empty)
+      assertEquals(
+        listOf(expectedCue),
+        SoundCueResolver.resolveTransitionCues(base, bought, SoundActionHint.CREATURE_BUY),
+      )
+    }
 
     // Jar bottle
     val jarred = OrganGameEngine.bottleJar(base, SpecimenJar.YESTERDAYS_DUST, DialogueCatalog.Empty)
@@ -241,8 +250,8 @@ class OrganAudioTest {
     val breachReady =
       base.copy(
         highestExcisionMilestone = 5,
-        ichor = 12_000_000_000.0,
-        cycleLifetimeIchor = 12_000_000_000.0,
+        ichor = 36_000_000_000.0,
+        cycleLifetimeIchor = 36_000_000_000.0,
         phase = 4,
       )
     val breached = OrganGameEngine.performBreachToArc2(breachReady, DialogueCatalog.Empty)
@@ -367,6 +376,16 @@ class OrganAudioTest {
 
   @Test
   fun proceduralFoleySynth_synthesizesNonSilentBoundedPcmForEveryCueAndAmbientBed() {
+    assertEquals(29, SoundCue.entries.size)
+    // Grafting should be a long, fleshy ~0.94s ritual (significantly longer than quick valve taps)
+    val graftPcm = ProceduralFoleySynth.synthesizeCue(SoundCue.GRAFT_PERFORM, phase = 3)
+    val valvePcm = ProceduralFoleySynth.synthesizeCue(SoundCue.VALVE_PRESS, phase = 0)
+    assertTrue(
+      "Expected long fleshy graft waveform (>= 0.85s), got ${graftPcm.size} samples",
+      graftPcm.size >= (ProceduralFoleySynth.SAMPLE_RATE * 0.85).toInt(),
+    )
+    assertTrue("Graft waveform should be much longer than valve tap", graftPcm.size > valvePcm.size * 3)
+
     for (cue in SoundCue.entries) {
       val pcm = ProceduralFoleySynth.synthesizeCue(cue, phase = 4, pitchFactor = 1.0f)
       assertTrue("Cue ${cue.id} produced empty PCM", pcm.size > 400)

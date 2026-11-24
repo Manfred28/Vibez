@@ -33,6 +33,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.R
+import com.example.game.ExcisionMilestone
 import com.example.game.OrganGameState
 import com.example.game.RepeatableScarGraft
 import com.example.game.ScarNodeId
@@ -78,9 +79,25 @@ fun ScarTreePanel(
       )
     }
 
+    val lastExcisionName = ExcisionMilestone.byNumber(state.highestExcisionMilestone)?.code
+    val cycleLead =
+      if (lastExcisionName != null) {
+        stringResource(
+          R.string.excision_cycle_summary,
+          state.cycle,
+          lastExcisionName,
+          nf.format(state.scarTissue),
+        )
+      } else {
+        stringResource(
+          R.string.excision_cycle_summary_unmarked,
+          state.cycle,
+          nf.format(state.scarTissue),
+        )
+      }
     Text(
       text =
-        "${stringResource(R.string.excision_cycle_summary, state.cycle, state.highestExcisionMilestone, nf.format(state.scarTissue))} · ${
+        "$cycleLead · ${
           stringResource(R.string.scar_passive_readout, formatMultiplier(state.scarMultiplier), formatMultiplier(state.scarStillnessMultiplier))
         }",
       style = MaterialTheme.typography.bodySmall,
@@ -233,7 +250,11 @@ fun ScarTreePanel(
         val actionLabel =
           when {
             owned -> stringResource(R.string.scar_status_sutured)
-            prereqMissing -> stringResource(R.string.scar_status_locked)
+            prereqMissing ->
+              stringResource(
+                R.string.scar_status_requires,
+                scarNodeName(selectedNode.prerequisite!!),
+              )
             else -> stringResource(R.string.scar_action_suture, nf.format(selectedNode.cost))
           }
         Surface(
@@ -276,27 +297,20 @@ fun ScarTreePanel(
       }
     }
 
-    HorizontalDivider(color = atmosphere.hairline, thickness = 1.dp)
+    if (state.isRepeatableGraftsUnlocked) {
+      HorizontalDivider(color = atmosphere.hairline, thickness = 1.dp)
 
-    // Repeatable Surgical Grafts Tray
-    Column(
-      modifier = Modifier.fillMaxWidth().testTag("repeatable_scar_grafts_section"),
-      verticalArrangement = Arrangement.spacedBy(6.dp),
-    ) {
-      Text(
-        text = stringResource(R.string.scar_repeatables_title),
-        style = MaterialTheme.typography.labelSmall.copy(letterSpacing = 1.sp),
-        color = colorScheme.onSurfaceVariant,
-      )
-
-      if (!state.isRepeatableGraftsUnlocked) {
+      // Repeatable Surgical Grafts Tray (hidden until FIRST_INCISION is sutured)
+      Column(
+        modifier = Modifier.fillMaxWidth().testTag("repeatable_scar_grafts_section"),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+      ) {
         Text(
-          text = stringResource(R.string.scar_repeatables_locked),
-          style = MaterialTheme.typography.bodySmall,
-          color = colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
-          modifier = Modifier.testTag("repeatable_grafts_locked_hint"),
+          text = stringResource(R.string.scar_repeatables_title),
+          style = MaterialTheme.typography.labelSmall.copy(letterSpacing = 1.sp),
+          color = colorScheme.onSurfaceVariant,
         )
-      } else {
+
         RepeatableScarGraft.entries.forEach { graft ->
           val rank = state.repeatableRank(graft)
           val cost = state.repeatableCost(graft)
@@ -326,7 +340,7 @@ fun ScarTreePanel(
               Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
                 Text(
                   text =
-                    "${repeatableGraftName(graft)} · ${
+                    "${repeatableGraftName(graft)} ${
                       stringResource(R.string.scar_repeatable_rank_format, rank)
                     }",
                   style = MaterialTheme.typography.labelMedium,

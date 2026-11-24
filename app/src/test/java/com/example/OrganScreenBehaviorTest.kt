@@ -28,13 +28,22 @@ import com.example.game.OrganGameEngine
 import com.example.game.OrganGameState
 import com.example.game.RepeatableScarGraft
 import com.example.game.ScarNodeId
+import com.example.game.InvestigatorDeckTab
+import com.example.game.OrganDeckTab
 import com.example.game.SpecimenJar
 import com.example.game.WallAnomalyType
 import com.example.ui.OrganRoute
 import com.example.ui.OrganScreen
 import com.example.ui.OrganViewModel
+import com.example.ui.components.EventDripGate
+import com.example.ui.components.REPEAT_EVENT_DRIP_CHANCE
+import com.example.ui.components.STORY_DRIP_TOTAL_MS
+import com.example.ui.components.TabAlertEvaluator
+import com.example.ui.components.computeWallAnomalyBreathScale
+import com.example.ui.components.weepingLampLayout
 import com.example.ui.theme.BleakTheme
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -73,7 +82,10 @@ class OrganScreenBehaviorTest {
     composeTestRule
       .onNodeWithTag("phase_header")
       .assertIsDisplayed()
-      .assertTextEquals("PHASE 00 // THE COUNTING ROOM")
+      .assertTextEquals("THE COUNTING ROOM")
+    // Upcoming threshold previews and progress bar stay hidden until an action is ready
+    composeTestRule.onNodeWithTag("phase_progress_bar").assertDoesNotExist()
+    composeTestRule.onNodeWithTag("threshold_status").assertDoesNotExist()
     composeTestRule.onNodeWithTag("chamber_wall_art").assertIsDisplayed()
     composeTestRule.onNodeWithTag("chamber_wall_phase_0").assertIsDisplayed()
     composeTestRule.onNodeWithTag("suture_hands_overlay").assertDoesNotExist()
@@ -115,7 +127,7 @@ class OrganScreenBehaviorTest {
 
     composeTestRule
       .onNodeWithTag("phase_header")
-      .assertTextEquals("PHASE 01 // UNCANNY DRIFT")
+      .assertTextEquals("UNCANNY DRIFT")
     composeTestRule.onNodeWithTag("chamber_wall_art").assertIsDisplayed()
     composeTestRule.onNodeWithTag("chamber_wall_phase_1").assertIsDisplayed()
     composeTestRule.onNodeWithTag("apparatus_deck").performScrollTo().assertIsDisplayed()
@@ -253,16 +265,7 @@ class OrganScreenBehaviorTest {
       .performScrollTo()
       .assertIsDisplayed()
 
-    // Switch to JARS & GRAFT tab, verify action artwork medallions, bottle Yesterday's Dust, and perform Graft
-    composeTestRule.onNodeWithTag("deck_tab_jars_and_graft").performScrollTo().performClick()
-    composeTestRule.waitForIdle()
-
-    composeTestRule.onNodeWithTag("art_jar_yesterdays_dust", useUnmergedTree = true).performScrollTo().assertIsDisplayed()
-    composeTestRule.onNodeWithTag("jar_yesterdays_dust").performScrollTo().performClick()
-    composeTestRule.waitForIdle()
-    assertTrue(SpecimenJar.YESTERDAYS_DUST in state.ownedJars)
-    composeTestRule.onNodeWithText("SEALED").assertIsDisplayed()
-
+    // Grafting now lives directly inside ORGANISMS alongside living colonies
     composeTestRule.onNodeWithTag("art_graft_tendril", useUnmergedTree = true).performScrollTo().assertIsDisplayed()
     composeTestRule.onNodeWithTag("perform_graft_button").performScrollTo().performClick()
     composeTestRule.waitForIdle()
@@ -270,6 +273,18 @@ class OrganScreenBehaviorTest {
     assertTrue(state.isGraftOnCooldown)
     composeTestRule.onNodeWithText("GRAFTED CHOIR-TENDRIL [1]").assertIsDisplayed()
     composeTestRule.onNodeWithTag("graft_cooldown_bar").performScrollTo().assertIsDisplayed()
+
+    // JARS tab holds unlocked Specimen Jars only (locked Phase 4 / Cycle 1 jars remain hidden)
+    composeTestRule.onNodeWithTag("deck_tab_jars_and_graft").performScrollTo().performClick()
+    composeTestRule.waitForIdle()
+
+    composeTestRule.onNodeWithTag("art_jar_yesterdays_dust", useUnmergedTree = true).performScrollTo().assertIsDisplayed()
+    composeTestRule.onNodeWithTag("jar_a_borrowed_pulse").assertDoesNotExist()
+    composeTestRule.onNodeWithTag("jar_the_uncounted_hour").assertDoesNotExist()
+    composeTestRule.onNodeWithTag("jar_yesterdays_dust").performScrollTo().performClick()
+    composeTestRule.waitForIdle()
+    assertTrue(SpecimenJar.YESTERDAYS_DUST in state.ownedJars)
+    composeTestRule.onNodeWithText("SEALED").assertIsDisplayed()
   }
 
   @Test
@@ -296,14 +311,9 @@ class OrganScreenBehaviorTest {
     composeTestRule.onNodeWithTag("chamber_wall_phase_4").assertIsDisplayed()
 
     if (!viewModel.uiState.value.canExcise) {
-      composeTestRule
-        .onNodeWithTag("threshold_status")
-        .assertTextEquals(
-          "EXCISION MASS: ${
-            java.text.NumberFormat.getIntegerInstance()
-              .format(viewModel.uiState.value.cycleLifetimeIchorDisplay)
-          } / 210,000"
-        )
+      // Upcoming Excision threshold and Cycle 0 EXCISION tab stay hidden until Excision is ready
+      composeTestRule.onNodeWithTag("threshold_status").assertDoesNotExist()
+      composeTestRule.onNodeWithTag("deck_tab_excision").assertDoesNotExist()
       composeTestRule.runOnIdle { viewModel.advanceTime(9_000.0) }
       composeTestRule.waitForIdle()
     }
@@ -313,6 +323,10 @@ class OrganScreenBehaviorTest {
     composeTestRule
       .onNodeWithTag("threshold_status")
       .assertTextEquals("OVERGROWTH CRITICAL // EXCISION READY")
+    composeTestRule
+      .onNodeWithTag("deck_tab_alert_excision", useUnmergedTree = true)
+      .performScrollTo()
+      .assertIsDisplayed()
 
     // Open EXCISION tab -> verify Next Scar visual indicator -> Arm -> Confirm Severance
     composeTestRule.onNodeWithTag("deck_tab_excision").performScrollTo().performClick()
@@ -334,7 +348,7 @@ class OrganScreenBehaviorTest {
 
     composeTestRule
       .onNodeWithTag("phase_header")
-      .assertTextEquals("PHASE 00 // THE COUNTING ROOM")
+      .assertTextEquals("THE COUNTING ROOM")
     composeTestRule.onNodeWithTag("prestige_passive_banner").assertDoesNotExist()
     composeTestRule.onNodeWithTag("counter_text").performScrollTo().assertTextEquals("0")
 
@@ -346,7 +360,7 @@ class OrganScreenBehaviorTest {
       .performScrollTo()
       .assertIsDisplayed()
       .assertTextEquals(
-        "CYCLE 01 · MILESTONE M1/6 · TOTAL SCAR ${viewModel.uiState.value.scarTissue}"
+        "CYCLE 01 · FIRST SEVERANCE · TOTAL SCAR ${viewModel.uiState.value.scarTissue}"
       )
     composeTestRule.onNodeWithTag("scar_passive_status").performScrollTo().assertIsDisplayed()
     composeTestRule
@@ -490,33 +504,54 @@ class OrganScreenBehaviorTest {
     composeTestRule.onNodeWithTag("dev_close_button").performClick()
     composeTestRule.waitForIdle()
 
-    // Verify Haunted Investigator Desk renders and Stamp Case File increments Leads
+    // Verify Haunted Investigator Desk renders with pure diegetic header (no CH 0/4 or ARC 02)
     composeTestRule.onNodeWithTag("investigator_screen").assertIsDisplayed()
-    composeTestRule.onNodeWithTag("arc2_phase_header").assertIsDisplayed()
+    composeTestRule
+      .onNodeWithTag("arc2_phase_header")
+      .assertIsDisplayed()
+      .assertTextEquals("THE INQUIRY · CASE #14-B")
     val leadsBefore = viewModel.uiState.value.arc2.leadsDisplay
     composeTestRule.onNodeWithTag("inspect_case_button").performScrollTo().performClick()
     composeTestRule.waitForIdle()
     assertTrue(viewModel.uiState.value.arc2.leadsDisplay > leadsBefore)
 
-    // Switch to BOARD tab and connect Chapters 1..4 to trigger File #00 twist
+    // Switch to BOARD tab: future locked threads stay hidden and visible threads use pure titles (no CH 01 //)
+    composeTestRule
+      .onNodeWithTag("arc2_tab_alert_evidence_board", useUnmergedTree = true)
+      .performScrollTo()
+      .assertIsDisplayed()
     composeTestRule.onNodeWithTag("arc2_tab_evidence_board").performScrollTo().performClick()
     composeTestRule.waitForIdle()
+    composeTestRule.onNodeWithText("THE MISSING CARETAKERS").performScrollTo().assertIsDisplayed()
+    composeTestRule.onNodeWithTag("chapter_connect_2").assertDoesNotExist()
+    composeTestRule.onNodeWithTag("chapter_connect_4").assertDoesNotExist()
     for (ch in 1..4) {
       composeTestRule.onNodeWithTag("chapter_connect_$ch").performScrollTo().performClick()
       composeTestRule.waitForIdle()
     }
 
     assertTrue(viewModel.uiState.value.arc2.fileZeroRevealed)
+    composeTestRule
+      .onNodeWithTag("arc2_phase_header")
+      .performScrollTo()
+      .assertTextEquals("FILE #00 — SUBJECT INTAKE")
     composeTestRule.onNodeWithTag("file_zero_reveal_card").performScrollTo().assertIsDisplayed()
     composeTestRule
       .onNodeWithTag("dialogue_body")
       .assertIsDisplayed()
       .assertTextEquals(fileZeroFragment.lines.joinToString("\n"))
 
-    // Enter Arc 3 open convergence threshold
-    composeTestRule.onNodeWithTag("enter_arc3_button").performScrollTo().performClick()
+    // Enter Convergence threshold with pure diegetic navigation labels (no ARC 1/2/3)
+    composeTestRule
+      .onNodeWithTag("enter_arc3_button")
+      .performScrollTo()
+      .assertTextEquals("STEP PAST THE SEAM")
+      .performClick()
     composeTestRule.waitForIdle()
     composeTestRule.onNodeWithTag("arc3_screen").assertIsDisplayed()
+    composeTestRule.onNodeWithText("CONVERGENCE THRESHOLD").performScrollTo().assertIsDisplayed()
+    composeTestRule.onNodeWithText("RETURN TO THE CHAMBER").performScrollTo().assertIsDisplayed()
+    composeTestRule.onNodeWithText("RETURN TO THE DESK").performScrollTo().assertIsDisplayed()
   }
 
   @Test
@@ -572,7 +607,8 @@ class OrganScreenBehaviorTest {
   }
 
   @Test
-  fun drippingMarginOverlay_rendersStoryAndAnomalyEventsInSeparatePriorityLanes() {
+  fun drippingMarginOverlay_slowsStoryDripSuppressesEventDripDuringStoryAndShowsEventWhenIdle() {
+    assertEquals(12_000L, STORY_DRIP_TOTAL_MS)
     val context = ApplicationProvider.getApplicationContext<Context>()
     val catalog = AssetDialogueRepository(context).loadCatalog()
     var state by
@@ -603,12 +639,39 @@ class OrganScreenBehaviorTest {
     composeTestRule.mainClock.advanceTimeBy(100)
     composeTestRule.waitForIdle()
 
-    // Pulling Pale Tooth triggers BOTH the left-margin anomaly thematic drip AND the right-margin story fragment drip
+    // Pulling first Pale Tooth triggers a story fragment -> story drip displays while chamber event drip is hidden
     composeTestRule.onNodeWithTag("anomaly_pale_tooth_12").performClick()
-    composeTestRule.mainClock.advanceTimeBy(450)
+    composeTestRule.mainClock.advanceTimeBy(600)
     composeTestRule.waitForIdle()
 
     composeTestRule.onNodeWithTag("dripping_story_overlay").assertIsDisplayed()
+    composeTestRule.onNodeWithTag("dripping_event_overlay").assertDoesNotExist()
+
+    // Still active past 8 seconds (explicitly slower 12s story drip)
+    composeTestRule.mainClock.advanceTimeBy(7_500)
+    composeTestRule.waitForIdle()
+    composeTestRule.onNodeWithTag("dripping_story_overlay").assertIsDisplayed()
+    composeTestRule.onNodeWithTag("dripping_event_overlay").assertDoesNotExist()
+
+    // Once story drip completes, a subsequent chamber anomaly without a new story beat shows the chamber event drip
+    composeTestRule.mainClock.advanceTimeBy(5_000)
+    composeTestRule.waitForIdle()
+    composeTestRule.onNodeWithTag("dripping_story_overlay").assertDoesNotExist()
+
+    composeTestRule.runOnIdle {
+      state =
+        state.copy(
+          activeAnomalies = listOf(ActiveWallAnomaly(13L, WallAnomalyType.PALE_TOOTH, 0.25f, 0.3f))
+        )
+    }
+    composeTestRule.mainClock.advanceTimeBy(100)
+    composeTestRule.waitForIdle()
+
+    composeTestRule.onNodeWithTag("anomaly_pale_tooth_13").performClick()
+    composeTestRule.mainClock.advanceTimeBy(600)
+    composeTestRule.waitForIdle()
+
+    composeTestRule.onNodeWithTag("dripping_story_overlay").assertDoesNotExist()
     composeTestRule.onNodeWithTag("dripping_event_overlay").assertIsDisplayed()
   }
 
@@ -699,19 +762,36 @@ class OrganScreenBehaviorTest {
     composeTestRule.onNodeWithTag("scar_node_bloom_incision").performScrollTo().assertIsDisplayed()
     composeTestRule.onNodeWithTag("scar_node_bone_resonance").performScrollTo().assertIsDisplayed()
 
-    // Repeatable grafts start locked behind FIRST_INCISION
-    composeTestRule.onNodeWithTag("repeatable_scar_grafts_section").performScrollTo().assertIsDisplayed()
-    composeTestRule.onNodeWithTag("repeatable_grafts_locked_hint").performScrollTo().assertIsDisplayed()
+    // Repeatable grafts stay completely hidden until FIRST_INCISION is sutured
+    composeTestRule.onNodeWithTag("repeatable_scar_grafts_section").assertDoesNotExist()
+    composeTestRule.onNodeWithTag("repeatable_grafts_locked_hint").assertDoesNotExist()
 
     // Suture FIRST_INCISION -> unlocks repeatable grafts tray and allows buying Keloid Thickening
     composeTestRule.onNodeWithTag("suture_selected_node_button").performScrollTo().performClick()
     composeTestRule.waitForIdle()
     assertTrue(ScarNodeId.FIRST_INCISION in state.unlockedScarNodes)
 
+    composeTestRule.onNodeWithTag("repeatable_scar_grafts_section").performScrollTo().assertIsDisplayed()
     composeTestRule.onNodeWithTag("repeatable_graft_keloid_thickening").performScrollTo().performClick()
     composeTestRule.waitForIdle()
     assertEquals(1, state.repeatableRank(RepeatableScarGraft.KELOID_THICKENING))
-    assertEquals(16L, state.availableScarTissue) // 20 - 1 (First Incision) - 3 (Keloid Rank 1)
+    assertEquals(18L, state.availableScarTissue) // 20 - 1 (First Incision) - 1 (Keloid Rank 1)
+
+    // Subsequent purchases follow 1, 2, 3 Scar costs
+    composeTestRule.onNodeWithTag("repeatable_graft_keloid_thickening").performScrollTo().performClick()
+    composeTestRule.waitForIdle()
+    assertEquals(2, state.repeatableRank(RepeatableScarGraft.KELOID_THICKENING))
+    assertEquals(17L, state.availableScarTissue) // 18 - 1 (Rank 2)
+
+    composeTestRule.onNodeWithTag("repeatable_graft_keloid_thickening").performScrollTo().performClick()
+    composeTestRule.waitForIdle()
+    assertEquals(3, state.repeatableRank(RepeatableScarGraft.KELOID_THICKENING))
+    assertEquals(15L, state.availableScarTissue) // 17 - 2 (Rank 3)
+
+    composeTestRule.onNodeWithTag("repeatable_graft_keloid_thickening").performScrollTo().performClick()
+    composeTestRule.waitForIdle()
+    assertEquals(4, state.repeatableRank(RepeatableScarGraft.KELOID_THICKENING))
+    assertEquals(12L, state.availableScarTissue) // 15 - 3 (Rank 4)
   }
 
   @Test
@@ -751,18 +831,43 @@ class OrganScreenBehaviorTest {
     composeTestRule.onNodeWithText("HARVEST SCARS EARLY (+2)").performScrollTo().assertIsDisplayed()
     composeTestRule.onNodeWithTag("excision_seam_hold_note").assertDoesNotExist()
 
-    // Jump to 20M Ichor (exceeds both M2 1.8M and M3 16M) -> displays SEVER EXCISION 2 + seam hold note
+    // At 1.2M (past 3rd scar at 811k, below M2 at 1.8M), Next Scar clamps to 1,800,000 instead of 2,116,667
+    composeTestRule.runOnIdle {
+      state = state.copy(ichor = 1_200_000.0, cycleLifetimeIchor = 1_200_000.0)
+    }
+    composeTestRule.waitForIdle()
+    composeTestRule
+      .onNodeWithTag("next_scar_status")
+      .performScrollTo()
+      .assertTextEquals("NEXT SCAR TISSUE: 1,200,000 / 1,800,000")
+    composeTestRule.onNodeWithText("HARVEST SCARS EARLY (+3)").performScrollTo().assertIsDisplayed()
+
+    // Reaching exact M2 threshold (1.8M) grants the pulled 4th Scar early right on the milestone
+    composeTestRule.runOnIdle {
+      state = state.copy(ichor = 1_800_000.0, cycleLifetimeIchor = 1_800_000.0)
+    }
+    composeTestRule.waitForIdle()
+    composeTestRule
+      .onNodeWithTag("excision_arm_button")
+      .performScrollTo()
+      .assertTextEquals("SEVER: THE SUNKEN DRAIN (+4 SCAR)")
+
+    // Jump to 20M Ichor (exceeds both M2 1.8M and M3 16M) -> displays SEVER: THE SUNKEN DRAIN + seam hold note
     composeTestRule.runOnIdle {
       state = state.copy(ichor = 20_000_000.0, cycleLifetimeIchor = 20_000_000.0)
     }
     composeTestRule.waitForIdle()
     composeTestRule.onNodeWithTag("excision_seam_hold_note").performScrollTo().assertIsDisplayed()
-    composeTestRule.onNodeWithTag("excision_arm_button").performScrollTo().performClick()
+    composeTestRule
+      .onNodeWithTag("excision_arm_button")
+      .performScrollTo()
+      .assertTextEquals("SEVER: THE SUNKEN DRAIN (+${state.pendingScarTissue} SCAR)")
+      .performClick()
     composeTestRule.waitForIdle()
     composeTestRule.onNodeWithTag("excision_confirm_button").performScrollTo().performClick()
     composeTestRule.waitForIdle()
 
-    // Hard sequential cap: even with 20M mass, milestone advances strictly from M1 -> M2 (never skipping M2)
+    // Hard sequential cap: even with 20M mass, advances strictly to THE SUNKEN DRAIN (M2)
     assertEquals(2, state.highestExcisionMilestone)
   }
 
@@ -773,9 +878,9 @@ class OrganScreenBehaviorTest {
     val arc2PleaEntry = catalog.entries.first { it.id == "dlg_arc2_entry" }
     val viewModel = createViewModel()
 
-    // Prepare Excision V cleared + 12B cycle mass so Excision VI ("Plead for Salvation") opens cleanly
+    // Prepare Excision V cleared + 36B cycle mass so Excision VI ("Plead for Salvation") opens cleanly
     viewModel.devSetHighestMilestone(5)
-    viewModel.devAssignArc1Resources(ichor = 12_000_000_000.0)
+    viewModel.devAssignArc1Resources(ichor = 36_000_000_000.0)
 
     composeTestRule.setContent { OrganRoute(viewModel = viewModel) }
     composeTestRule.waitForIdle()
@@ -786,11 +891,11 @@ class OrganScreenBehaviorTest {
       .assertIsDisplayed()
       .assertTextEquals("SEAM UNSEALED // PLEAD FOR SALVATION")
 
-    // Excision panel displays Excision VI Plead for Salvation heading and primary button
+    // Excision panel displays pure Plead for Salvation heading & button (no EXCISION VI // prefix)
     composeTestRule.onNodeWithTag("deck_tab_excision").performScrollTo().performClick()
     composeTestRule.waitForIdle()
 
-    composeTestRule.onNodeWithText("EXCISION VI // PLEAD FOR SALVATION").performScrollTo().assertIsDisplayed()
+    composeTestRule.onNodeWithText("EXCISION VI // PLEAD FOR SALVATION").assertDoesNotExist()
     composeTestRule
       .onNodeWithTag("breach_to_arc2_button")
       .performScrollTo()
@@ -854,5 +959,435 @@ class OrganScreenBehaviorTest {
     composeTestRule
       .onNodeWithTag("audio_mute_toggle")
       .assertContentDescriptionEquals("Mute sound effects and room ambience")
+  }
+
+  @Test
+  fun tabAlertsHiddenUnlocksAndChoirLungInOrganisms_workAcrossArc1AndArc2() {
+    val context = ApplicationProvider.getApplicationContext<Context>()
+    val catalog = AssetDialogueRepository(context).loadCatalog()
+
+    // 1. Pure TabAlertEvaluator assertions (Arc 1 + Arc 2)
+    val phase2State =
+      OrganGameEngine.initialState(catalog).copy(
+        ichor = 1_700.0,
+        cycleLifetimeIchor = 1_700.0,
+        phase = 2,
+        phaseName = catalog.phaseName(2),
+        stillness = 0.0,
+      )
+    assertTrue(
+      TabAlertEvaluator.shouldAlertArc1Tab(
+        state = phase2State,
+        tab = OrganDeckTab.JARS_AND_GRAFT,
+        activeTab = OrganDeckTab.APPARATUS,
+        seenKeysByTab = emptyMap(),
+      )
+    )
+    // Once JARS tab keys are seen and no jar is affordable, alert clears
+    val seenJars =
+      mapOf(
+        OrganDeckTab.JARS_AND_GRAFT to
+          TabAlertEvaluator.arc1UnlockKeys(phase2State, OrganDeckTab.JARS_AND_GRAFT)
+      )
+    assertFalse(
+      TabAlertEvaluator.shouldAlertArc1Tab(
+        state = phase2State,
+        tab = OrganDeckTab.JARS_AND_GRAFT,
+        activeTab = OrganDeckTab.APPARATUS,
+        seenKeysByTab = seenJars,
+      )
+    )
+    // Becoming able to afford a jar re-triggers tab readiness pulse while off-tab
+    val affordableJarState = phase2State.copy(stillness = 30.0)
+    assertTrue(
+      TabAlertEvaluator.shouldAlertArc1Tab(
+        state = affordableJarState,
+        tab = OrganDeckTab.JARS_AND_GRAFT,
+        activeTab = OrganDeckTab.APPARATUS,
+        seenKeysByTab = seenJars,
+      )
+    )
+    // Active tab never pulses
+    assertFalse(
+      TabAlertEvaluator.shouldAlertArc1Tab(
+        state = affordableJarState,
+        tab = OrganDeckTab.JARS_AND_GRAFT,
+        activeTab = OrganDeckTab.JARS_AND_GRAFT,
+        seenKeysByTab = emptyMap(),
+      )
+    )
+    // Choir-Tendril & Choir-Lung keys and readiness belong to APPARATUS (ORGANISMS)
+    val m4GraftReady =
+      phase2State.copy(
+        phase = 3,
+        cycle = 1,
+        highestExcisionMilestone = 4,
+        stillness = 250.0,
+        graftedTendrils = 1,
+        creatures =
+          mapOf(
+            CreatureType.SUTURE_HAND to 2,
+            CreatureType.LEECH_CLERK to 2,
+            CreatureType.WEEPING_LAMP to 2,
+          ),
+      )
+    val apparatusKeys = TabAlertEvaluator.arc1UnlockKeys(m4GraftReady, OrganDeckTab.APPARATUS)
+    assertTrue("graft_tendril" in apparatusKeys)
+    assertTrue("graft_choir_lung" in apparatusKeys)
+    assertTrue(TabAlertEvaluator.isArc1TabReady(m4GraftReady, OrganDeckTab.APPARATUS))
+
+    // Arc 2 unseen & readiness checks
+    val arc2Ready =
+      OrganGameEngine.initialState(catalog).let { base ->
+        base.copy(
+          arc2 = base.arc2.copy(leads = 1_000.0, lifetimeLeads = 1_000.0, silence = 50.0)
+        )
+      }
+    assertTrue(
+      TabAlertEvaluator.shouldAlertArc2Tab(
+        state = arc2Ready,
+        tab = InvestigatorDeckTab.DEDUCTIONS,
+        activeTab = InvestigatorDeckTab.CONTACTS,
+        seenKeysByTab = mapOf(InvestigatorDeckTab.DEDUCTIONS to setOf("arc2_deductions")),
+      )
+    )
+
+    // 2. Compose UI: Phase 2 hides locked jars & tendril graft; unseen JARS tab pulses until opened
+    var state by mutableStateOf(phase2State)
+    composeTestRule.setContent {
+      BleakTheme(phase = state.phase) {
+        OrganScreen(
+          state = state,
+          onPressValve = {},
+          onBuyCreature = {},
+          onBottleJar = {},
+          onPerformGraft = {},
+          onInteractAnomaly = {},
+          onPerformExcision = {},
+        )
+      }
+    }
+    composeTestRule.waitForIdle()
+
+    // Phase 2 ORGANISMS hides Phase 3 Tendril & M4 Choir-Lung grafting
+    composeTestRule.onNodeWithTag("perform_graft_button").assertDoesNotExist()
+    composeTestRule.onNodeWithTag("perform_choir_lung_button").assertDoesNotExist()
+    // Unseen JARS tab displays the deep-red pulsing pip while on ORGANISMS
+    composeTestRule
+      .onNodeWithTag("deck_tab_alert_jars_and_graft", useUnmergedTree = true)
+      .performScrollTo()
+      .assertIsDisplayed()
+
+    // Opening JARS marks its unlocks seen; switching back to ORGANISMS leaves pip cleared
+    composeTestRule.onNodeWithTag("deck_tab_jars_and_graft").performScrollTo().performClick()
+    composeTestRule.waitForIdle()
+    composeTestRule.onNodeWithTag("jar_salt_from_the_grout").assertDoesNotExist()
+    composeTestRule.onNodeWithTag("deck_tab_apparatus").performScrollTo().performClick()
+    composeTestRule.waitForIdle()
+    composeTestRule
+      .onNodeWithTag("deck_tab_alert_jars_and_graft", useUnmergedTree = true)
+      .assertDoesNotExist()
+
+    // Upgrading to M4 exposes Choir-Lung inside ORGANISMS (and NOT inside RITES)
+    composeTestRule.runOnIdle { state = m4GraftReady }
+    composeTestRule.waitForIdle()
+    composeTestRule.onNodeWithTag("perform_choir_lung_button").performScrollTo().assertIsDisplayed()
+    composeTestRule.onNodeWithTag("deck_tab_chamber_rites").performScrollTo().performClick()
+    composeTestRule.waitForIdle()
+    composeTestRule.onNodeWithTag("perform_choir_lung_button").assertDoesNotExist()
+    // Off-tab ORGANISMS now pulses because Choir-Tendril & Choir-Lung are ready to graft
+    composeTestRule
+      .onNodeWithTag("deck_tab_alert_apparatus", useUnmergedTree = true)
+      .performScrollTo()
+      .assertIsDisplayed()
+  }
+
+  @Test
+  fun wallEventDrip_showsGuaranteedFirstSightingAndThirtyPercentChanceOnRepeats() {
+    // 1. Pure EventDripGate unit verification
+    assertEquals(0.30, REPEAT_EVENT_DRIP_CHANCE, 0.0001)
+    assertFalse(EventDripGate.shouldShow("", emptySet()) { 0.0 })
+    assertTrue(EventDripGate.shouldShow("anomaly_pale_tooth", emptySet()) { 0.99 })
+    val seenTooth = setOf("anomaly_pale_tooth")
+    assertTrue(EventDripGate.shouldShow("anomaly_pale_tooth", seenTooth) { 0.0 })
+    assertTrue(EventDripGate.shouldShow("anomaly_pale_tooth", seenTooth) { 0.299 })
+    assertFalse(EventDripGate.shouldShow("anomaly_pale_tooth", seenTooth) { 0.30 })
+    assertFalse(EventDripGate.shouldShow("anomaly_pale_tooth", seenTooth) { 0.99 })
+    assertFalse(EventDripGate.shouldShow("anomaly_pale_tooth", seenTooth) { Double.NaN })
+    assertTrue(EventDripGate.shouldShow("anomaly_glass_eye", seenTooth) { 0.99 })
+
+    // 2. Robolectric Compose UI verification with deterministic injectable roll
+    val context = ApplicationProvider.getApplicationContext<Context>()
+    val catalog = AssetDialogueRepository(context).loadCatalog()
+    var nextRoll = 0.99
+    var state by
+      mutableStateOf(
+        OrganGameEngine.initialState(catalog).copy(
+          ichor = 90.0,
+          cycleLifetimeIchor = 90.0,
+          phase = 1,
+          phaseName = catalog.phaseName(1),
+          triggeredDialogueIds = setOf("dlg_p2_glass_eye"),
+          activeAnomalies = listOf(ActiveWallAnomaly(12L, WallAnomalyType.PALE_TOOTH, 0.2f, 0.25f)),
+        )
+      )
+
+    composeTestRule.mainClock.autoAdvance = false
+    composeTestRule.setContent {
+      BleakTheme(phase = state.phase) {
+        OrganScreen(
+          state = state,
+          onPressValve = {},
+          onBuyCreature = {},
+          onBottleJar = {},
+          onPerformGraft = {},
+          onInteractAnomaly = { id -> state = OrganGameEngine.interactAnomaly(state, id, catalog) },
+          onPerformExcision = {},
+          eventDripRoll = { nextRoll },
+        )
+      }
+    }
+    composeTestRule.mainClock.advanceTimeBy(100)
+    composeTestRule.waitForIdle()
+
+    // Pull 1 triggers story drip -> chamber drip is suppressed and must NOT consume guaranteed first sighting
+    composeTestRule.onNodeWithTag("anomaly_pale_tooth_12").performClick()
+    composeTestRule.mainClock.advanceTimeBy(600)
+    composeTestRule.waitForIdle()
+    composeTestRule.onNodeWithTag("dripping_story_overlay").assertIsDisplayed()
+    composeTestRule.onNodeWithTag("dripping_event_overlay").assertDoesNotExist()
+
+    // Wait for 12s story drip to complete
+    composeTestRule.mainClock.advanceTimeBy(12_500)
+    composeTestRule.waitForIdle()
+    composeTestRule.onNodeWithTag("dripping_story_overlay").assertDoesNotExist()
+
+    // Pull 2: first unsuppressed sighting of Pale Tooth -> displays 100% even when roll is 0.99
+    composeTestRule.runOnIdle {
+      state =
+        state.copy(
+          activeAnomalies = listOf(ActiveWallAnomaly(13L, WallAnomalyType.PALE_TOOTH, 0.25f, 0.3f))
+        )
+    }
+    composeTestRule.mainClock.advanceTimeBy(100)
+    composeTestRule.waitForIdle()
+    composeTestRule.onNodeWithTag("anomaly_pale_tooth_13").performClick()
+    composeTestRule.mainClock.advanceTimeBy(600)
+    composeTestRule.waitForIdle()
+    composeTestRule.onNodeWithTag("dripping_event_overlay").assertIsDisplayed()
+
+    // Wait for event drip (~4.8s) to clear
+    composeTestRule.mainClock.advanceTimeBy(5_200)
+    composeTestRule.waitForIdle()
+    composeTestRule.onNodeWithTag("dripping_event_overlay").assertDoesNotExist()
+
+    // Pull 3: repeat Pale Tooth with roll = 0.99 (>= 0.30) -> stays quiet
+    nextRoll = 0.99
+    composeTestRule.runOnIdle {
+      state =
+        state.copy(
+          activeAnomalies = listOf(ActiveWallAnomaly(14L, WallAnomalyType.PALE_TOOTH, 0.25f, 0.3f))
+        )
+    }
+    composeTestRule.mainClock.advanceTimeBy(100)
+    composeTestRule.waitForIdle()
+    composeTestRule.onNodeWithTag("anomaly_pale_tooth_14").performClick()
+    composeTestRule.mainClock.advanceTimeBy(600)
+    composeTestRule.waitForIdle()
+    composeTestRule.onNodeWithTag("dripping_event_overlay").assertDoesNotExist()
+
+    // Pull 4: repeat Pale Tooth with roll = 0.15 (< 0.30) -> triggers drip text
+    nextRoll = 0.15
+    composeTestRule.runOnIdle {
+      state =
+        state.copy(
+          activeAnomalies = listOf(ActiveWallAnomaly(15L, WallAnomalyType.PALE_TOOTH, 0.25f, 0.3f))
+        )
+    }
+    composeTestRule.mainClock.advanceTimeBy(100)
+    composeTestRule.waitForIdle()
+    composeTestRule.onNodeWithTag("anomaly_pale_tooth_15").performClick()
+    composeTestRule.mainClock.advanceTimeBy(600)
+    composeTestRule.waitForIdle()
+    composeTestRule.onNodeWithTag("dripping_event_overlay").assertIsDisplayed()
+
+    // Wait for event drip to clear, then test a distinct unseen event (Glass Eye) with roll = 0.99 -> 100% shown
+    composeTestRule.mainClock.advanceTimeBy(5_200)
+    composeTestRule.waitForIdle()
+    nextRoll = 0.99
+    composeTestRule.runOnIdle {
+      state =
+        state.copy(
+          activeAnomalies = listOf(ActiveWallAnomaly(16L, WallAnomalyType.GLASS_EYE, 0.72f, 0.3f))
+        )
+    }
+    composeTestRule.mainClock.advanceTimeBy(100)
+    composeTestRule.waitForIdle()
+    composeTestRule.onNodeWithTag("anomaly_glass_eye_16").performClick()
+    composeTestRule.mainClock.advanceTimeBy(600)
+    composeTestRule.waitForIdle()
+    composeTestRule.onNodeWithTag("dripping_event_overlay").assertIsDisplayed()
+  }
+
+  @Test
+  fun weepingLamps_hangStrictlyOnFlanksWithoutMiddleLampHidingIncomeNumber() {
+    assertTrue(weepingLampLayout(0).isEmpty())
+    for (count in 1..6) {
+      val slots = weepingLampLayout(count)
+      assertEquals(count.coerceAtMost(5), slots.size)
+      slots.forEach { slot ->
+        assertTrue(
+          "Lamp at x=${slot.xFraction} for count=$count must stay clear of center income band (0.25..0.75)",
+          slot.xFraction <= 0.24f || slot.xFraction >= 0.76f,
+        )
+      }
+    }
+
+    // Verify 3 & 5 lamps render alongside the income readout cleanly in Robolectric Compose UI
+    val catalog = AssetDialogueRepository(ApplicationProvider.getApplicationContext()).loadCatalog()
+    val state =
+      OrganGameState(
+        ichor = 4_200.0,
+        cycleLifetimeIchor = 4_200.0,
+        phase = 2,
+        phaseName = catalog.phaseName(2),
+        creatures = mapOf(CreatureType.WEEPING_LAMP to 5),
+        isStillnessActive = true,
+      )
+    composeTestRule.setContent {
+      BleakTheme(phase = 2) {
+        OrganScreen(
+          state = state,
+          onPressValve = {},
+          onBuyCreature = {},
+          onBottleJar = {},
+          onPerformGraft = {},
+          onInteractAnomaly = {},
+          onPerformExcision = {},
+        )
+      }
+    }
+    composeTestRule.waitForIdle()
+    composeTestRule.onNodeWithTag("weeping_lamps_overlay").assertIsDisplayed()
+    composeTestRule.onNodeWithTag("ichor_rate_text").assertIsDisplayed()
+    composeTestRule.onNodeWithTag("counter_text").assertIsDisplayed()
+  }
+
+  @Test
+  fun wallAnomalyNodes_breatheSubtlyWithOrganicScaleAndRenderAllTypes() {
+    // Every wall anomaly type stays within subtle organic breathing bounds and varies across breathPhase
+    for (type in WallAnomalyType.entries) {
+      val samples = (0..10).map { step -> computeWallAnomalyBreathScale(1L, type, step / 10f) }
+      val minX = samples.minOf { it.first }
+      val maxX = samples.maxOf { it.first }
+      val minY = samples.minOf { it.second }
+      val maxY = samples.maxOf { it.second }
+      assertTrue("${type.id} scaleX must stay subtle (0.97..1.06)", minX >= 0.97f && maxX <= 1.06f)
+      assertTrue("${type.id} scaleY must stay subtle (0.97..1.06)", minY >= 0.97f && maxY <= 1.06f)
+      assertTrue("${type.id} must actually breathe across a cycle", (maxX - minX) >= 0.03f)
+    }
+
+    // Distinct anomaly IDs breathe out of phase with each other so simultaneous nodes feel organic
+    val id1 = computeWallAnomalyBreathScale(1L, WallAnomalyType.GLASS_EYE, 0.25f)
+    val id2 = computeWallAnomalyBreathScale(2L, WallAnomalyType.GLASS_EYE, 0.25f)
+    assertTrue("Distinct anomaly IDs should have desynchronized breath phases", id1 != id2)
+
+    // All 4 wall anomaly types render and remain tappable in Robolectric Compose UI
+    val catalog = AssetDialogueRepository(ApplicationProvider.getApplicationContext()).loadCatalog()
+    val clickedIds = mutableListOf<Long>()
+    val state =
+      OrganGameState(
+        ichor = 90_000.0,
+        cycleLifetimeIchor = 90_000.0,
+        phase = 4,
+        phaseName = catalog.phaseName(4),
+        activeAnomalies =
+          listOf(
+            ActiveWallAnomaly(101L, WallAnomalyType.PALE_TOOTH, 0.14f, 0.24f),
+            ActiveWallAnomaly(102L, WallAnomalyType.GLASS_EYE, 0.84f, 0.24f),
+            ActiveWallAnomaly(103L, WallAnomalyType.SWOLLEN_NODULE, 0.14f, 0.72f),
+            ActiveWallAnomaly(104L, WallAnomalyType.CHITIN_RIB, 0.84f, 0.72f),
+          ),
+      )
+    composeTestRule.setContent {
+      BleakTheme(phase = 4) {
+        OrganScreen(
+          state = state,
+          onPressValve = {},
+          onBuyCreature = {},
+          onBottleJar = {},
+          onPerformGraft = {},
+          onInteractAnomaly = { clickedIds += it },
+          onPerformExcision = {},
+        )
+      }
+    }
+    composeTestRule.waitForIdle()
+    for (tag in
+      listOf(
+        "anomaly_pale_tooth_101",
+        "anomaly_glass_eye_102",
+        "anomaly_swollen_nodule_103",
+        "anomaly_chitin_rib_104",
+      )) {
+      composeTestRule.onNodeWithTag(tag).assertIsDisplayed().performClick()
+    }
+    composeTestRule.waitForIdle()
+    assertEquals(listOf(101L, 102L, 103L, 104L), clickedIds)
+  }
+
+  @Test
+  fun colonyProliferationButton_hiddenBeforeExcisionThreeAndBulkBuysCreaturesAtM3() {
+    val viewModel = createViewModel()
+    viewModel.devSetHighestMilestone(2)
+    viewModel.devAssignArc1Resources(ichor = 25_000.0)
+
+    composeTestRule.setContent { OrganRoute(viewModel = viewModel) }
+    composeTestRule.waitForIdle()
+
+    // Before Excision III (M2), Proliferate strip must stay hidden
+    composeTestRule.onNodeWithTag("proliferate_suture_hand").assertDoesNotExist()
+    composeTestRule.onNodeWithTag("proliferate_leech_clerk").assertDoesNotExist()
+
+    // Unlock Excision III (M3): Proliferate strips appear and register colony_proliferation tab key
+    composeTestRule.runOnIdle { viewModel.devSetHighestMilestone(3) }
+    composeTestRule.waitForIdle()
+
+    val stateAtM3 = viewModel.uiState.value
+    assertTrue(
+      "colony_proliferation" in
+        com.example.ui.components.TabAlertEvaluator.arc1UnlockKeys(
+          stateAtM3,
+          com.example.game.OrganDeckTab.APPARATUS,
+        ),
+    )
+    val expectedHands = stateAtM3.maxAffordableCreatureQuote(CreatureType.SUTURE_HAND).count
+    assertTrue("Should afford multiple Suture-Hands with 25k Ichor", expectedHands >= 5)
+
+    composeTestRule
+      .onNodeWithTag("proliferate_suture_hand")
+      .performScrollTo()
+      .assertIsDisplayed()
+      .performClick()
+    composeTestRule.waitForIdle()
+
+    assertEquals(expectedHands, viewModel.uiState.value.creatureCount(CreatureType.SUTURE_HAND))
+    assertTrue(
+      "Remaining Ichor should be below cost of next single Suture-Hand",
+      viewModel.uiState.value.ichor <
+        viewModel.uiState.value.creatureCost(CreatureType.SUTURE_HAND).toDouble(),
+    )
+  }
+
+  @Test
+  fun formatValveYieldAndCompactDecimal_preventLargeNumberOverflowAndValveClipping() {
+    assertEquals("1", com.example.ui.components.formatValveYield(1.0))
+    assertEquals("9,840", com.example.ui.components.formatValveYield(9_840.0))
+    assertEquals("12.5K", com.example.ui.components.formatValveYield(12_500.0))
+    assertEquals("142K", com.example.ui.components.formatValveYield(142_300.0))
+    assertEquals("2.92M", com.example.ui.components.formatValveYield(2_923_756.0))
+    assertEquals("36B", com.example.ui.components.formatValveYield(36_000_000_000.0))
+    // Regression check: formatCompactDecimal must not saturate at Int.MAX_VALUE above 214.7M
+    assertEquals("500,000,000", com.example.ui.components.formatCompactDecimal(500_000_000.0))
   }
 }

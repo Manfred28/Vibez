@@ -20,43 +20,44 @@ export const EXCISION_MILESTONES = Object.freeze([
     number: 1,
     massThreshold: 210000,
     firstClearScarBonus: 0,
-    code: 'EXCISION I // FIRST SEVERANCE',
-    unlockSummary: 'Unlocks the 5-tier Scar Tissue Surgical Skill Tree & Repeatable Grafts.',
+    code: 'FIRST SEVERANCE',
+    unlockSummary: 'Unlocks the 5-tier Scar Tissue Surgical Skill Tree & Layered Grafts.',
   }),
   Object.freeze({
     number: 2,
     massThreshold: 1800000,
     firstClearScarBonus: 0,
-    code: 'EXCISION II // THE SUNKEN DRAIN',
+    code: 'THE SUNKEN DRAIN',
     unlockSummary: 'Unlocks Floor Drain Grate Sealing, Relic Dredging & Sump-Siphon.',
   }),
   Object.freeze({
     number: 3,
     massThreshold: 16000000,
     firstClearScarBonus: 0,
-    code: 'EXCISION III // THE UNBRICKED SEAM',
-    unlockSummary: 'Unlocks Neighbor Aperture Echo Routing (0% / 25% / 50%) & Echo Bursts.',
+    code: 'THE UNBRICKED SEAM',
+    unlockSummary:
+      'Unlocks Neighbor Aperture Echo Routing (0% / 25% / 50%), Echo Bursts & Colony Proliferation.',
   }),
   Object.freeze({
     number: 4,
     massThreshold: 140000000,
     firstClearScarBonus: 0,
-    code: 'EXCISION IV // THE BREATH-HOLD',
+    code: 'THE BREATH-HOLD',
     unlockSummary: 'Unlocks Valve Clamp (Marrow Bloom) & Choir-Lung Grafting.',
   }),
   Object.freeze({
     number: 5,
     massThreshold: 1250000000,
     firstClearScarBonus: 0,
-    code: 'EXCISION V // THE MEMBRANE AUDIT',
+    code: 'THE MEMBRANE AUDIT',
     unlockSummary: 'Unlocks The Ossified Throat & the 4-line Redacted Cult Dossier.',
   }),
   Object.freeze({
     number: 6,
-    massThreshold: 12000000000,
+    massThreshold: 36000000000,
     firstClearScarBonus: 0,
-    code: 'EXCISION VI // PLEAD FOR SALVATION',
-    unlockSummary: 'Opens the last wet seam — send a desperate plea for salvation upward into Arc 2: The Inquiry.',
+    code: 'PLEAD FOR SALVATION',
+    unlockSummary: 'Opens the last wet seam — send a desperate plea for salvation upward into The Inquiry.',
   }),
 ]);
 
@@ -114,14 +115,14 @@ export const SCAR_NODES = Object.freeze([
     cost: 45,
     prerequisite: 'membrane_recall',
     name: 'PERPETUAL SEAM',
-    desc: "The valve turns on its own without disturbing the room's quiet.",
+    desc: "The valve turns on its own without breaking the quiet; every stitch and lung answers harder.",
   }),
   // STILLNESS BRANCH (T1..T5)
   Object.freeze({
     id: 'shorter_silence',
     branch: 'stillness',
     tier: 1,
-    cost: 2,
+    cost: 1,
     prerequisite: 'first_incision',
     name: 'SHORTER SILENCE',
     desc: 'The room falls quiet almost as soon as you let go.',
@@ -130,7 +131,7 @@ export const SCAR_NODES = Object.freeze([
     id: 'wax_sealed_memory',
     branch: 'stillness',
     tier: 2,
-    cost: 5,
+    cost: 3,
     prerequisite: 'shorter_silence',
     name: 'WAX-SEALED MEMORY',
     desc: "Wax softens the quiet's price; fresh grafts knit twice as fast.",
@@ -139,7 +140,7 @@ export const SCAR_NODES = Object.freeze([
     id: 'deep_weeping',
     branch: 'stillness',
     tier: 3,
-    cost: 11,
+    cost: 6,
     prerequisite: 'wax_sealed_memory',
     name: 'DEEP WEEPING',
     desc: 'Even while you press the iron, the lamps keep weeping.',
@@ -160,7 +161,7 @@ export const SCAR_NODES = Object.freeze([
     cost: 45,
     prerequisite: 'hollow_lung_choir',
     name: 'CATATONIC TIDE',
-    desc: 'Stillness becomes a heavy tide carrying every jar and vein.',
+    desc: 'Quiet settles in a heartbeat and rises like a heavy tide carrying every jar and vein.',
   }),
   // MARROW BRANCH (T1..T5)
   Object.freeze({
@@ -213,21 +214,21 @@ export const SCAR_NODES = Object.freeze([
 export const REPEATABLE_SCAR_GRAFTS = Object.freeze([
   Object.freeze({
     id: 'keloid_thickening',
-    baseCost: 3,
+    baseCost: 1,
     costGrowth: 1.45,
     name: 'KELOID THICKENING',
     desc: 'Layered scar ridges thicken every flow in the room.',
   }),
   Object.freeze({
     id: 'sediment_well',
-    baseCost: 3,
+    baseCost: 1,
     costGrowth: 1.45,
     name: 'SEDIMENT WELL',
     desc: 'Quiet gathers thicker and asks less wax to bottle or bind.',
   }),
   Object.freeze({
     id: 'scar_harvest_hook',
-    baseCost: 4,
+    baseCost: 1,
     costGrowth: 1.55,
     name: 'SCAR-HARVEST HOOK',
     desc: 'Curved steel brings up more scar tissue on every excision.',
@@ -562,28 +563,28 @@ export const DESK_ANOMALY_LIST = Object.freeze([
 export const INVESTIGATION_CHAPTERS = Object.freeze([
   Object.freeze({
     number: 1,
-    title: 'CH. I // MISSING CARETAKERS',
+    title: 'THE MISSING CARETAKERS',
     summary: 'Three Hydro-Ward attendants vanished on Day 14—leaving bled-ink signatures identical to yours.',
     leadsCost: 400,
     silenceCost: 0,
   }),
   Object.freeze({
     number: 2,
-    title: 'CH. II // THE HYDRO-WARD CULT',
+    title: 'THE HYDRO-WARD CULT',
     summary: 'Private invoices for wax jars, iron valves, and quiet attendants referred to only as Vessels.',
     leadsCost: 4500,
     silenceCost: 20,
   }),
   Object.freeze({
     number: 3,
-    title: 'CH. III // BRICK-WORK BLUEPRINT',
+    title: 'THE BRICK-WORK BLUEPRINT',
     summary: 'The basement survey shows no exterior door at all—only brick laid three winters ago.',
     leadsCost: 35000,
     silenceCost: 65,
   }),
   Object.freeze({
     number: 4,
-    title: 'CH. IV // FILE #00: SUBJECT INTAKE',
+    title: 'FILE #00: SUBJECT INTAKE',
     summary: 'Distinguishing mark: pale transverse scar across left thumb. Status: Still seated at valve.',
     leadsCost: 180000,
     silenceCost: 140,
@@ -593,6 +594,7 @@ export const INVESTIGATION_CHAPTERS = Object.freeze([
 export const ORGAN_BALANCE = Object.freeze({
   STILLNESS_IDLE_DELAY_SEC: 3.0,
   SHORTER_SILENCE_DELAY_SEC: 1.5,
+  CATATONIC_TIDE_DELAY_SEC: 0.8,
   LAMP_STILLNESS_PER_SEC: 0.45,
   GAZE_DURATION_SEC: 12.0,
   GAZE_PASSIVE_MULTIPLIER: 1.6,
@@ -630,7 +632,7 @@ export const ORGAN_BALANCE = Object.freeze({
   SEDIMENT_WELL_COST_FACTOR: 0.96,
   SEDIMENT_WELL_COST_FLOOR: 0.68,
   SCAR_HARVEST_HOOK_PER_RANK: 0.12,
-  PERPETUAL_SEAM_INTERVAL_SEC: 1.2,
+  PERPETUAL_SEAM_INTERVAL_SEC: 0.75,
   FIRST_ANOMALY_DELAY_SEC: 14.0,
   ANOMALY_SPAWN_INTERVAL_SEC: 26.0,
   SOFTENED_MORTAR_SPEED_MULT: 1.6,
@@ -795,7 +797,7 @@ export function repeatableRank(state, graftOrId) {
 export function repeatableCost(state, graftOrId) {
   const graft = typeof graftOrId === 'string' ? repeatableGraftById(graftOrId) : graftOrId;
   if (!graft) return 0;
-  return Math.max(1, Math.ceil(graft.baseCost * Math.pow(graft.costGrowth, repeatableRank(state, graft.id))));
+  return Math.max(1, Math.floor(graft.baseCost * Math.pow(graft.costGrowth, repeatableRank(state, graft.id))));
 }
 
 export function isRepeatableGraftsUnlocked(state) {
@@ -823,27 +825,55 @@ export function isCreatureUnlocked(state, typeId) {
   );
 }
 
+function effectiveCreatureGrowth(state, spec) {
+  return hasNode(state, 'colony_inertia')
+    ? Math.max(1.14, spec.costGrowth - 0.04)
+    : spec.costGrowth;
+}
+
 export function creatureCost(state, typeId) {
   const spec = typeof typeId === 'string' ? creatureById(typeId) : typeId;
   if (!spec) return 0;
   const owned = creatureCount(state, spec.id);
-  const growth = hasNode(state, 'colony_inertia')
-    ? Math.max(1.14, spec.costGrowth - 0.04)
-    : spec.costGrowth;
-  return Math.floor(spec.baseCost * Math.pow(growth, owned));
+  return Math.floor(spec.baseCost * Math.pow(effectiveCreatureGrowth(state, spec), owned));
+}
+
+export function isColonyProliferationUnlocked(state) {
+  return state.highestExcisionMilestone >= 3;
+}
+
+export function maxAffordableCreatureQuote(state, typeId) {
+  const spec = typeof typeId === 'string' ? creatureById(typeId) : typeId;
+  if (!spec || !isCreatureUnlocked(state, spec)) {
+    return { count: 0, totalCost: 0 };
+  }
+  let remaining = state.ichor;
+  let owned = creatureCount(state, spec.id);
+  const growth = effectiveCreatureGrowth(state, spec);
+  let bought = 0;
+  let totalSpent = 0;
+  while (bought < 500) {
+    const nextCost = Math.max(1, Math.floor(spec.baseCost * Math.pow(growth, owned)));
+    if (remaining < nextCost) break;
+    remaining -= nextCost;
+    totalSpent += nextCost;
+    owned += 1;
+    bought += 1;
+  }
+  return { count: bought, totalCost: totalSpent };
 }
 
 export function stillnessIdleDelaySec(state) {
-  return hasNode(state, 'shorter_silence')
-    ? ORGAN_BALANCE.SHORTER_SILENCE_DELAY_SEC
-    : ORGAN_BALANCE.STILLNESS_IDLE_DELAY_SEC;
+  if (hasNode(state, 'catatonic_tide')) return ORGAN_BALANCE.CATATONIC_TIDE_DELAY_SEC;
+  if (hasNode(state, 'shorter_silence')) return ORGAN_BALANCE.SHORTER_SILENCE_DELAY_SEC;
+  return ORGAN_BALANCE.STILLNESS_IDLE_DELAY_SEC;
 }
 
 export function jarEffectBoost(state) {
   return (
     1.0 +
     (hasNode(state, 'wax_sealed_memory') ? 0.35 : 0.0) +
-    (hasNode(state, 'catatonic_tide') ? 0.35 : 0.0)
+    (hasNode(state, 'catatonic_tide') ? 0.5 : 0.0)
   );
 }
 
@@ -962,7 +992,8 @@ export function scarHarvestMultiplier(state) {
 }
 
 export function catatonicTideMultiplier(state) {
-  return state.isStillnessActive && hasNode(state, 'catatonic_tide') ? 1.75 : 1.0;
+  if (!hasNode(state, 'catatonic_tide')) return 1.0;
+  return state.isStillnessActive ? 2.6 : 1.45;
 }
 
 export function scarMultiplier(state) {
@@ -986,7 +1017,7 @@ export function scarStillnessMultiplier(state) {
 }
 
 export function relicAmplifier(state) {
-  return (hasNode(state, 'echo_ossuary') ? 1.45 : 1.0) * (hasNode(state, 'bone_resonance') ? 1.25 : 1.0);
+  return (hasNode(state, 'echo_ossuary') ? 1.35 : 1.0) * (hasNode(state, 'bone_resonance') ? 1.35 : 1.0);
 }
 
 export function relicIchorMultiplier(state) {
@@ -1040,7 +1071,7 @@ export function anomalyRewardMultiplier(state) {
   const mortarBoost = hasNode(state, 'softened_mortar') ? 1.8 : 1.0;
   const baseEchoBonus =
     state.echoDiversionPercent === 25 ? 0.35 : state.echoDiversionPercent === 50 ? 0.7 : 0.0;
-  const echoBoost = 1.0 + baseEchoBonus * (hasNode(state, 'bone_resonance') ? 1.25 : 1.0);
+  const echoBoost = 1.0 + baseEchoBonus * (hasNode(state, 'bone_resonance') ? 1.35 : 1.0);
   const bloomAnomalyBoost =
     state.marrowBloomRemainingSeconds > 0 && hasNode(state, 'bloom_incision') ? 1.4 : 1.0;
   return jarBoost * mortarBoost * echoBoost * bloomAnomalyBoost;
@@ -1062,7 +1093,7 @@ export function effectiveCreatureIchorPerSec(state, typeId) {
   const spec = typeof typeId === 'string' ? creatureById(typeId) : typeId;
   if (!spec) return 0.0;
   const inertiaMult = hasNode(state, 'colony_inertia') ? 1.75 : 1.0;
-  const seamMult = hasNode(state, 'perpetual_seam') ? 1.8 : 1.0;
+  const seamMult = hasNode(state, 'perpetual_seam') ? 2.25 : 1.0;
   const jarPotency = jarEffectBoost(state);
 
   let specimenMultiplier = 1.0;
@@ -1078,7 +1109,7 @@ export function effectiveCreatureIchorPerSec(state, typeId) {
       : 1.0;
     const weepingSurge = state.isStillnessActive
       ? hasNode(state, 'hollow_lung_choir')
-        ? 2.4
+        ? 2.6
         : 2.0
       : hasNode(state, 'deep_weeping')
         ? 1.25
@@ -1087,7 +1118,7 @@ export function effectiveCreatureIchorPerSec(state, typeId) {
     specimenMultiplier = nameJar * weepingSurge * deepMult;
   } else if (spec.id === CREATURE_TYPES.SUMP_SIPHON.id) {
     const autoMult = hasNode(state, 'auto_tendril_suture') ? 1.55 : 1.0;
-    const recallMult = hasNode(state, 'membrane_recall') ? 1.6 : 1.0;
+    const recallMult = hasNode(state, 'membrane_recall') ? 1.85 : 1.0;
     const sealPenalty = state.drainSealed ? 0.85 : 1.0;
     specimenMultiplier = autoMult * recallMult * sealPenalty;
   }
@@ -1125,17 +1156,19 @@ export function rawIchorPerSecond(state) {
   for (const spec of CREATURE_LIST) {
     creaturesRate += totalCreatureIchorPerSec(state, spec.id);
   }
+  const seamColonyMult = hasNode(state, 'perpetual_seam') ? 2.25 : 1.0;
   const graftNodeMult =
     (hasNode(state, 'auto_tendril_suture') ? 1.55 : 1.0) *
-    (hasNode(state, 'membrane_recall') ? 1.6 : 1.0);
+    (hasNode(state, 'membrane_recall') ? 1.85 : 1.0);
   const pulseMult = borrowedPulseMultiplier(state);
   const graftRate =
     state.graftedTendrils *
     ORGAN_BALANCE.GRAFT_ICHOR_PER_SEC *
     graftNodeMult *
+    seamColonyMult *
     pulseMult *
     globalIchorMultiplier(state);
-  const choirNodeMult = hasNode(state, 'hollow_lung_choir') ? 1.85 : 1.0;
+  const choirNodeMult = hasNode(state, 'hollow_lung_choir') ? 2.1 : 1.0;
   const lungStillnessBoost = state.isStillnessActive
     ? hasNode(state, 'hollow_lung_choir')
       ? 2.0
@@ -1145,6 +1178,7 @@ export function rawIchorPerSecond(state) {
     state.choirLungs *
     ORGAN_BALANCE.CHOIR_LUNG_ICHOR_PER_SEC *
     choirNodeMult *
+    seamColonyMult *
     lungStillnessBoost *
     pulseMult *
     globalIchorMultiplier(state);
@@ -1163,7 +1197,7 @@ export function manualTapYield(state) {
     : 0.0;
   const toothBonus = (state.anomalyInteractions?.pale_tooth ?? 0) * 0.5;
   const palmMult = hasNode(state, 'calloused_palm') ? 1.8 : 1.0;
-  const seamMult = hasNode(state, 'perpetual_seam') ? 1.8 : 1.0;
+  const seamMult = hasNode(state, 'perpetual_seam') ? 2.25 : 1.0;
   const echoBurst = hasNode(state, 'twin_stitch') ? ichorPerSecond(state) * 1.5 : 0.0;
   return (
     (1.0 + dustBonus + toothBonus) *
@@ -1190,7 +1224,7 @@ export function stillnessPerSecond(state) {
     scarStillnessMultiplier(state) *
     relicStillnessMultiplier(state) *
     gazeMultiplier(state);
-  const choirNodeMult = hasNode(state, 'hollow_lung_choir') ? 1.85 : 1.0;
+  const choirNodeMult = hasNode(state, 'hollow_lung_choir') ? 2.1 : 1.0;
   const lungStillnessBoost = state.isStillnessActive
     ? hasNode(state, 'hollow_lung_choir')
       ? 2.0
@@ -1347,7 +1381,7 @@ function minExcisionScarHarvest(state) {
   return Math.max(2, Math.floor(ORGAN_BALANCE.SCAR_CURVE_BASE_SCALE * scarHarvestMultiplier(state)));
 }
 
-function scarHarvestForMass(state, mass) {
+function rawScarHarvestForMass(state, mass) {
   if (mass < ORGAN_BALANCE.EXCISION_ICHOR_THRESHOLD) return 0;
   const ratio = mass / ORGAN_BALANCE.EXCISION_ICHOR_THRESHOLD;
   const raw =
@@ -1357,16 +1391,42 @@ function scarHarvestForMass(state, mass) {
   return Math.max(2, Math.floor(raw));
 }
 
+function milestonePulledScarCount(state) {
+  const milestoneMass = nextExcisionMilestone(state)?.massThreshold ?? null;
+  if (milestoneMass == null || milestoneMass <= ORGAN_BALANCE.EXCISION_ICHOR_THRESHOLD) {
+    return null;
+  }
+  const atMilestone = rawScarHarvestForMass(state, milestoneMass);
+  const justBefore = rawScarHarvestForMass(state, milestoneMass - 1);
+  return atMilestone === justBefore && atMilestone > 0 ? atMilestone + 1 : null;
+}
+
+function scarHarvestForMass(state, mass) {
+  const raw = rawScarHarvestForMass(state, mass);
+  if (raw === 0) return 0;
+  const pulled = milestonePulledScarCount(state);
+  const milestoneMass = nextExcisionMilestone(state)?.massThreshold ?? null;
+  if (pulled != null && milestoneMass != null && mass >= milestoneMass && raw === pulled - 1) {
+    return pulled;
+  }
+  return raw;
+}
+
 export function massRequiredForScarCount(state, targetScars) {
   if (targetScars <= 0) return 0;
   if (targetScars <= minExcisionScarHarvest(state)) return ORGAN_BALANCE.EXCISION_ICHOR_THRESHOLD;
+  const pulled = milestonePulledScarCount(state);
+  const milestoneMass = nextExcisionMilestone(state)?.massThreshold ?? null;
+  if (pulled != null && milestoneMass != null && targetScars === pulled) {
+    return milestoneMass;
+  }
   const denom = ORGAN_BALANCE.SCAR_CURVE_BASE_SCALE * scarHarvestMultiplier(state);
   const ratio = Math.pow(targetScars / denom, 1.0 / ORGAN_BALANCE.SCAR_CURVE_EXPONENT);
   let candidate = Math.max(
     ORGAN_BALANCE.EXCISION_ICHOR_THRESHOLD,
     Math.ceil(ORGAN_BALANCE.EXCISION_ICHOR_THRESHOLD * ratio),
   );
-  while (scarHarvestForMass(state, candidate) < targetScars) {
+  while (rawScarHarvestForMass(state, candidate) < targetScars) {
     candidate += 1;
   }
   return candidate;
@@ -1786,13 +1846,13 @@ export function tick(state, deltaSeconds, catalog) {
   if (echoPulseReady) {
     const baseEchoMultiplier =
       nextState.echoDiversionPercent === 25
-        ? 18.0
+        ? 10.5
         : nextState.echoDiversionPercent === 50
-          ? 30.0
+          ? 18.0
           : 0.0;
     const echoYieldBoost =
-      (hasNode(nextState, 'echo_ossuary') ? 1.35 : 1.0) *
-      (hasNode(nextState, 'bone_resonance') ? 1.25 : 1.0);
+      (hasNode(nextState, 'echo_ossuary') ? 1.25 : 1.0) *
+      (hasNode(nextState, 'bone_resonance') ? 1.35 : 1.0);
     const echoBurst = Math.max(
       250.0,
       rawIchorPerSecond(nextState) * baseEchoMultiplier * echoYieldBoost,
@@ -1837,6 +1897,28 @@ export function buyCreature(state, typeId, catalog) {
     [spec.id]: creatureCount(state, spec.id) + 1,
   };
   return finalizeProgression({ ...state, ichor: state.ichor - cost, creatures: updatedCreatures }, catalog);
+}
+
+export function buyMaxCreature(state, typeId, catalog) {
+  const spec = typeof typeId === 'string' ? creatureById(typeId) : typeId;
+  if (!spec || !isColonyProliferationUnlocked(state) || !isCreatureUnlocked(state, spec)) {
+    return state;
+  }
+  const quote = maxAffordableCreatureQuote(state, spec);
+  if (quote.count <= 0) return state;
+
+  const updatedCreatures = {
+    ...state.creatures,
+    [spec.id]: creatureCount(state, spec.id) + quote.count,
+  };
+  return finalizeProgression(
+    {
+      ...state,
+      ichor: Math.max(0.0, state.ichor - quote.totalCost),
+      creatures: updatedCreatures,
+    },
+    catalog,
+  );
 }
 
 export function bottleJar(state, jarId, catalog) {
@@ -2598,6 +2680,32 @@ export function formatCompactDecimal(value) {
     return Math.trunc(rounded).toLocaleString('en-US');
   }
   return rounded.toLocaleString('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+}
+
+export function formatValveYield(value) {
+  if (value < 10000) return formatCompactDecimal(value);
+  let scaled = value;
+  let suffix = '';
+  if (value < 1000000) {
+    scaled = value / 1000;
+    suffix = 'K';
+  } else if (value < 1000000000) {
+    scaled = value / 1000000;
+    suffix = 'M';
+  } else if (value < 1000000000000) {
+    scaled = value / 1000000000;
+    suffix = 'B';
+  } else {
+    scaled = value / 1000000000000;
+    suffix = 'T';
+  }
+  const maxDecimals = scaled < 10 ? 2 : scaled < 100 ? 1 : 0;
+  const formatted = scaled.toLocaleString('en-US', {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: maxDecimals,
+    useGrouping: false,
+  });
+  return `${formatted}${suffix}`;
 }
 
 export function formatMultiplier(value) {

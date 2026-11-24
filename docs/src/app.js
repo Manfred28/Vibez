@@ -15,6 +15,7 @@ import {
   arc2InspectYield,
   bottleJar,
   buyCreature,
+  buyMaxCreature,
   buyRepeatableScarGraft,
   connectNextChapter,
   creatureCount,
@@ -30,6 +31,7 @@ import {
   dredgeSump,
   enterArc3Convergence,
   formatCompactDecimal,
+  formatValveYield,
   initialState,
   inspectCaseFile,
   interactAnomaly,
@@ -48,21 +50,21 @@ import {
   tick,
   toggleDrainSeal,
   unlockScarNode,
-} from './engine.js?v=2.9';
+} from './engine.js?v=3.5';
 import {
   drawChamberBackdrop,
   drawForegroundLampsAndSacrifice,
   drawInvestigatorDeskBackdrop,
   drawLeechClerks,
   drawValveAndHands,
-} from './chamberCanvas.js?v=2.9';
-import { createUiController } from './ui.js?v=2.9';
+} from './chamberCanvas.js?v=3.5';
+import { createUiController } from './ui.js?v=3.5';
 import {
   SOUND_ACTION_HINTS,
   computeAmbientProfile,
   createWebAudioEngine,
   resolveTransitionCues,
-} from './audio.js?v=2.9';
+} from './audio.js?v=3.5';
 
 const SAVE_STORAGE_KEY_V2 = 'unnamed_organ_save_v2';
 const SAVE_STORAGE_KEY_V1 = 'unnamed_organ_save_v1';
@@ -98,7 +100,7 @@ function clearSavedRaw() {
 
 async function loadDialogueCatalog() {
   try {
-    const response = await fetch('./assets/dialogues.json?v=2.9', { cache: 'no-cache' });
+    const response = await fetch('./assets/dialogues.json?v=3.5', { cache: 'no-cache' });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     return await response.json();
   } catch (err) {
@@ -190,7 +192,7 @@ async function main() {
   function observeStateEvents(next) {
     if (next.echoPulsesTriggered > lastEchoPulses) {
       echoRippleStartMs = performance.now();
-      ui.triggerEventDrip('Something behind the mortar answers in kind.', 'APERTURE');
+      ui.triggerEventDrip('Something behind the mortar answers in kind.', 'APERTURE', 'echo_answer');
     }
     lastEchoPulses = next.echoPulsesTriggered;
 
@@ -202,7 +204,7 @@ async function main() {
         sacrificeKind === 'choir_lung'
           ? 'Two lamps and a tendril collapse inward into wet breath.'
           : 'Two hands and two leeches slacken, braided into one hum.';
-      ui.triggerEventDrip(msg, 'GRAFT');
+      ui.triggerEventDrip(msg, 'GRAFT', `graft_${sacrificeKind}`);
     }
     lastSacrificePulse = pulse;
   }
@@ -232,18 +234,23 @@ async function main() {
     if (next !== prev) {
       dispatchAudioTransition(prev, next, action);
     }
-    observeStateEvents(next);
     if (persist) {
       persistNow();
     } else {
       hasUnsavedChanges = true;
     }
     ui.render(state);
+    observeStateEvents(next);
   }
 
   const ui = createUiController({
     onBuyCreature(typeId) {
       applyState(buyCreature(state, typeId, catalog), { action: SOUND_ACTION_HINTS.CREATURE_BUY });
+    },
+    onBuyMaxCreature(typeId) {
+      applyState(buyMaxCreature(state, typeId, catalog), {
+        action: SOUND_ACTION_HINTS.CREATURE_BUY,
+      });
     },
     onBottleJar(jarId) {
       applyState(bottleJar(state, jarId, catalog), { action: SOUND_ACTION_HINTS.JAR_BOTTLE });
@@ -271,7 +278,11 @@ async function main() {
     },
     onDredgeSump() {
       applyState(dredgeSump(state, catalog), { action: SOUND_ACTION_HINTS.SUMP_DREDGE });
-      ui.triggerEventDrip('Something wet and cold comes up from beneath the grate.', 'SUMP');
+      ui.triggerEventDrip(
+        'Something wet and cold comes up from beneath the grate.',
+        'SUMP',
+        'sump_dredge',
+      );
     },
     onSetEchoDiversion(pct) {
       applyState(setEchoDiversion(state, pct, catalog), {
@@ -280,7 +291,11 @@ async function main() {
     },
     onActivateValveClamp() {
       applyState(activateValveClamp(state, catalog), { action: SOUND_ACTION_HINTS.CLAMP_ENGAGE });
-      ui.triggerEventDrip('The iron bolts shut; pressure thickens behind the tiles.', 'CLAMP');
+      ui.triggerEventDrip(
+        'The iron bolts shut; pressure thickens behind the tiles.',
+        'CLAMP',
+        'valve_clamp',
+      );
     },
     onOfferToThroat(lineId) {
       applyState(offerToThroat(state, lineId, catalog), {
@@ -289,15 +304,15 @@ async function main() {
     },
     onInteractAnomaly(anomalyId) {
       const anomaly = state.activeAnomalies.find((a) => a.id === anomalyId);
-      if (anomaly) {
-        const meta = Object.values(WALL_ANOMALY_TYPES).find((t) => t.id === anomaly.type);
-        if (meta?.dripLine) {
-          ui.triggerEventDrip(meta.dripLine, 'CHAMBER');
-        }
-      }
+      const meta = anomaly
+        ? Object.values(WALL_ANOMALY_TYPES).find((t) => t.id === anomaly.type)
+        : null;
       applyState(interactAnomaly(state, anomalyId, catalog), {
         action: SOUND_ACTION_HINTS.ANOMALY_INTERACT,
       });
+      if (anomaly && meta?.dripLine) {
+        ui.triggerEventDrip(meta.dripLine, 'CHAMBER', `anomaly_${anomaly.type}`);
+      }
     },
     onPerformExcision() {
       applyState(performExcision(state, catalog), { action: SOUND_ACTION_HINTS.EXCISION });
@@ -320,10 +335,15 @@ async function main() {
       });
     },
     onInteractDeskAnomaly(anomalyId) {
+      const anomaly = state.arc2.activeDeskAnomalies.find((a) => a.id === anomalyId);
       applyState(interactDeskAnomaly(state, anomalyId, catalog), {
         action: SOUND_ACTION_HINTS.ARC2_DESK_ANOMALY,
       });
-      ui.triggerEventDrip('Another damp slip pinned to the margin.', 'CASE DESK');
+      ui.triggerEventDrip(
+        'Another damp slip pinned to the margin.',
+        'CASE DESK',
+        `desk_${anomaly?.type ?? 'anomaly'}`,
+      );
     },
     onConnectNextChapter() {
       applyState(connectNextChapter(state, catalog), { action: SOUND_ACTION_HINTS.ARC2_CHAPTER });
@@ -338,7 +358,7 @@ async function main() {
     if (state.clampRemainingSeconds > 0) return;
     audio.unlock();
     valveAngleDeg = (valveAngleDeg + 24) % 360000;
-    const yieldLabel = formatCompactDecimal(manualTapYield(state));
+    const yieldLabel = formatValveYield(manualTapYield(state));
     applyState(pressValve(state, catalog), {
       persist: false,
       action: SOUND_ACTION_HINTS.VALVE_PRESS,
@@ -533,13 +553,16 @@ async function main() {
 
     const prev = state;
     const next = tick(state, dt, catalog);
-    if (next !== state) {
+    const changed = next !== state;
+    if (changed) {
       state = next;
       dispatchAudioTransition(prev, next, SOUND_ACTION_HINTS.TICK);
-      observeStateEvents(next);
       hasUnsavedChanges = true;
     }
     ui.render(state);
+    if (changed) {
+      observeStateEvents(next);
+    }
 
     autosaveAccumulator += dt;
     if (autosaveAccumulator >= 2.0) {

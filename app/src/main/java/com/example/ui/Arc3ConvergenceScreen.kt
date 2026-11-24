@@ -11,6 +11,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
@@ -26,6 +28,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.example.R
+import com.example.game.ExcisionMilestone
 import com.example.game.GameArc
 import com.example.game.OrganGameState
 import com.example.ui.components.AudioMuteTogglePill
@@ -57,14 +60,15 @@ fun Arc3ConvergenceScreen(
       )
     },
   ) { innerPadding ->
-    Column(
-      modifier =
-        Modifier.fillMaxSize()
-          .padding(innerPadding)
-          .padding(horizontal = 24.dp, vertical = 20.dp),
-      horizontalAlignment = Alignment.CenterHorizontally,
-      verticalArrangement = Arrangement.Center,
-    ) {
+      Column(
+        modifier =
+          Modifier.fillMaxSize()
+            .padding(innerPadding)
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 24.dp, vertical = 20.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
+      ) {
       Surface(
         modifier = Modifier.fillMaxWidth().widthIn(max = 520.dp),
         shape = MaterialTheme.shapes.small,
@@ -97,16 +101,24 @@ fun Arc3ConvergenceScreen(
             style = MaterialTheme.typography.bodyMedium,
             color = colorScheme.onSurfaceVariant,
           )
+          val lastExcisionName = ExcisionMilestone.byNumber(state.highestExcisionMilestone)?.code
+          val convergenceSummary =
+            buildList {
+                add("SCAR TISSUE: ${state.scarTissue}")
+                if (lastExcisionName != null) add(lastExcisionName)
+                add("DOSSIER: ${state.unredactedDossierLines.size}/4")
+                add("RECOVERED NOTES: ${state.discoveredDialogues.size}")
+              }
+              .joinToString(" · ")
           Text(
-            text =
-              "SCAR TISSUE: ${state.scarTissue} · NODES: ${state.unlockedScarNodes.size}/10 · DOSSIER: ${state.unredactedDossierLines.size}/4 · CHAPTERS: ${state.arc2.completedChapters}/4",
+            text = convergenceSummary,
             style = MaterialTheme.typography.labelSmall,
             color = colorScheme.primary,
           )
           InvestigatorActionRow(
             title = stringResource(R.string.arc3_return_chamber),
-            subtitle = "Return to the tiled room with all Excision progress intact.",
-            actionLabel = "ARC 1",
+            subtitle = "Step back to the tiled room with all scars intact.",
+            actionLabel = "CHAMBER",
             enabled = true,
             accent = false,
             testTag = "arc3_to_arc1_button",
@@ -114,8 +126,8 @@ fun Arc3ConvergenceScreen(
           )
           InvestigatorActionRow(
             title = stringResource(R.string.arc3_return_desk),
-            subtitle = "Return to the haunted desk and File #00 pinboard.",
-            actionLabel = "ARC 2",
+            subtitle = "Step back to the rain-streaked desk and File #00 pinboard.",
+            actionLabel = "DESK",
             enabled = true,
             accent = true,
             testTag = "arc3_to_arc2_button",

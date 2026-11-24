@@ -22,13 +22,13 @@ import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -40,6 +40,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
@@ -56,7 +57,6 @@ import com.example.data.AssetDialogueRepository
 import com.example.data.SharedPreferencesOrganSaveRepository
 import com.example.game.CreatureType
 import com.example.game.CultDossierLine
-import com.example.game.ExcisionMilestone
 import com.example.game.GameArc
 import com.example.game.OrganDeckTab
 import com.example.game.OrganGameState
@@ -70,9 +70,8 @@ import com.example.ui.components.DevToolsTriggerPill
 import com.example.ui.components.DevToolsModal
 import com.example.ui.components.FragmentArchiveSheet
 import com.example.ui.components.PinnedLedgerBottomBar
-import com.example.ui.components.formatMultiplier
 import com.example.ui.theme.BleakTheme
-import java.text.NumberFormat
+import kotlin.random.Random
 
 @Composable
 fun OrganRoute(modifier: Modifier = Modifier, viewModel: OrganViewModel? = null) {
@@ -96,6 +95,13 @@ fun OrganRoute(modifier: Modifier = Modifier, viewModel: OrganViewModel? = null)
   val uiState by resolvedViewModel.uiState.collectAsStateWithLifecycle()
   val isAudioMuted by resolvedViewModel.isAudioMuted.collectAsStateWithLifecycle()
   var devToolsVisible by remember { mutableStateOf(false) }
+
+  val hostView = LocalView.current
+  SideEffect {
+    if (hostView.isSoundEffectsEnabled) {
+      hostView.isSoundEffectsEnabled = false
+    }
+  }
 
   val lifecycleOwner = LocalLifecycleOwner.current
   DisposableEffect(lifecycleOwner, resolvedViewModel) {
@@ -129,6 +135,7 @@ fun OrganRoute(modifier: Modifier = Modifier, viewModel: OrganViewModel? = null)
           state = uiState,
           onPressValve = resolvedViewModel::pressValve,
           onBuyCreature = resolvedViewModel::buyCreature,
+          onBuyMaxCreature = resolvedViewModel::buyMaxCreature,
           onBottleJar = resolvedViewModel::bottleJar,
           onPerformGraft = resolvedViewModel::performGraft,
           onInteractAnomaly = resolvedViewModel::interactAnomaly,
@@ -199,6 +206,7 @@ fun OrganScreen(
   onPerformGraft: () -> Unit,
   onInteractAnomaly: (Long) -> Unit,
   onPerformExcision: () -> Unit,
+  onBuyMaxCreature: (CreatureType) -> Unit = {},
   onUnlockScarNode: (ScarNodeId) -> Unit = {},
   onBuyRepeatableScarGraft: (RepeatableScarGraft) -> Unit = {},
   onToggleDrainSeal: () -> Unit = {},
@@ -212,6 +220,7 @@ fun OrganScreen(
   isAudioMuted: Boolean = false,
   onToggleAudioMute: () -> Unit = {},
   modifier: Modifier = Modifier,
+  eventDripRoll: () -> Double = { Random.nextDouble() },
 ) {
   val colorScheme = MaterialTheme.colorScheme
   val atmosphere = BleakTheme.atmosphere
@@ -222,6 +231,17 @@ fun OrganScreen(
   var nextDripId by remember { mutableStateOf(1L) }
   val eventSpeakerLabel = stringResource(R.string.drip_event_speaker)
   val scrollState = rememberScrollState()
+
+  val isFreshReset =
+    state.cycle == 0 &&
+      state.cycleLifetimeIchor == 0.0 &&
+      state.discoveredDialogues.isEmpty() &&
+      state.anomalyInteractions.isEmpty()
+  LaunchedEffect(isFreshReset) {
+    if (isFreshReset) {
+      latestDripEvent = null
+    }
+  }
 
   LaunchedEffect(state.cycle) {
     if (state.cycle > 0) {
@@ -340,13 +360,14 @@ fun OrganScreen(
           dropPhaseProvider = { dropPhaseState.value },
           onPressValve = onPressValve,
           onInteractAnomaly = onInteractAnomaly,
-          onEmitThematicDrip = { text ->
+          onEmitThematicDrip = { eventKey, text ->
             val id = nextDripId++
             latestDripEvent =
               com.example.ui.components.ThematicDripEvent(
                 id = id,
                 speaker = "// $eventSpeakerLabel",
                 text = text,
+                eventKey = eventKey,
               )
           },
           modifier = Modifier.height(300.dp),
@@ -361,6 +382,7 @@ fun OrganScreen(
             selectedTab = selectedTab,
             onSelectTab = { selectedTab = it },
             onBuyCreature = onBuyCreature,
+            onBuyMaxCreature = onBuyMaxCreature,
             onBottleJar = onBottleJar,
             onPerformGraft = onPerformGraft,
             onPerformExcision = {
@@ -387,6 +409,7 @@ fun OrganScreen(
         activeDialogue = state.activeDialogue,
         latestEvent = latestDripEvent,
         modifier = Modifier.fillMaxSize(),
+        eventDripRoll = eventDripRoll,
       )
     }
   }
@@ -409,25 +432,6 @@ private fun PhaseTelemetryHeader(
   modifier: Modifier = Modifier,
 ) {
   val colorScheme = MaterialTheme.colorScheme
-  val atmosphere = BleakTheme.atmosphere
-  val numberFormat = remember { NumberFormat.getIntegerInstance() }
-
-  val formattedThresholds =
-    remember(state.cycleLifetimeIchorDisplay, state.nextPhaseThreshold) {
-      val next = state.nextPhaseThreshold
-      if (next != null) {
-        numberFormat.format(state.cycleLifetimeIchorDisplay) to numberFormat.format(next)
-      } else {
-        null
-      }
-    }
-
-  val targetExcisionMass =
-    state.nextExcisionMilestone?.massThreshold ?: ExcisionMilestone.FINAL_SEVERANCE.massThreshold
-  val formattedExcisionProgress =
-    remember(state.cycleLifetimeIchorDisplay, targetExcisionMass) {
-      numberFormat.format(state.cycleLifetimeIchorDisplay) to numberFormat.format(targetExcisionMass)
-    }
 
   Column(modifier = modifier.fillMaxWidth()) {
     Row(
@@ -436,7 +440,7 @@ private fun PhaseTelemetryHeader(
       verticalAlignment = Alignment.CenterVertically,
     ) {
       Text(
-        text = stringResource(R.string.phase_readout, state.phase, phaseTitle),
+        text = stringResource(R.string.phase_readout, phaseTitle),
         style = MaterialTheme.typography.labelMedium,
         color = colorScheme.onSurfaceVariant,
         modifier = Modifier.weight(1f).testTag("phase_header"),
@@ -445,55 +449,27 @@ private fun PhaseTelemetryHeader(
         horizontalArrangement = Arrangement.spacedBy(6.dp),
         verticalAlignment = Alignment.CenterVertically,
       ) {
-        Text(
-          text = stringResource(R.string.transmission_phase_badge, state.phase),
-          style = MaterialTheme.typography.labelSmall,
-          color = colorScheme.tertiary,
-        )
         AudioMuteTogglePill(isMuted = isAudioMuted, onToggle = onToggleAudioMute)
         DevToolsTriggerPill(onClick = onOpenDevTools)
       }
     }
 
-    Spacer(modifier = Modifier.height(6.dp))
-
-    LinearProgressIndicator(
-      progress = { state.phaseProgress.coerceIn(0f, 1f) },
-      modifier = Modifier.fillMaxWidth().height(2.dp).testTag("phase_progress_bar"),
-      color = if (state.phase >= 2) colorScheme.tertiary else colorScheme.primary,
-      trackColor = atmosphere.hairline,
-      drawStopIndicator = {},
-    )
-
-    Spacer(modifier = Modifier.height(5.dp))
-
-    val thresholdText =
+    val readyStatusText =
       when {
         state.canBreachToArc2 -> stringResource(R.string.threshold_breach_ready)
         state.canExcise -> stringResource(R.string.threshold_excision_ready)
-        formattedThresholds != null ->
-          stringResource(
-            R.string.threshold_progress_format,
-            formattedThresholds.first,
-            formattedThresholds.second,
-          )
-        state.phase >= 4 ->
-          stringResource(
-            R.string.threshold_excision_progress_format,
-            formattedExcisionProgress.first,
-            formattedExcisionProgress.second,
-          )
-        else -> stringResource(R.string.threshold_endless_label)
+        else -> null
       }
 
-    Text(
-      text = thresholdText,
-      style = MaterialTheme.typography.labelSmall,
-      color =
-        if (state.canExcise || state.canBreachToArc2) colorScheme.tertiary
-        else colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
-      modifier = Modifier.testTag("threshold_status"),
-    )
+    if (readyStatusText != null) {
+      Spacer(modifier = Modifier.height(5.dp))
+      Text(
+        text = readyStatusText,
+        style = MaterialTheme.typography.labelSmall,
+        color = colorScheme.tertiary,
+        modifier = Modifier.testTag("threshold_status"),
+      )
+    }
   }
 }
 

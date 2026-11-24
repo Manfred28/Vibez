@@ -10,10 +10,10 @@
     />
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
     <meta http-equiv="Pragma" content="no-cache" />
-    <meta name="app-build" content="2.9" />
+    <meta name="app-build" content="3.5" />
     <title>Tap Counter // The Counting Room</title>
     <link rel="icon" type="image/png" href="./assets/icon.png" />
-    <link rel="stylesheet" href="./styles.css?v=2.9" />
+    <link rel="stylesheet" href="./styles.css?v=3.5" />
   </head>
   <body data-phase="0" data-arc="arc_1">
     <main class="app-shell">
@@ -83,15 +83,11 @@
 
       <!-- ==================== ARC 1: THE COUNTING ROOM ==================== -->
       <div id="arc1-shell" class="arc-shell">
-        <section class="telemetry-header" aria-label="Phase telemetry">
+        <section class="telemetry-header" aria-label="Chamber state">
           <div class="telemetry-row">
-            <span id="phase-header" class="phase-label">PHASE 00 // THE COUNTING ROOM</span>
-            <span id="phase-badge" class="phase-badge">P0</span>
+            <span id="phase-header" class="phase-label">THE COUNTING ROOM</span>
           </div>
-          <div class="progress-track" aria-hidden="true">
-            <div id="phase-progress-fill" class="progress-fill"></div>
-          </div>
-          <div id="threshold-status" class="threshold-status">NEXT FRACTURE: 0 / 75</div>
+          <div id="threshold-status" class="threshold-status" hidden></div>
         </section>
 
         <section class="chamber-card" aria-label="Chamber wall and valve">
@@ -159,14 +155,13 @@
       <div id="arc2-shell" class="arc-shell" hidden>
         <section class="telemetry-header telemetry-header--arc2" aria-label="Investigation telemetry">
           <div class="telemetry-row">
-            <span id="arc2-header" class="phase-label">ARC 02 // THE INQUIRY · CASE #14-B</span>
-            <span id="arc2-chapter-badge" class="phase-badge">CH 0/4</span>
+            <span id="arc2-header" class="phase-label">THE INQUIRY · CASE #14-B</span>
           </div>
           <div id="arc2-complicity-label" class="cycle-status">COMPLICITY: 5% · SCAR ECHOES: 0</div>
           <div class="progress-track" aria-hidden="true">
             <div id="arc2-complicity-fill" class="progress-fill progress-fill--deep"></div>
           </div>
-          <div id="arc2-chapter-status" class="threshold-status">NEXT CHAPTER: MISSING CARETAKERS</div>
+          <div id="arc2-chapter-status" class="threshold-status" hidden></div>
         </section>
 
         <section class="chamber-card chamber-card--desk" aria-label="Haunted investigator desk">
@@ -216,7 +211,7 @@
             recessed valve. The blotter curls back from damp hospital tile.
           </p>
           <button id="enter-arc3-btn" type="button" class="excision-btn excision-btn--confirm">
-            STEP THROUGH THE SEAM // ARC 03 THRESHOLD
+            STEP PAST THE SEAM
           </button>
         </section>
 
@@ -228,8 +223,8 @@
 
       <!-- ==================== ARC 3: OPEN CONVERGENCE THRESHOLD ==================== -->
       <div id="arc3-shell" class="arc-shell" hidden>
-        <section class="arc3-card" aria-label="Arc 3 convergence threshold">
-          <div class="arc3-kicker">ARC 03 // CONVERGENCE THRESHOLD</div>
+        <section class="arc3-card" aria-label="Convergence threshold">
+          <div class="arc3-kicker">CONVERGENCE THRESHOLD</div>
           <h2 class="arc3-title">THE ROOM AND THE DESK SHARE ONE SEAM</h2>
           <p class="arc3-body">
             File #00 is open. The investigator who traced the Hydro-Ward cult and the attendant
@@ -239,10 +234,10 @@
           <div id="arc3-stats" class="arc3-stats"></div>
           <div class="excision-btn-row">
             <button id="arc3-back-desk-btn" type="button" class="excision-btn excision-btn--cancel">
-              RETURN TO DESK (ARC 2)
+              RETURN TO THE DESK
             </button>
             <button id="arc3-back-chamber-btn" type="button" class="excision-btn excision-btn--arm">
-              RETURN TO VALVE (ARC 1)
+              RETURN TO THE CHAMBER
             </button>
           </div>
         </section>
@@ -347,7 +342,7 @@
               <button type="button" class="dev-chip" data-dev-ichor="16000000">SET 16M</button>
               <button type="button" class="dev-chip" data-dev-ichor="140000000">SET 140M</button>
               <button type="button" class="dev-chip" data-dev-ichor="1250000000">SET 1.25B</button>
-              <button type="button" class="dev-chip" data-dev-ichor="12000000000">SET 12B</button>
+              <button type="button" class="dev-chip" data-dev-ichor="36000000000">SET 36B</button>
               <button id="dev-preset-stillness-btn" type="button" class="dev-chip">+300 STILL</button>
               <button id="dev-preset-scar-btn" type="button" class="dev-chip">+40 SCAR</button>
             </div>
@@ -397,8 +392,8 @@
         </div>
         <div class="modal-body">
           <p class="excision-summary">
-            Clear all locally stored browser Ichor, Organisms, Scar Tissue, Surgical Nodes, Arc 2
-            Case Files, and Archive fragments? This cannot be undone.
+            Clear all locally stored browser Ichor, Organisms, Scar Tissue, Surgical Nodes, Case
+            Files, and Archive fragments? This cannot be undone.
           </p>
           <div class="excision-btn-row">
             <button id="cancel-reset-btn" type="button" class="excision-btn excision-btn--cancel">HOLD</button>
@@ -408,6 +403,6 @@
       </div>
     </div>
 
-    <script type="module" src="./src/app.js?v=2.9"></script>
+    <script type="module" src="./src/app.js?v=3.5"></script>
   </body>
 </html>

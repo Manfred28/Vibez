@@ -8,7 +8,7 @@
  * - Weeping Lamp specimen portrait & anatomical Wall Anomaly glyphs
  */
 
-import { CREATURE_TYPES, creatureCount } from './engine.js?v=2.9';
+import { CREATURE_TYPES, creatureCount } from './engine.js?v=3.5';
 
 const PALETTE = Object.freeze({
   voidAbyss: '#0A0B0B',
@@ -406,8 +406,13 @@ export function drawChamberBackdrop(
     }
   }
 
-  // 10. Excision II-V Chamber Mutations (Weeping Lamps now render in foreground layer over counter!)
+  // 10. Excision II-V Chamber Mutations & Flanking Weeping Lamps (behind foreground HUD so income stays unobstructed)
   drawExcisionChamberMutations(ctx, width, height, state, breath, echoRipple);
+
+  const lampCount = creatureCount(state, CREATURE_TYPES.WEEPING_LAMP.id);
+  if (lampCount > 0) {
+    drawWeepingLampsCeiling(ctx, width, lampCount, state.isStillnessActive, breath, dropPhase);
+  }
 }
 
 function drawExcisionChamberMutations(ctx, width, height, state, breath, echoRipple = 0) {
@@ -532,19 +537,14 @@ function drawExcisionChamberMutations(ctx, width, height, state, breath, echoRip
 
 export function drawForegroundLampsAndSacrifice(
   canvas,
-  state,
-  breath,
-  dropPhase,
+  _state,
+  _breath,
+  _dropPhase,
   sacrificeProgress = 0,
   sacrificeKind = 'tendril',
 ) {
   const { ctx, width, height } = syncCanvasSize(canvas);
   ctx.clearRect(0, 0, width, height);
-
-  const lampCount = creatureCount(state, CREATURE_TYPES.WEEPING_LAMP.id);
-  if (lampCount > 0) {
-    drawWeepingLampsCeiling(ctx, width, lampCount, state.isStillnessActive, breath, dropPhase);
-  }
 
   if (sacrificeProgress > 0 && sacrificeProgress < 1) {
     drawGraftSacrificeOverlay(ctx, width, height, sacrificeProgress, sacrificeKind);
@@ -653,40 +653,49 @@ function drawGraftSacrificeOverlay(ctx, width, height, progress, kind) {
   }
 }
 
-function drawWeepingLampsCeiling(ctx, width, lampCount, isStillnessActive, breath, dropPhase) {
-  const visible = Math.min(lampCount, 5);
-  // Flanking-biased x fractions so foreground lamps frame & drape over the counter without obscuring digits
+/**
+ * Staggered ceiling anchor slots for 1..5 visible Weeping Lamps.
+ * Every slot stays strictly on the left (`<= 0.24`) or right (`>= 0.76`) flanks so no lamp,
+ * Stillness halo, or condensation droplet ever sits over the center income readout or digits.
+ */
+export function getWeepingLampLayout(lampCount) {
+  const visible = Math.min(Math.max(0, Math.floor(lampCount || 0)), 5);
+  if (visible <= 0) return [];
   const layouts = {
-    1: [{ x: 0.17, cord: 26 }],
+    1: [{ x: 0.14, cord: 26 }],
     2: [
-      { x: 0.15, cord: 26 },
-      { x: 0.85, cord: 30 },
+      { x: 0.13, cord: 26 },
+      { x: 0.87, cord: 30 },
     ],
     3: [
-      { x: 0.14, cord: 28 },
-      { x: 0.5, cord: 10 },
-      { x: 0.86, cord: 28 },
+      { x: 0.1, cord: 30 },
+      { x: 0.21, cord: 16 },
+      { x: 0.88, cord: 28 },
     ],
     4: [
-      { x: 0.12, cord: 30 },
-      { x: 0.3, cord: 16 },
-      { x: 0.7, cord: 16 },
-      { x: 0.88, cord: 30 },
+      { x: 0.09, cord: 32 },
+      { x: 0.21, cord: 16 },
+      { x: 0.79, cord: 18 },
+      { x: 0.91, cord: 32 },
     ],
     5: [
-      { x: 0.1, cord: 32 },
-      { x: 0.27, cord: 18 },
-      { x: 0.5, cord: 9 },
-      { x: 0.73, cord: 18 },
-      { x: 0.9, cord: 32 },
+      { x: 0.08, cord: 24 },
+      { x: 0.2, cord: 14 },
+      { x: 0.14, cord: 62 },
+      { x: 0.8, cord: 16 },
+      { x: 0.92, cord: 34 },
     ],
   };
-  const slots = layouts[visible] ?? layouts[5];
+  return layouts[visible] ?? layouts[5];
+}
+
+function drawWeepingLampsCeiling(ctx, width, lampCount, isStillnessActive, breath, dropPhase) {
+  const slots = getWeepingLampLayout(lampCount);
 
   for (let idx = 0; idx < slots.length; idx += 1) {
     const i = idx + 1;
     const anchorX = width * slots[idx].x;
-    const sway = Math.sin(breath * 2 * Math.PI + i * 0.95) * 5.8;
+    const sway = Math.sin(breath * 2 * Math.PI + i * 0.95) * 4.5;
     const cordLen = slots[idx].cord;
     const sx = anchorX + sway;
     const sy = cordLen;

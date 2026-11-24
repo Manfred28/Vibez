@@ -50,6 +50,7 @@ import {
   formatCompactDecimal,
   formatInteger,
   formatMultiplier,
+  formatValveYield,
   graftCooldownDurationSec,
   graftStillnessCost,
   hasExcessMilestoneMass,
@@ -59,6 +60,7 @@ import {
   isApparatusUnlocked,
   isChamberRitesUnlocked,
   isChoirLungOnCooldown,
+  isColonyProliferationUnlocked,
   isCreatureUnlocked,
   isGraftOnCooldown,
   isGraftUnlocked,
@@ -68,6 +70,7 @@ import {
   isScarTreeUnlocked,
   isValveClamped,
   manualTapYield,
+  maxAffordableCreatureQuote,
   nextBaseScarMassThreshold,
   nextDredgeableRelic,
   nextExcisionMilestone,
@@ -83,14 +86,14 @@ import {
   stillnessIdleDelaySec,
   totalCreatureIchorPerSec,
   valveClampDurationSec,
-} from './engine.js?v=2.9';
+} from './engine.js?v=3.5';
 import {
   drawActionArtwork,
   drawAnomalyGlyph,
   drawDeskAnomalyGlyph,
   drawSumpSiphonPortrait,
   drawWeepingLampPortrait,
-} from './chamberCanvas.js?v=2.9';
+} from './chamberCanvas.js?v=3.5';
 
 function randomBetween(min, max, rng) {
   const raw = typeof rng === 'function' ? Number(rng()) : Math.random();
@@ -100,8 +103,8 @@ function randomBetween(min, max, rng) {
 
 /**
  * Computes randomized, non-uniform seepage timing and subtle multi-layer parallax parameters
- * for a `.drip-card`. Story drips remain prompt and slightly foregrounded; event drips sit
- * on a slightly deeper parallax plane with wider hesitation jitter.
+ * for a `.drip-card`. Story drips descend slowly (~11.5–13.0s) for unhurried reading; chamber
+ * event drips remain brisk (~4.45–5.55s) on a deeper Z-plane and are hidden while story drips run.
  */
 export function computeDripMotionProfile(kind = 'story', rng = Math.random) {
   const isEvent = kind === 'event';
@@ -109,7 +112,7 @@ export function computeDripMotionProfile(kind = 'story', rng = Math.random) {
     isEvent ? randomBetween(90, 540, rng) : randomBetween(40, 280, rng),
   );
   const durationSec = Number(
-    (isEvent ? randomBetween(4.45, 5.55, rng) : randomBetween(6.45, 7.35, rng)).toFixed(2),
+    (isEvent ? randomBetween(4.45, 5.55, rng) : randomBetween(11.5, 13.0, rng)).toFixed(2),
   );
   const driftX = Number(
     (isEvent ? randomBetween(-7.5, 7.5, rng) : randomBetween(-5.5, 5.5, rng)).toFixed(2),
@@ -136,7 +139,7 @@ export function computeDripMotionProfile(kind = 'story', rng = Math.random) {
     delayMs + (isEvent ? randomBetween(110, 420, rng) : randomBetween(90, 320, rng)),
   );
   const beadDurationSec = Number(
-    (isEvent ? randomBetween(1.45, 2.35, rng) : randomBetween(1.75, 2.65, rng)).toFixed(2),
+    (isEvent ? randomBetween(1.45, 2.35, rng) : randomBetween(2.4, 3.4, rng)).toFixed(2),
   );
   const bubbleParallaxX = Number(
     (
@@ -188,6 +191,134 @@ export function applyDripMotionProfile(card, profile) {
   card.style.setProperty('--drip-bubble-delay', `${profile.bubbleDelayMs}ms`);
 }
 
+export const REPEAT_EVENT_DRIP_CHANCE = 0.30;
+
+export function shouldTriggerEventDrip(eventKey, seenKeys, rng = Math.random) {
+  if (!eventKey) return false;
+  if (!seenKeys || !seenKeys.has(eventKey)) return true;
+  const raw = typeof rng === 'function' ? Number(rng()) : Math.random();
+  return Number.isFinite(raw) && raw < REPEAT_EVENT_DRIP_CHANCE;
+}
+
+export function arc1UnlockKeys(state, tab) {
+  const keys = new Set();
+  if (tab === 'apparatus') {
+    for (const c of CREATURE_LIST) {
+      if (isCreatureUnlocked(state, c)) keys.add(`creature_${c.id}`);
+    }
+    if (isGraftUnlocked(state)) keys.add('graft_tendril');
+    if (isColonyProliferationUnlocked(state)) keys.add('colony_proliferation');
+    if (state.highestExcisionMilestone >= 4) keys.add('graft_choir_lung');
+  } else if (tab === 'jars_and_graft') {
+    for (const jar of SPECIMEN_JAR_LIST) {
+      if (isJarUnlocked(state, jar)) keys.add(`jar_${jar.id}`);
+    }
+  } else if (tab === 'scar_tree') {
+    if (isScarTreeUnlocked(state)) keys.add('scar_tree');
+    if (isRepeatableGraftsUnlocked(state)) keys.add('scar_repeatables');
+  } else if (tab === 'chamber_rites') {
+    if (state.highestExcisionMilestone >= 2) keys.add('rite_m2_drain');
+    if (state.highestExcisionMilestone >= 3) keys.add('rite_m3_echo');
+    if (state.highestExcisionMilestone >= 4) keys.add('rite_m4_clamp');
+    if (state.highestExcisionMilestone >= 5) keys.add('rite_m5_throat');
+  } else if (tab === 'excision') {
+    if (
+      canExcise(state) ||
+      canBreachToArc2(state) ||
+      state.cycle > 0 ||
+      state.highestExcisionMilestone > 0
+    ) {
+      keys.add('excision_tab');
+    }
+    if (canExcise(state)) keys.add('excision_ready');
+    if (canClearNextMilestone(state)) {
+      const next = nextExcisionMilestone(state);
+      if (next) keys.add(`milestone_${next.number}_ready`);
+    }
+    if (canBreachToArc2(state)) keys.add('breach_arc2');
+  }
+  return keys;
+}
+
+export function isArc1TabReady(state, tab) {
+  if (tab === 'apparatus') {
+    return canAffordGraft(state) || canAffordChoirLung(state);
+  }
+  if (tab === 'jars_and_graft') {
+    return SPECIMEN_JAR_LIST.some(
+      (jar) =>
+        isJarUnlocked(state, jar) &&
+        !state.ownedJars.includes(jar.id) &&
+        state.stillness >= effectiveJarCost(state, jar),
+    );
+  }
+  if (tab === 'scar_tree') {
+    return (
+      isScarTreeUnlocked(state) &&
+      (SCAR_NODES.some((n) => canUnlockNode(state, n.id)) ||
+        REPEATABLE_SCAR_GRAFTS.some((g) => canBuyRepeatableGraft(state, g)))
+    );
+  }
+  if (tab === 'chamber_rites') {
+    return (
+      canDredgeSump(state) ||
+      CULT_DOSSIER_LINES.some((line) => canOfferToThroat(state, line.id))
+    );
+  }
+  if (tab === 'excision') {
+    return canExcise(state) || canBreachToArc2(state);
+  }
+  return false;
+}
+
+export function shouldAlertArc1Tab(state, tab, activeTab, seenKeysByTab) {
+  if (tab === activeTab) return false;
+  const currentKeys = arc1UnlockKeys(state, tab);
+  const seen = seenKeysByTab?.get(tab);
+  for (const key of currentKeys) {
+    if (!seen || !seen.has(key)) return true;
+  }
+  return isArc1TabReady(state, tab);
+}
+
+export function arc2UnlockKeys(state, tab) {
+  const desk = state.arc2;
+  const keys = new Set();
+  if (tab === 'contacts') {
+    keys.add('arc2_contacts');
+  } else if (tab === 'deductions') {
+    keys.add('arc2_deductions');
+  } else if (tab === 'evidence_board') {
+    const nextCh = arc2NextChapter(desk);
+    if (nextCh) keys.add(`arc2_ch_${nextCh.number}`);
+    if (desk.fileZeroRevealed) keys.add('arc2_file_zero');
+  }
+  return keys;
+}
+
+export function isArc2TabReady(state, tab) {
+  const desk = state.arc2;
+  if (tab === 'deductions') {
+    return CASE_DEDUCTIONS.some(
+      (d) => !desk.ownedDeductions.includes(d.id) && desk.silence >= d.silenceCost,
+    );
+  }
+  if (tab === 'evidence_board') {
+    return arc2CanConnectNextChapter(desk);
+  }
+  return false;
+}
+
+export function shouldAlertArc2Tab(state, tab, activeTab, seenKeysByTab) {
+  if (tab === activeTab) return false;
+  const currentKeys = arc2UnlockKeys(state, tab);
+  const seen = seenKeysByTab?.get(tab);
+  for (const key of currentKeys) {
+    if (!seen || !seen.has(key)) return true;
+  }
+  return isArc2TabReady(state, tab);
+}
+
 export function createUiController(handlers) {
   const els = {
     body: document.body,
@@ -198,8 +329,6 @@ export function createUiController(handlers) {
 
     // Arc 1 (Decluttered Top Telemetry)
     phaseHeader: document.getElementById('phase-header'),
-    phaseBadge: document.getElementById('phase-badge'),
-    phaseProgressFill: document.getElementById('phase-progress-fill'),
     thresholdStatus: document.getElementById('threshold-status'),
 
     ichorRate: document.getElementById('ichor-rate'),
@@ -222,7 +351,6 @@ export function createUiController(handlers) {
 
     // Arc 2
     arc2Header: document.getElementById('arc2-header'),
-    arc2ChapterBadge: document.getElementById('arc2-chapter-badge'),
     arc2ComplicityLabel: document.getElementById('arc2-complicity-label'),
     arc2ComplicityFill: document.getElementById('arc2-complicity-fill'),
     arc2ChapterStatus: document.getElementById('arc2-chapter-status'),
@@ -266,6 +394,12 @@ export function createUiController(handlers) {
   let residueSeq = 0;
   let ledgerPulseTimer = null;
 
+  const seenArc1Keys = new Map();
+  const seenArc2Keys = new Map();
+  const seenEventDripKeys = new Set();
+  const deckTabButtons = new Map();
+  const arc2TabButtons = new Map();
+
   const anomalyCanvasMap = new Map();
   const deskAnomalyCanvasMap = new Map();
   let lampPortraitCanvas = null;
@@ -275,18 +409,33 @@ export function createUiController(handlers) {
 
   // Cached element references for active Arc 1 & Arc 2 deck panels (avoids 10Hz DOM queries)
   let organismCardRefs = [];
+  let organismGraftRefs = { graftRef: null, lungRef: null };
   let jarsPanelRefs = null;
   let scarPanelRefs = null;
   let ritesPanelRefs = null;
   let excisionRefs = null;
   let arc2DeckRefs = null;
 
+  function markTabSeen(seenMap, tab, keys) {
+    let bucket = seenMap.get(tab);
+    if (!bucket) {
+      bucket = new Set();
+      seenMap.set(tab, bucket);
+    }
+    for (const k of keys) bucket.add(k);
+  }
+
   function resolveAvailableTabs(state) {
     const tabs = ['apparatus'];
     if (isJarsAndGraftUnlocked(state)) tabs.push('jars_and_graft');
     if (isScarTreeUnlocked(state)) tabs.push('scar_tree');
     if (isChamberRitesUnlocked(state)) tabs.push('chamber_rites');
-    if (canExcise(state) || canBreachToArc2(state) || state.cycle > 0 || state.phase >= 4) {
+    if (
+      canExcise(state) ||
+      canBreachToArc2(state) ||
+      state.cycle > 0 ||
+      state.highestExcisionMilestone > 0
+    ) {
       tabs.push('excision');
     }
     return tabs;
@@ -343,8 +492,12 @@ export function createUiController(handlers) {
 
   function triggerStoryDrip(entry) {
     if (!els.storyDripLayer || !entry) return;
-    // Story lane is strictly dedicated to newly unlocked DialogueEntry fragments
+    // Story lane takes exclusive priority — clear and suppress chamber event drips while active
     els.storyDripLayer.innerHTML = '';
+    if (els.eventDripLayer) {
+      els.eventDripLayer.innerHTML = '';
+      els.eventDripLayer.classList.add('is-suppressed');
+    }
     const card = document.createElement('div');
     card.className = 'drip-card drip-card--story';
     applyDripMotionProfile(card, computeDripMotionProfile('story'));
@@ -362,22 +515,25 @@ export function createUiController(handlers) {
     card.append(ribbon, bubble);
     els.storyDripLayer.appendChild(card);
 
-    els.eventDripLayer?.classList.add('is-dimmed');
     const handleAnimationEnd = (event) => {
       // Ignore bubbled child animationend events from .drip-ribbon / .drip-bubble
       if (event.target !== card) return;
       card.removeEventListener('animationend', handleAnimationEnd);
       card.remove();
       if (els.storyDripLayer.childElementCount === 0) {
-        els.eventDripLayer?.classList.remove('is-dimmed');
+        els.eventDripLayer?.classList.remove('is-suppressed');
       }
     };
     card.addEventListener('animationend', handleAnimationEnd);
   }
 
-  function triggerEventDrip(text, speakerLabel = 'CHAMBER') {
-    if (!els.eventDripLayer || !text) return;
-    // Subordinate left lane — never touches or interferes with the primary Story lane
+  function triggerEventDrip(text, speakerLabel = 'CHAMBER', eventKey = null, rng = Math.random) {
+    if (!els.eventDripLayer || !text) return false;
+    // Suppress chamber event drips whenever a story fragment is actively dripping (without marking seen)
+    if (els.storyDripLayer && els.storyDripLayer.childElementCount > 0) return false;
+    const resolvedKey = eventKey || `${speakerLabel}:${text}`;
+    if (!shouldTriggerEventDrip(resolvedKey, seenEventDripKeys, rng)) return false;
+    seenEventDripKeys.add(resolvedKey);
     els.eventDripLayer.innerHTML = '';
     const card = document.createElement('div');
     card.className = 'drip-card drip-card--event';
@@ -401,6 +557,7 @@ export function createUiController(handlers) {
       card.remove();
     };
     card.addEventListener('animationend', handleAnimationEnd);
+    return true;
   }
 
   /* ==================== ARC 1 RENDERING ==================== */
@@ -408,26 +565,15 @@ export function createUiController(handlers) {
   function renderTelemetry(state) {
     els.body.dataset.phase = String(state.phase);
     const phaseTitle = (state.phaseName || '').toUpperCase();
-    els.phaseHeader.textContent = `PHASE ${String(state.phase).padStart(2, '0')} // ${phaseTitle}`;
-    els.phaseBadge.textContent = `P${state.phase}`;
+    els.phaseHeader.textContent = phaseTitle;
 
-    const pct = Math.max(0, Math.min(100, state.phaseProgress * 100));
-    els.phaseProgressFill.style.width = `${pct.toFixed(2)}%`;
-    els.phaseProgressFill.classList.toggle('progress-fill--deep', state.phase >= 2);
-
-    const nextM = nextExcisionMilestone(state);
-    const ready = canClearNextMilestone(state) || canBreachToArc2(state) || canExcise(state);
+    const ready = canBreachToArc2(state) || canExcise(state);
+    els.thresholdStatus.hidden = !ready;
     els.thresholdStatus.classList.toggle('threshold-status--ready', ready);
     if (canBreachToArc2(state)) {
       els.thresholdStatus.textContent = 'SEAM UNSEALED // PLEAD FOR SALVATION';
-    } else if (canClearNextMilestone(state) && nextM) {
-      els.thresholdStatus.textContent = `${nextM.code} READY`;
-    } else if (state.nextPhaseThreshold != null) {
-      els.thresholdStatus.textContent = `NEXT FRACTURE: ${formatInteger(cycleLifetimeIchorDisplay(state))} / ${formatInteger(state.nextPhaseThreshold)}`;
-    } else if (nextM) {
-      els.thresholdStatus.textContent = `NEXT MILESTONE (${nextM.code}): ${formatInteger(cycleLifetimeIchorDisplay(state))} / ${formatInteger(nextM.massThreshold)}`;
-    } else {
-      els.thresholdStatus.textContent = 'NO SUMMIT REMAINS';
+    } else if (canExcise(state)) {
+      els.thresholdStatus.textContent = 'OVERGROWTH CRITICAL // EXCISION READY';
     }
   }
 
@@ -480,7 +626,9 @@ export function createUiController(handlers) {
 
     els.valveButton.disabled = clamped;
     els.valveButton.classList.toggle('valve-button--clamped', clamped);
-    els.valveYieldText.textContent = clamped ? 'CLAMP' : `+${formatCompactDecimal(manualTapYield(state))}`;
+    const valveLabel = clamped ? 'CLAMP' : `+${formatValveYield(manualTapYield(state))}`;
+    els.valveYieldText.textContent = valveLabel;
+    els.valveYieldText.classList.toggle('valve-yield-text--compact', valveLabel.length >= 6);
     els.valveSubLabel.textContent = clamped ? `${Math.ceil(state.clampRemainingSeconds)}s HOLD` : 'VALVE';
   }
 
@@ -502,10 +650,12 @@ export function createUiController(handlers) {
 
       const btn = document.createElement('button');
       btn.type = 'button';
-      btn.className = `anomaly-node anomaly-node--${anomaly.type}`;
+      btn.className = `anomaly-node anomaly-node--wall anomaly-node--${anomaly.type}`;
       btn.dataset.anomalyId = key;
       btn.style.left = `${(anomaly.xFraction * 100).toFixed(1)}%`;
       btn.style.top = `${(anomaly.yFraction * 100).toFixed(1)}%`;
+      const phaseOffsetSec = ((Math.abs(Number(anomaly.id) || 0) * 1.37) % 4.6).toFixed(2);
+      btn.style.setProperty('--breath-delay', `-${phaseOffsetSec}s`);
       btn.setAttribute('aria-label', meta.ariaLabel);
 
       const canvas = document.createElement('canvas');
@@ -524,41 +674,62 @@ export function createUiController(handlers) {
     }
   }
 
-  function renderDeckTabs(availableTabs, activeTab) {
+  function renderDeckTabs(state, availableTabs, activeTab) {
     const tabLabels = {
       apparatus: 'ORGANISMS',
-      jars_and_graft: 'JARS & GRAFT',
+      jars_and_graft: 'JARS',
       scar_tree: 'SCARS',
       chamber_rites: 'RITES',
       excision: 'EXCISION',
     };
     els.deckTabs.innerHTML = '';
+    deckTabButtons.clear();
     for (const tab of availableTabs) {
       const btn = document.createElement('button');
       btn.type = 'button';
       btn.role = 'tab';
       btn.className = 'deck-tab';
+      btn.dataset.tabId = tab;
       if (tab === 'excision') btn.classList.add('deck-tab--excision');
       if (tab === activeTab) btn.classList.add('is-active');
       btn.setAttribute('aria-selected', String(tab === activeTab));
-      btn.textContent = tabLabels[tab];
+      const pip = document.createElement('span');
+      pip.className = 'deck-tab-pip';
+      pip.setAttribute('aria-hidden', 'true');
+      const labelSpan = document.createElement('span');
+      labelSpan.textContent = tabLabels[tab];
+      btn.append(pip, labelSpan);
       btn.addEventListener('click', () => {
         selectedTab = tab;
+        markTabSeen(seenArc1Keys, tab, arc1UnlockKeys(state, tab));
         if (tab !== 'excision') excisionArmed = false;
         lastDeckSignature = '';
         handlers.onRequestRender();
       });
       els.deckTabs.appendChild(btn);
+      deckTabButtons.set(tab, btn);
+    }
+    updateDeckTabAlerts(state, availableTabs, activeTab);
+  }
+
+  function updateDeckTabAlerts(state, availableTabs, activeTab) {
+    for (const tab of availableTabs) {
+      const btn = deckTabButtons.get(tab);
+      if (!btn) continue;
+      const alerting = shouldAlertArc1Tab(state, tab, activeTab, seenArc1Keys);
+      btn.classList.toggle('deck-tab--alert', alerting);
+      btn.dataset.tabAlert = alerting ? 'true' : 'false';
     }
   }
 
-  function buildOrganismCards(visibleCreatures) {
+  function buildOrganismCards(state, visibleCreatures) {
     els.deckContent.innerHTML = '';
     lampPortraitCanvas = null;
     siphonPortraitCanvas = null;
     lastLampWeeping = null;
     lastSiphonActive = null;
     organismCardRefs = [];
+    organismGraftRefs = { graftRef: null, lungRef: null };
 
     for (const spec of visibleCreatures) {
       const card = document.createElement('article');
@@ -635,6 +806,24 @@ export function createUiController(handlers) {
 
       body.append(viewport, info, buyBtn);
 
+      let proliferateBtn = null;
+      let proliferateLabelEl = null;
+      let proliferateCostEl = null;
+      if (isColonyProliferationUnlocked(state)) {
+        proliferateBtn = document.createElement('button');
+        proliferateBtn.type = 'button';
+        proliferateBtn.className = 'proliferate-btn';
+        proliferateBtn.dataset.role = 'proliferate';
+        proliferateBtn.dataset.creatureId = spec.id;
+        proliferateLabelEl = document.createElement('span');
+        proliferateLabelEl.className = 'proliferate-label';
+        proliferateLabelEl.textContent = 'PROLIFERATE';
+        proliferateCostEl = document.createElement('span');
+        proliferateCostEl.className = 'proliferate-cost';
+        proliferateBtn.append(proliferateLabelEl, proliferateCostEl);
+        proliferateBtn.addEventListener('click', () => handlers.onBuyMaxCreature?.(spec.id));
+      }
+
       const affordBar = document.createElement('div');
       affordBar.className = 'afford-bar';
       const affordFill = document.createElement('div');
@@ -642,7 +831,11 @@ export function createUiController(handlers) {
       affordFill.dataset.role = 'afford';
       affordBar.appendChild(affordFill);
 
-      card.append(header, body, affordBar);
+      if (proliferateBtn) {
+        card.append(header, body, proliferateBtn, affordBar);
+      } else {
+        card.append(header, body, affordBar);
+      }
       els.deckContent.appendChild(card);
 
       organismCardRefs.push({
@@ -655,14 +848,101 @@ export function createUiController(handlers) {
         stillEl,
         buyBtn,
         costEl,
+        proliferateBtn,
+        proliferateLabelEl,
+        proliferateCostEl,
         affordFill,
       });
     }
+    // Append Grafting (Choir-Tendril & Choir-Lung) right inside ORGANISMS once unlocked
+    const hasTendril = isGraftUnlocked(state);
+    const hasLung = state.highestExcisionMilestone >= 4;
+    if (hasTendril || hasLung) {
+      const divider = document.createElement('div');
+      divider.className = 'deck-divider';
+      els.deckContent.appendChild(divider);
+    }
+
+    let graftRef = null;
+    if (hasTendril) {
+      const graftBtn = document.createElement('button');
+      graftBtn.type = 'button';
+      graftBtn.className = 'deck-row deck-row--accent';
+      graftBtn.dataset.role = 'graft-btn';
+      graftBtn.innerHTML = `
+        <canvas class="action-emblem action-emblem--accent" width="38" height="38" aria-hidden="true"></canvas>
+        <span class="deck-row-text">
+          <span class="deck-row-title" data-role="graft-title"></span>
+          <span class="deck-row-sub">Bind 2 Hands &amp; 2 Leeches into one braided hum.</span>
+          <span class="cooldown-track" data-role="graft-cd-track" hidden>
+            <span class="cooldown-fill" data-role="graft-cd-fill"></span>
+          </span>
+        </span>
+        <span class="deck-row-pill" data-role="graft-pill">GRAFT</span>
+      `;
+      graftBtn.addEventListener('click', () => handlers.onPerformGraft());
+      els.deckContent.appendChild(graftBtn);
+      const emblemCanvas = graftBtn.querySelector('canvas');
+      drawActionArtwork(emblemCanvas, 'graft', 'tendril', true);
+      graftRef = {
+        btn: graftBtn,
+        titleEl: graftBtn.querySelector('[data-role="graft-title"]'),
+        pillEl: graftBtn.querySelector('[data-role="graft-pill"]'),
+        cdTrack: graftBtn.querySelector('[data-role="graft-cd-track"]'),
+        cdFill: graftBtn.querySelector('[data-role="graft-cd-fill"]'),
+      };
+    }
+
+    let lungRef = null;
+    if (hasLung) {
+      const lungBtn = document.createElement('button');
+      lungBtn.type = 'button';
+      lungBtn.className = 'deck-row deck-row--accent';
+      lungBtn.dataset.role = 'choir-lung-btn';
+      lungBtn.innerHTML = `
+        <canvas class="action-emblem action-emblem--accent" width="38" height="38" aria-hidden="true"></canvas>
+        <span class="deck-row-text">
+          <span class="deck-row-title" data-role="choir-lung-title"></span>
+          <span class="deck-row-sub">Bind 2 Lamps &amp; 1 Tendril; it breathes deepest in quiet.</span>
+          <span class="cooldown-track" data-role="lung-cd-track" hidden>
+            <span class="cooldown-fill" data-role="lung-cd-fill"></span>
+          </span>
+        </span>
+        <span class="deck-row-pill" data-role="lung-pill">GRAFT</span>
+      `;
+      lungBtn.addEventListener('click', () => handlers.onPerformChoirLung());
+      els.deckContent.appendChild(lungBtn);
+      const emblemCanvas = lungBtn.querySelector('canvas');
+      drawActionArtwork(emblemCanvas, 'graft', 'choir_lung', true);
+      lungRef = {
+        btn: lungBtn,
+        titleEl: lungBtn.querySelector('[data-role="choir-lung-title"]'),
+        pillEl: lungBtn.querySelector('[data-role="lung-pill"]'),
+        cdTrack: lungBtn.querySelector('[data-role="lung-cd-track"]'),
+        cdFill: lungBtn.querySelector('[data-role="lung-cd-fill"]'),
+      };
+    }
+
+    organismGraftRefs = { graftRef, lungRef };
   }
 
   function updateOrganismCardsInPlace(state) {
     for (const ref of organismCardRefs) {
-      const { spec, card, nameEl, statusEl, viewport, yieldEl, stillEl, buyBtn, costEl, affordFill } = ref;
+      const {
+        spec,
+        card,
+        nameEl,
+        statusEl,
+        viewport,
+        yieldEl,
+        stillEl,
+        buyBtn,
+        costEl,
+        proliferateBtn,
+        proliferateLabelEl,
+        proliferateCostEl,
+        affordFill,
+      } = ref;
       const id = spec.id;
 
       const count = creatureCount(state, id);
@@ -716,6 +996,16 @@ export function createUiController(handlers) {
       buyBtn.disabled = !canAfford;
       costEl.textContent = `${formatInteger(cost)} ICHOR`;
 
+      if (proliferateBtn && proliferateLabelEl && proliferateCostEl) {
+        const bulk = maxAffordableCreatureQuote(state, id);
+        const canProliferate = bulk.count > 0;
+        proliferateBtn.disabled = !canProliferate;
+        proliferateLabelEl.textContent = canProliferate ? `PROLIFERATE ×${bulk.count}` : 'PROLIFERATE';
+        proliferateCostEl.textContent = canProliferate
+          ? `${formatInteger(bulk.totalCost)} ICHOR`
+          : 'INSUFFICIENT ICHOR';
+      }
+
       affordFill.style.width = `${(progress * 100).toFixed(1)}%`;
       affordFill.classList.toggle('afford-bar-fill--ready', canAfford);
 
@@ -736,12 +1026,48 @@ export function createUiController(handlers) {
         drawSumpSiphonPortrait(siphonPortraitCanvas, count > 0);
       }
     }
+
+    if (organismGraftRefs.graftRef) {
+      const { btn, titleEl, pillEl, cdTrack, cdFill } = organismGraftRefs.graftRef;
+      const onCd = isGraftOnCooldown(state);
+      btn.disabled = !canAffordGraft(state);
+      titleEl.textContent = `GRAFTED CHOIR-TENDRIL [${state.graftedTendrils}]`;
+      pillEl.textContent = onCd
+        ? `SETTLING (${Math.ceil(state.graftCooldownRemainingSeconds)}s)`
+        : `GRAFT · ${formatInteger(graftStillnessCost(state))} STILL`;
+      cdTrack.hidden = !onCd;
+      if (onCd) {
+        const dur = Math.max(0.1, graftCooldownDurationSec(state));
+        const pct = Math.max(0, Math.min(100, (state.graftCooldownRemainingSeconds / dur) * 100));
+        cdFill.style.width = `${pct.toFixed(1)}%`;
+      }
+    }
+
+    if (organismGraftRefs.lungRef) {
+      const { btn, titleEl, pillEl, cdTrack, cdFill } = organismGraftRefs.lungRef;
+      const onCd = isChoirLungOnCooldown(state);
+      btn.disabled = !canAffordChoirLung(state);
+      titleEl.textContent = `GRAFTED CHOIR-LUNG [${state.choirLungs}]`;
+      pillEl.textContent = onCd
+        ? `SETTLING (${Math.ceil(state.choirLungCooldownRemainingSeconds)}s)`
+        : `GRAFT · ${formatInteger(choirLungStillnessCost(state))} STILL`;
+      cdTrack.hidden = !onCd;
+      if (onCd) {
+        const dur = Math.max(0.1, choirLungCooldownDurationSec(state));
+        const pct = Math.max(
+          0,
+          Math.min(100, (state.choirLungCooldownRemainingSeconds / dur) * 100),
+        );
+        cdFill.style.width = `${pct.toFixed(1)}%`;
+      }
+    }
   }
 
   function buildJarsAndGraftPanel(state) {
     els.deckContent.innerHTML = '';
     const jarRows = [];
-    for (const jar of SPECIMEN_JAR_LIST) {
+    const visibleJars = SPECIMEN_JAR_LIST.filter((jar) => isJarUnlocked(state, jar));
+    for (const jar of visibleJars) {
       const btn = document.createElement('button');
       btn.type = 'button';
       btn.className = 'deck-row';
@@ -765,76 +1091,7 @@ export function createUiController(handlers) {
       });
     }
 
-    const divider = document.createElement('div');
-    divider.className = 'deck-divider';
-    els.deckContent.appendChild(divider);
-
-    let graftRef = null;
-    if (isGraftUnlocked(state)) {
-      const graftBtn = document.createElement('button');
-      graftBtn.type = 'button';
-      graftBtn.className = 'deck-row deck-row--accent';
-      graftBtn.dataset.role = 'graft-btn';
-      graftBtn.innerHTML = `
-        <canvas class="action-emblem action-emblem--accent" width="38" height="38" aria-hidden="true"></canvas>
-        <span class="deck-row-text">
-          <span class="deck-row-title" data-role="graft-title"></span>
-          <span class="deck-row-sub">Bind 2 Hands &amp; 2 Leeches into one braided hum.</span>
-          <span class="cooldown-track" data-role="graft-cd-track" hidden>
-            <span class="cooldown-fill" data-role="graft-cd-fill"></span>
-          </span>
-        </span>
-        <span class="deck-row-pill" data-role="graft-pill">GRAFT</span>
-      `;
-      graftBtn.addEventListener('click', () => handlers.onPerformGraft());
-      els.deckContent.appendChild(graftBtn);
-      const emblemCanvas = graftBtn.querySelector('canvas');
-      drawActionArtwork(emblemCanvas, 'graft', 'tendril', true);
-      graftRef = {
-        btn: graftBtn,
-        titleEl: graftBtn.querySelector('[data-role="graft-title"]'),
-        pillEl: graftBtn.querySelector('[data-role="graft-pill"]'),
-        cdTrack: graftBtn.querySelector('[data-role="graft-cd-track"]'),
-        cdFill: graftBtn.querySelector('[data-role="graft-cd-fill"]'),
-      };
-    } else {
-      const hint = document.createElement('div');
-      hint.className = 'locked-hint';
-      hint.textContent = 'GRAFTING UNLOCKS AT PHASE 03';
-      els.deckContent.appendChild(hint);
-    }
-
-    let lungRef = null;
-    if (state.highestExcisionMilestone >= 4) {
-      const lungBtn = document.createElement('button');
-      lungBtn.type = 'button';
-      lungBtn.className = 'deck-row deck-row--accent';
-      lungBtn.dataset.role = 'choir-lung-btn';
-      lungBtn.innerHTML = `
-        <canvas class="action-emblem action-emblem--accent" width="38" height="38" aria-hidden="true"></canvas>
-        <span class="deck-row-text">
-          <span class="deck-row-title" data-role="choir-lung-title"></span>
-          <span class="deck-row-sub">Bind 2 Lamps &amp; 1 Tendril; it breathes deepest in quiet.</span>
-          <span class="cooldown-track" data-role="lung-cd-track" hidden>
-            <span class="cooldown-fill" data-role="lung-cd-fill"></span>
-          </span>
-        </span>
-        <span class="deck-row-pill" data-role="lung-pill">GRAFT</span>
-      `;
-      lungBtn.addEventListener('click', () => handlers.onPerformChoirLung());
-      els.deckContent.appendChild(lungBtn);
-      const emblemCanvas = lungBtn.querySelector('canvas');
-      drawActionArtwork(emblemCanvas, 'graft', 'choir_lung', true);
-      lungRef = {
-        btn: lungBtn,
-        titleEl: lungBtn.querySelector('[data-role="choir-lung-title"]'),
-        pillEl: lungBtn.querySelector('[data-role="lung-pill"]'),
-        cdTrack: lungBtn.querySelector('[data-role="lung-cd-track"]'),
-        cdFill: lungBtn.querySelector('[data-role="lung-cd-fill"]'),
-      };
-    }
-
-    jarsPanelRefs = { jarRows, graftRef, lungRef };
+    jarsPanelRefs = { jarRows };
   }
 
   function updateJarsAndGraftInPlace(state) {
@@ -842,9 +1099,8 @@ export function createUiController(handlers) {
     for (const row of jarsPanelRefs.jarRows) {
       const { jar, btn, emblemCanvas, pillEl } = row;
       const owned = state.ownedJars.includes(jar.id);
-      const unlocked = isJarUnlocked(state, jar);
       const cost = effectiveJarCost(state, jar);
-      const canAfford = unlocked && !owned && state.stillness >= cost;
+      const canAfford = !owned && state.stillness >= cost;
       btn.disabled = !canAfford;
       btn.classList.toggle('deck-row--accent', owned);
       emblemCanvas.classList.toggle('action-emblem--active', owned);
@@ -852,50 +1108,7 @@ export function createUiController(handlers) {
         row.lastDrawnActive = owned;
         drawActionArtwork(emblemCanvas, 'jar', jar.id, owned);
       }
-      if (owned) {
-        pillEl.textContent = 'SEALED';
-      } else if (!unlocked) {
-        pillEl.textContent = jar.requiresCycleOrMilestone
-          ? 'AFTER SEVERANCE'
-          : `PHASE ${String(jar.unlockPhase).padStart(2, '0')}`;
-      } else {
-        pillEl.textContent = `BOTTLE · ${formatInteger(cost)} STILL`;
-      }
-    }
-
-    if (jarsPanelRefs.graftRef) {
-      const { btn, titleEl, pillEl, cdTrack, cdFill } = jarsPanelRefs.graftRef;
-      const onCd = isGraftOnCooldown(state);
-      btn.disabled = !canAffordGraft(state);
-      titleEl.textContent = `GRAFTED CHOIR-TENDRIL [${state.graftedTendrils}]`;
-      pillEl.textContent = onCd
-        ? `SETTLING (${Math.ceil(state.graftCooldownRemainingSeconds)}s)`
-        : `GRAFT · ${formatInteger(graftStillnessCost(state))} STILL`;
-      cdTrack.hidden = !onCd;
-      if (onCd) {
-        const dur = Math.max(0.1, graftCooldownDurationSec(state));
-        const pct = Math.max(0, Math.min(100, (state.graftCooldownRemainingSeconds / dur) * 100));
-        cdFill.style.width = `${pct.toFixed(1)}%`;
-      }
-    }
-
-    if (jarsPanelRefs.lungRef) {
-      const { btn, titleEl, pillEl, cdTrack, cdFill } = jarsPanelRefs.lungRef;
-      const onCd = isChoirLungOnCooldown(state);
-      btn.disabled = !canAffordChoirLung(state);
-      titleEl.textContent = `GRAFTED CHOIR-LUNG [${state.choirLungs}]`;
-      pillEl.textContent = onCd
-        ? `SETTLING (${Math.ceil(state.choirLungCooldownRemainingSeconds)}s)`
-        : `GRAFT · ${formatInteger(choirLungStillnessCost(state))} STILL`;
-      cdTrack.hidden = !onCd;
-      if (onCd) {
-        const dur = Math.max(0.1, choirLungCooldownDurationSec(state));
-        const pct = Math.max(
-          0,
-          Math.min(100, (state.choirLungCooldownRemainingSeconds / dur) * 100),
-        );
-        cdFill.style.width = `${pct.toFixed(1)}%`;
-      }
+      pillEl.textContent = owned ? 'SEALED' : `BOTTLE · ${formatInteger(cost)} STILL`;
     }
   }
 
@@ -951,7 +1164,7 @@ export function createUiController(handlers) {
         <span class="rite-meta" data-role="scar-detail-cost"></span>
       </div>
       <p class="rite-desc" data-role="scar-detail-desc"></p>
-      <button type="button" class="excision-btn excision-btn--arm" data-role="scar-suture-btn">SUTURE NODE</button>
+      <button type="button" class="excision-btn excision-btn--arm" data-role="scar-suture-btn">SUTURE</button>
     `;
     const actionBtn = detail.querySelector('[data-role="scar-suture-btn"]');
     actionBtn.addEventListener('click', () => {
@@ -964,10 +1177,7 @@ export function createUiController(handlers) {
     repeatSection.dataset.role = 'scar-repeatables';
     const repeatTitle = document.createElement('div');
     repeatTitle.className = 'scar-repeatables-title';
-    repeatTitle.textContent = 'REPEATABLE SURGICAL GRAFTS';
-    const repeatLocked = document.createElement('div');
-    repeatLocked.className = 'locked-hint';
-    repeatLocked.textContent = 'SUTURE FIRST INCISION TO OPEN REPEATABLE GRAFTS';
+    repeatTitle.textContent = 'LAYERED SURGICAL GRAFTS';
     const repeatList = document.createElement('div');
     repeatList.className = 'scar-repeatables-list';
 
@@ -993,7 +1203,7 @@ export function createUiController(handlers) {
         pillEl: btn.querySelector('[data-role="rep-pill"]'),
       });
     }
-    repeatSection.append(repeatTitle, repeatLocked, repeatList);
+    repeatSection.append(repeatTitle, repeatList);
     els.deckContent.appendChild(repeatSection);
 
     scarPanelRefs = {
@@ -1003,8 +1213,7 @@ export function createUiController(handlers) {
       costEl: detail.querySelector('[data-role="scar-detail-cost"]'),
       descEl: detail.querySelector('[data-role="scar-detail-desc"]'),
       actionBtn,
-      repeatLocked,
-      repeatList,
+      repeatSection,
       repeatableRefs,
     };
 
@@ -1027,11 +1236,20 @@ export function createUiController(handlers) {
     return { node, btn, costEl: btn.querySelector('[data-role="node-cost"]') };
   }
 
+  function lastClearedExcisionName(state) {
+    if (state.highestExcisionMilestone <= 0) return null;
+    return EXCISION_MILESTONES.find((m) => m.number === state.highestExcisionMilestone)?.code ?? null;
+  }
+
   function updateScarTreeInPlace(state) {
     if (!scarPanelRefs) return;
     const totalIchorMult =
       scarMultiplier(state) * relicIchorMultiplier(state) * dossierIchorMultiplier(state);
-    scarPanelRefs.summary.textContent = `CYCLE ${String(state.cycle).padStart(2, '0')} · M${state.highestExcisionMilestone}/6 · AVAIL SCAR: ${formatInteger(state.availableScarTissue)} (${formatInteger(state.scarTissue)} TOTAL) · ×${formatMultiplier(totalIchorMult)} ICHOR · ×${formatMultiplier(scarStillnessMultiplier(state))} STILL`;
+    const lastExcision = lastClearedExcisionName(state);
+    const cyclePrefix = lastExcision
+      ? `CYCLE ${String(state.cycle).padStart(2, '0')} · ${lastExcision}`
+      : `CYCLE ${String(state.cycle).padStart(2, '0')}`;
+    scarPanelRefs.summary.textContent = `${cyclePrefix} · AVAIL SCAR: ${formatInteger(state.availableScarTissue)} (${formatInteger(state.scarTissue)} TOTAL) · ×${formatMultiplier(totalIchorMult)} ICHOR · ×${formatMultiplier(scarStillnessMultiplier(state))} STILL`;
 
     for (const { node, btn, costEl } of scarPanelRefs.nodeRefs) {
       const id = node.id;
@@ -1057,8 +1275,7 @@ export function createUiController(handlers) {
         : `SUTURE (${active.cost} SCAR)`;
 
     const repeatablesOpen = isRepeatableGraftsUnlocked(state);
-    scarPanelRefs.repeatLocked.hidden = repeatablesOpen;
-    scarPanelRefs.repeatList.hidden = !repeatablesOpen;
+    scarPanelRefs.repeatSection.hidden = !repeatablesOpen;
     if (repeatablesOpen) {
       for (const { graft, btn, titleEl, pillEl } of scarPanelRefs.repeatableRefs) {
         const rank = repeatableRank(state, graft);
@@ -1066,7 +1283,7 @@ export function createUiController(handlers) {
         const affordable = canBuyRepeatableGraft(state, graft);
         btn.disabled = !affordable;
         btn.classList.toggle('deck-row--accent', rank > 0);
-        titleEl.textContent = `${graft.name} [RANK ${rank}]`;
+        titleEl.textContent = `${graft.name} [${rank}]`;
         pillEl.textContent = `GRAFT · ${formatInteger(cost)} SCAR`;
       }
     }
@@ -1089,7 +1306,7 @@ export function createUiController(handlers) {
         <div class="rite-head-with-art">
           <canvas class="action-emblem" width="38" height="38" data-role="drain-art" aria-hidden="true"></canvas>
           <div class="rite-head-text">
-            <span class="rite-title">FLOOR DRAIN GRATE // M2</span>
+            <span class="rite-title">FLOOR DRAIN GRATE</span>
             <span class="rite-meta" data-role="drain-meta"></span>
           </div>
         </div>
@@ -1152,7 +1369,7 @@ export function createUiController(handlers) {
         <div class="rite-head-with-art">
           <canvas class="action-emblem" width="38" height="38" data-role="echo-art" aria-hidden="true"></canvas>
           <div class="rite-head-text">
-            <span class="rite-title">NEIGHBOR APERTURE // M3</span>
+            <span class="rite-title">NEIGHBOR APERTURE</span>
             <span class="rite-meta" data-role="echo-meta"></span>
           </div>
         </div>
@@ -1188,7 +1405,7 @@ export function createUiController(handlers) {
         <div class="rite-head-with-art">
           <canvas class="action-emblem" width="38" height="38" data-role="clamp-art" aria-hidden="true"></canvas>
           <div class="rite-head-text">
-            <span class="rite-title">VALVE CLAMP // M4</span>
+            <span class="rite-title">VALVE CLAMP</span>
             <span class="rite-meta" data-role="clamp-meta"></span>
           </div>
         </div>
@@ -1216,7 +1433,7 @@ export function createUiController(handlers) {
         <div class="rite-head-with-art">
           <canvas class="action-emblem action-emblem--accent" width="38" height="38" data-role="throat-art" aria-hidden="true"></canvas>
           <div class="rite-head-text">
-            <span class="rite-title">THE OSSIFIED THROAT // M5</span>
+            <span class="rite-title">THE OSSIFIED THROAT</span>
             <span class="rite-meta" data-role="dossier-meta"></span>
           </div>
         </div>
@@ -1371,7 +1588,7 @@ export function createUiController(handlers) {
       const breachCard = document.createElement('div');
       breachCard.className = 'file-zero-card';
       breachCard.innerHTML = `
-        <div class="file-zero-kicker">EXCISION VI // PLEAD FOR SALVATION</div>
+        <div class="file-zero-kicker">PLEAD FOR SALVATION</div>
         <p class="file-zero-body">Lay your palm against the last wet seam. Ask the rain outside for salvation—whether that means being found, or finally forgetting there was ever a door.</p>
         <button type="button" class="excision-btn excision-btn--confirm" data-role="breach-btn">PLEAD FOR SALVATION</button>
       `;
@@ -1389,7 +1606,7 @@ export function createUiController(handlers) {
     summary.className = 'excision-summary';
     summary.textContent =
       canClearNextMilestone(state) && nextM
-        ? 'SEAM READY — SEVERING UNLOCKS THIS MILESTONE'
+        ? 'SEAM READY — CUTTING OPENS THIS SEAM'
         : 'Cut away the overgrown mass to carry its scars forward.';
 
     const milestoneLine = document.createElement('div');
@@ -1489,11 +1706,14 @@ export function createUiController(handlers) {
       scarMultiplier(state) * relicIchorMultiplier(state) * dossierIchorMultiplier(state);
     const nextM = nextExcisionMilestone(state);
     const pending = pendingScarTissue(state);
-    cycleLine.textContent = `CYCLE ${String(state.cycle).padStart(2, '0')} · MILESTONE M${state.highestExcisionMilestone}/6 · TOTAL SCAR ${formatInteger(state.scarTissue)}`;
+    const lastExcision = lastClearedExcisionName(state);
+    cycleLine.textContent = lastExcision
+      ? `CYCLE ${String(state.cycle).padStart(2, '0')} · ${lastExcision} · TOTAL SCAR ${formatInteger(state.scarTissue)}`
+      : `CYCLE ${String(state.cycle).padStart(2, '0')} · TOTAL SCAR ${formatInteger(state.scarTissue)}`;
     resonanceLine.textContent = `RESONANCE: ×${formatMultiplier(totalIchorMult)} ICHOR · ×${formatMultiplier(scarStillnessMultiplier(state))} STILLNESS`;
     milestoneLine.hidden = !nextM;
     if (nextM) {
-      milestoneLine.textContent = `NEXT MILESTONE: ${nextM.code} (${formatInteger(cycleLifetimeIchorDisplay(state))} / ${formatInteger(nextM.massThreshold)})`;
+      milestoneLine.textContent = `${nextM.code} · ${formatInteger(cycleLifetimeIchorDisplay(state))} / ${formatInteger(nextM.massThreshold)}`;
     }
     seamNote.hidden = !hasExcessMilestoneMass(state);
     reward.textContent = canExcise(state)
@@ -1504,7 +1724,7 @@ export function createUiController(handlers) {
     if (armBtn) {
       armBtn.textContent =
         canClearNextMilestone(state) && nextM
-          ? `SEVER EXCISION ${nextM.number} (+${formatInteger(pending)} SCAR)`
+          ? `SEVER: ${nextM.code} (+${formatInteger(pending)} SCAR)`
           : `HARVEST SCARS EARLY (+${formatInteger(pending)})`;
     }
   }
@@ -1517,13 +1737,16 @@ export function createUiController(handlers) {
     const availableTabs = resolveAvailableTabs(state);
     const activeTab = availableTabs.includes(selectedTab) ? selectedTab : 'apparatus';
     selectedTab = activeTab;
+    markTabSeen(seenArc1Keys, activeTab, arc1UnlockKeys(state, activeTab));
 
     const visibleCreatures = CREATURE_LIST.filter((c) => isCreatureUnlocked(state, c));
+    const visibleJars = SPECIMEN_JAR_LIST.filter((j) => isJarUnlocked(state, j));
 
     const signature = [
       availableTabs.join(','),
       activeTab,
       visibleCreatures.map((c) => c.id).join(','),
+      visibleJars.map((j) => j.id).join(','),
       `m${state.highestExcisionMilestone}`,
       isGraftUnlocked(state) ? 'g1' : 'g0',
       canExcise(state) ? 'ex1' : 'ex0',
@@ -1535,9 +1758,9 @@ export function createUiController(handlers) {
 
     if (signature !== lastDeckSignature) {
       lastDeckSignature = signature;
-      renderDeckTabs(availableTabs, activeTab);
+      renderDeckTabs(state, availableTabs, activeTab);
       if (activeTab === 'apparatus') {
-        buildOrganismCards(visibleCreatures);
+        buildOrganismCards(state, visibleCreatures);
       } else if (activeTab === 'jars_and_graft') {
         buildJarsAndGraftPanel(state);
       } else if (activeTab === 'scar_tree') {
@@ -1548,6 +1771,8 @@ export function createUiController(handlers) {
         buildExcisionPanel(state);
       }
     }
+
+    updateDeckTabAlerts(state, availableTabs, activeTab);
 
     if (activeTab === 'apparatus') {
       updateOrganismCardsInPlace(state);
@@ -1568,17 +1793,20 @@ export function createUiController(handlers) {
     const desk = state.arc2;
     const compPct = Math.round(desk.complicity * 100);
     els.arc2Header.textContent = desk.fileZeroRevealed
-      ? 'ARC 02 // FILE #00 — SUBJECT INTAKE'
-      : 'ARC 02 // THE INQUIRY · CASE #14-B';
-    els.arc2ChapterBadge.textContent = `CH ${desk.completedChapters}/4`;
-    els.arc2ComplicityLabel.textContent = `COMPLICITY: ${compPct}% · ARC 1 SCAR ECHOES: ${formatInteger(state.scarTissue)}`;
+      ? 'FILE #00 — SUBJECT INTAKE'
+      : 'THE INQUIRY · CASE #14-B';
+    els.arc2ComplicityLabel.textContent = `COMPLICITY: ${compPct}% · SCAR ECHOES: ${formatInteger(state.scarTissue)}`;
     els.arc2ComplicityFill.style.width = `${compPct}%`;
 
     const nextCh = arc2NextChapter(desk);
-    els.arc2ChapterStatus.textContent = nextCh
-      ? `NEXT CHAPTER: ${nextCh.title} (${formatInteger(nextCh.leadsCost)} LEADS${nextCh.silenceCost > 0 ? ` · ${formatInteger(nextCh.silenceCost)} SILENCE` : ''})`
-      : 'FILE #00 UNSEALED // SEAM OPEN';
-    els.arc2ChapterStatus.classList.toggle('threshold-status--ready', arc2CanConnectNextChapter(desk) || desk.fileZeroRevealed);
+    const chapterReady = arc2CanConnectNextChapter(desk) || desk.fileZeroRevealed;
+    els.arc2ChapterStatus.hidden = !chapterReady;
+    els.arc2ChapterStatus.classList.toggle('threshold-status--ready', chapterReady);
+    if (desk.fileZeroRevealed) {
+      els.arc2ChapterStatus.textContent = 'FILE #00 UNSEALED // SEAM OPEN';
+    } else if (nextCh && arc2CanConnectNextChapter(desk)) {
+      els.arc2ChapterStatus.textContent = `LEAD READY: ${nextCh.title}`;
+    }
 
     const formattedLeads = formatInteger(desk.leads);
     els.arc2LeadsValue.textContent = formattedLeads;
@@ -1642,8 +1870,17 @@ export function createUiController(handlers) {
     }
   }
 
+  function updateArc2TabAlerts(state) {
+    for (const [tabId, btn] of arc2TabButtons.entries()) {
+      const alerting = shouldAlertArc2Tab(state, tabId, selectedArc2Tab, seenArc2Keys);
+      btn.classList.toggle('deck-tab--alert', alerting);
+      btn.dataset.tabAlert = alerting ? 'true' : 'false';
+    }
+  }
+
   function renderArc2Deck(state) {
     const desk = state.arc2;
+    markTabSeen(seenArc2Keys, selectedArc2Tab, arc2UnlockKeys(state, selectedArc2Tab));
     const sig = `${selectedArc2Tab}|ch${desk.completedChapters}|d${desk.ownedDeductions.length}`;
     if (sig !== lastArc2DeckSignature) {
       lastArc2DeckSignature = sig;
@@ -1653,19 +1890,29 @@ export function createUiController(handlers) {
         { id: 'evidence_board', label: 'EVIDENCE BOARD' },
       ];
       els.arc2DeckTabs.innerHTML = '';
+      arc2TabButtons.clear();
       for (const t of tabs) {
         const btn = document.createElement('button');
         btn.type = 'button';
         btn.role = 'tab';
         btn.className = 'deck-tab';
+        btn.dataset.tabId = t.id;
         if (t.id === selectedArc2Tab) btn.classList.add('is-active');
-        btn.textContent = t.label;
+        btn.setAttribute('aria-selected', String(t.id === selectedArc2Tab));
+        const pip = document.createElement('span');
+        pip.className = 'deck-tab-pip';
+        pip.setAttribute('aria-hidden', 'true');
+        const labelSpan = document.createElement('span');
+        labelSpan.textContent = t.label;
+        btn.append(pip, labelSpan);
         btn.addEventListener('click', () => {
           selectedArc2Tab = t.id;
+          markTabSeen(seenArc2Keys, t.id, arc2UnlockKeys(state, t.id));
           lastArc2DeckSignature = '';
           handlers.onRequestRender();
         });
         els.arc2DeckTabs.appendChild(btn);
+        arc2TabButtons.set(t.id, btn);
       }
 
       els.arc2DeckContent.innerHTML = '';
@@ -1716,7 +1963,10 @@ export function createUiController(handlers) {
         arc2DeckRefs = { tab: 'deductions', rows };
       } else {
         const rows = [];
-        for (const ch of INVESTIGATION_CHAPTERS) {
+        const visibleChapters = INVESTIGATION_CHAPTERS.filter(
+          (ch) => ch.number <= desk.completedChapters + 1,
+        );
+        for (const ch of visibleChapters) {
           const row = document.createElement('div');
           row.className = 'dossier-line';
           row.dataset.chapterNum = String(ch.number);
@@ -1745,6 +1995,8 @@ export function createUiController(handlers) {
       }
     }
 
+    updateArc2TabAlerts(state);
+
     if (!arc2DeckRefs) return;
 
     if (arc2DeckRefs.tab === 'contacts') {
@@ -1769,7 +2021,7 @@ export function createUiController(handlers) {
         const done = desk.completedChapters >= ch.number;
         const isNext = nextCh?.number === ch.number;
         row.classList.toggle('dossier-line--unredacted', done);
-        statusEl.textContent = done ? 'CONNECTED' : isNext ? 'ACTIVE LEAD' : 'LOCKED';
+        statusEl.textContent = done ? 'CONNECTED' : 'ACTIVE LEAD';
         summaryEl.textContent = done ? ch.summary : '[PIN EVIDENCE TO RECONSTRUCT TIMELINE]';
         connectBtn.hidden = !isNext;
         if (isNext) {
@@ -1787,7 +2039,12 @@ export function createUiController(handlers) {
   /* ==================== ARC 3 & SHARED LEDGER ==================== */
 
   function renderArc3(state) {
-    els.arc3Stats.textContent = `EXCISION MILESTONES: ${state.highestExcisionMilestone}/6 · LIFETIME SCAR TISSUE: ${formatInteger(state.scarTissue)} · CASE CHAPTERS: ${state.arc2.completedChapters}/4 · RECOVERED NOTES: ${state.discoveredDialogues.length}`;
+    const lastExcision = lastClearedExcisionName(state);
+    const parts = [`SCAR TISSUE: ${formatInteger(state.scarTissue)}`];
+    if (lastExcision) parts.push(lastExcision);
+    parts.push(`DOSSIER: ${state.unredactedDossierLines.length}/4`);
+    parts.push(`RECOVERED NOTES: ${state.discoveredDialogues.length}`);
+    els.arc3Stats.textContent = parts.join(' · ');
   }
 
   function renderLedger(state) {
@@ -1904,8 +2161,8 @@ export function createUiController(handlers) {
     spawnArc2Residue(label, isRaw = false) {
       spawnResidueIn(els.arc2ResidueLayer, label, isRaw);
     },
-    triggerEventDrip(text, speaker = 'CHAMBER') {
-      triggerEventDrip(text, speaker);
+    triggerEventDrip(text, speaker = 'CHAMBER', eventKey = null) {
+      return triggerEventDrip(text, speaker, eventKey);
     },
     openArchive(state) {
       renderArchive(state);
@@ -1925,6 +2182,9 @@ export function createUiController(handlers) {
       lastDialogueId = null;
       hasHydratedDialogue = false;
       lastCounterDisplay = -1;
+      seenArc1Keys.clear();
+      seenArc2Keys.clear();
+      seenEventDripKeys.clear();
       organismCardRefs = [];
       jarsPanelRefs = null;
       scarPanelRefs = null;
@@ -1934,7 +2194,7 @@ export function createUiController(handlers) {
       if (els.storyDripLayer) els.storyDripLayer.innerHTML = '';
       if (els.eventDripLayer) {
         els.eventDripLayer.innerHTML = '';
-        els.eventDripLayer.classList.remove('is-dimmed');
+        els.eventDripLayer.classList.remove('is-suppressed');
       }
     },
   };

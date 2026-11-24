@@ -60,6 +60,7 @@ import kotlin.math.ceil
 import kotlin.math.ln
 import kotlin.math.min
 import kotlin.math.roundToInt
+import kotlin.math.roundToLong
 import kotlinx.coroutines.launch
 
 @Composable
@@ -69,7 +70,7 @@ fun ChamberCanvas(
   dropPhaseProvider: () -> Float,
   onPressValve: () -> Unit,
   onInteractAnomaly: (Long) -> Unit,
-  onEmitThematicDrip: (String) -> Unit = {},
+  onEmitThematicDrip: (eventKey: String, text: String) -> Unit = { _, _ -> },
   modifier: Modifier = Modifier,
 ) {
   val colorScheme = MaterialTheme.colorScheme
@@ -80,7 +81,7 @@ fun ChamberCanvas(
     remember(state.ichorDisplay) { NumberFormat.getIntegerInstance().format(state.ichorDisplay) }
   val counterCd = stringResource(R.string.counter_value_content_description, formattedIchor)
   val formattedTapYield =
-    remember(state.manualTapYield) { formatCompactDecimal(state.manualTapYield) }
+    remember(state.manualTapYield) { formatValveYield(state.manualTapYield) }
 
   val counterRecoil = remember { Animatable(1f) }
   LaunchedEffect(state.ichorDisplay) {
@@ -194,7 +195,7 @@ fun ChamberCanvas(
     }
     if (state.echoPulsesTriggered > lastEchoCount) {
       lastEchoCount = state.echoPulsesTriggered
-      onEmitThematicDrip(echoAnswerText)
+      onEmitThematicDrip("echo_answer", echoAnswerText)
       echoRipple.snapTo(0.01f)
       echoRipple.animateTo(1f, animationSpec = tween(durationMillis = 1100, easing = FastOutSlowInEasing))
       echoRipple.snapTo(0f)
@@ -214,9 +215,10 @@ fun ChamberCanvas(
     }
     if (state.lastSacrificePulse > lastSacrificeDripPulse) {
       lastSacrificeDripPulse = state.lastSacrificePulse
+      val isLung = state.lastSacrificeKind == GraftSacrificeKind.CHOIR_LUNG
       onEmitThematicDrip(
-        if (state.lastSacrificeKind == GraftSacrificeKind.CHOIR_LUNG) sacrificeLungText
-        else sacrificeTendrilText
+        if (isLung) "graft_choir_lung" else "graft_tendril",
+        if (isLung) sacrificeLungText else sacrificeTendrilText,
       )
     }
   }
@@ -237,6 +239,14 @@ fun ChamberCanvas(
         wallCreepPhaseProvider = { wallCreepState.value },
         arterialPulsePhaseProvider = { arterialPulseState.value },
         echoRippleProvider = { echoRipple.value },
+      )
+
+      // Flanking Weeping Lamps & downward droplets — rendered behind foreground counter/income text
+      WeepingLampsCeilingOverlay(
+        lampCount = lampCount,
+        isStillnessActive = state.isStillnessActive,
+        breathPhaseProvider = breathPhaseProvider,
+        dropPhaseProvider = dropPhaseProvider,
       )
 
       Column(
@@ -451,14 +461,6 @@ fun ChamberCanvas(
         }
       }
 
-      // Foreground Weeping Lamps & downward droplets — rendered OVER the counter plate
-      WeepingLampsCeilingOverlay(
-        lampCount = lampCount,
-        isStillnessActive = state.isStillnessActive,
-        breathPhaseProvider = breathPhaseProvider,
-        dropPhaseProvider = dropPhaseProvider,
-      )
-
       // Grotesque creature death/dissolution animation during Grafting sacrifices
       GraftSacrificeOverlay(
         sacrificePulse = state.lastSacrificePulse,
@@ -487,7 +489,7 @@ fun ChamberCanvas(
             breathPhaseProvider = breathPhaseProvider,
             onInteract = {
               onInteractAnomaly(anomaly.id)
-              onEmitThematicDrip(dripLine)
+              onEmitThematicDrip("anomaly_${anomaly.type.id}", dripLine)
             },
             modifier = Modifier.offset(x = offsetX, y = offsetY),
           )
@@ -498,21 +500,49 @@ fun ChamberCanvas(
 }
 
 internal fun formatCompactDecimal(value: Double): String {
-  val rounded = (value * 10.0).roundToInt() / 10.0
-  return if (rounded == rounded.toLong().toDouble()) {
-    NumberFormat.getIntegerInstance().format(rounded.toLong())
+  val roundedTenths = (value * 10.0).roundToLong()
+  val whole = roundedTenths / 10L
+  val frac = kotlin.math.abs(roundedTenths % 10L)
+  return if (frac == 0L) {
+    NumberFormat.getIntegerInstance().format(whole)
   } else {
     NumberFormat.getNumberInstance()
       .apply {
         minimumFractionDigits = 1
         maximumFractionDigits = 1
       }
-      .format(rounded)
+      .format(roundedTenths / 10.0)
   }
 }
 
+internal fun formatValveYield(value: Double): String {
+  if (value < 10_000.0) return formatCompactDecimal(value)
+  val (scaled, suffix) =
+    when {
+      value < 1_000_000.0 -> value / 1_000.0 to "K"
+      value < 1_000_000_000.0 -> value / 1_000_000.0 to "M"
+      value < 1_000_000_000_000.0 -> value / 1_000_000_000.0 to "B"
+      else -> value / 1_000_000_000_000.0 to "T"
+    }
+  val maxDecimals =
+    when {
+      scaled < 10.0 -> 2
+      scaled < 100.0 -> 1
+      else -> 0
+    }
+  val formatted =
+    NumberFormat.getNumberInstance()
+      .apply {
+        minimumFractionDigits = 0
+        maximumFractionDigits = maxDecimals
+        isGroupingUsed = false
+      }
+      .format(scaled)
+  return "$formatted$suffix"
+}
+
 internal fun formatMultiplier(value: Double): String {
-  val rounded = (value * 100.0).roundToInt() / 100.0
+  val rounded = (value * 100.0).roundToLong() / 100.0
   return NumberFormat.getNumberInstance()
     .apply {
       minimumFractionDigits = 0

@@ -31,6 +31,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -50,10 +51,12 @@ import com.example.game.InvestigatorContact
 import com.example.game.InvestigatorDeckTab
 import com.example.game.OrganGameState
 import com.example.ui.components.AudioMuteTogglePill
+import com.example.ui.components.DeckTabCell
 import com.example.ui.components.DevToolsTriggerPill
 import com.example.ui.components.FragmentArchiveSheet
 import com.example.ui.components.InvestigatorDeskCanvas
 import com.example.ui.components.PinnedLedgerBottomBar
+import com.example.ui.components.TabAlertEvaluator
 import com.example.ui.components.formatCompactDecimal
 import com.example.ui.theme.BleakTheme
 import java.text.NumberFormat
@@ -79,6 +82,18 @@ fun InvestigatorScreen(
   val nf = remember { NumberFormat.getIntegerInstance() }
 
   var selectedTab by remember { mutableStateOf(InvestigatorDeckTab.CONTACTS) }
+  var seenArc2Keys by remember {
+    mutableStateOf(
+      mapOf(selectedTab to TabAlertEvaluator.arc2UnlockKeys(state, selectedTab))
+    )
+  }
+  val activeArc2Keys = TabAlertEvaluator.arc2UnlockKeys(state, selectedTab)
+  LaunchedEffect(selectedTab, activeArc2Keys) {
+    val existing = seenArc2Keys[selectedTab].orEmpty()
+    if (!existing.containsAll(activeArc2Keys)) {
+      seenArc2Keys = seenArc2Keys + (selectedTab to (existing + activeArc2Keys))
+    }
+  }
   var archiveVisible by remember { mutableStateOf(false) }
   val scrollState = rememberScrollState()
 
@@ -139,7 +154,9 @@ fun InvestigatorScreen(
             verticalAlignment = Alignment.CenterVertically,
           ) {
             Text(
-              text = stringResource(R.string.arc2_header, desk.completedChapters),
+              text =
+                if (desk.fileZeroRevealed) stringResource(R.string.arc2_header_file_zero)
+                else stringResource(R.string.arc2_header),
               style = MaterialTheme.typography.labelMedium,
               color = colorScheme.onSurfaceVariant,
               modifier = Modifier.weight(1f).testTag("arc2_phase_header"),
@@ -243,22 +260,27 @@ fun InvestigatorScreen(
                     InvestigatorDeckTab.DEDUCTIONS -> stringResource(R.string.arc2_tab_deductions)
                     InvestigatorDeckTab.EVIDENCE_BOARD -> stringResource(R.string.arc2_tab_board)
                   }
-                Surface(
-                  modifier =
-                    Modifier.weight(1f)
-                      .minimumInteractiveComponentSize()
-                      .testTag("arc2_tab_${tab.name.lowercase()}")
-                      .clickable(role = Role.Tab) { selectedTab = tab },
-                  color = if (selected) colorScheme.surfaceVariant else colorScheme.surface,
-                ) {
-                  Text(
-                    text = label,
-                    style = MaterialTheme.typography.labelMedium,
-                    color = if (selected) colorScheme.primary else colorScheme.onSurfaceVariant,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
+                val isAlerting =
+                  TabAlertEvaluator.shouldAlertArc2Tab(
+                    state = state,
+                    tab = tab,
+                    activeTab = selectedTab,
+                    seenKeysByTab = seenArc2Keys,
                   )
-                }
+                DeckTabCell(
+                  label = label,
+                  isSelected = selected,
+                  isAlerting = isAlerting,
+                  isExcisionAccent = false,
+                  tabTestTag = "arc2_tab_${tab.name.lowercase()}",
+                  alertPipTestTag = "arc2_tab_alert_${tab.name.lowercase()}",
+                  onClick = {
+                    val unlocked = TabAlertEvaluator.arc2UnlockKeys(state, tab)
+                    seenArc2Keys = seenArc2Keys + (tab to (seenArc2Keys[tab].orEmpty() + unlocked))
+                    selectedTab = tab
+                  },
+                  modifier = Modifier.weight(1f),
+                )
               }
             }
             HorizontalDivider(color = atmosphere.hairline)
@@ -343,18 +365,18 @@ fun InvestigatorScreen(
                   }
                 }
                 InvestigatorDeckTab.EVIDENCE_BOARD -> {
-                  InvestigationChapter.entries.forEach { chapter ->
+                  val visibleChapters =
+                    InvestigationChapter.entries.filter { it.number <= desk.completedChapters + 1 }
+                  visibleChapters.forEach { chapter ->
                     val completed = desk.completedChapters >= chapter.number
                     val isNext = desk.nextChapter == chapter
                     val canConnect = isNext && desk.canConnectNextChapter
                     val chapterTitle =
                       when (chapter) {
-                        InvestigationChapter.MISSING_CARETAKERS -> "CH 01 // THE MISSING CARETAKERS"
-                        InvestigationChapter.HYDRO_WARD_CULT -> "CH 02 // THE HYDRO-WARD CULT"
-                        InvestigationChapter.BRICK_WORK_BLUEPRINT ->
-                          "CH 03 // THE BRICK-WORK BLUEPRINT"
-                        InvestigationChapter.FILE_ZERO_SUBJECT_INTAKE ->
-                          "CH 04 // FILE #00: SUBJECT INTAKE"
+                        InvestigationChapter.MISSING_CARETAKERS -> "THE MISSING CARETAKERS"
+                        InvestigationChapter.HYDRO_WARD_CULT -> "THE HYDRO-WARD CULT"
+                        InvestigationChapter.BRICK_WORK_BLUEPRINT -> "THE BRICK-WORK BLUEPRINT"
+                        InvestigationChapter.FILE_ZERO_SUBJECT_INTAKE -> "FILE #00: SUBJECT INTAKE"
                       }
                     val costStr = buildString {
                       append("${nf.format(chapter.leadsCost)} LEADS")
@@ -364,11 +386,8 @@ fun InvestigatorScreen(
                       title = chapterTitle,
                       subtitle = if (completed) "RED STRING PINNED" else costStr,
                       actionLabel =
-                        when {
-                          completed -> stringResource(R.string.arc2_chapter_sealed)
-                          isNext -> stringResource(R.string.arc2_chapter_connect)
-                          else -> "LOCKED"
-                        },
+                        if (completed) stringResource(R.string.arc2_chapter_sealed)
+                        else stringResource(R.string.arc2_chapter_connect),
                       enabled = canConnect,
                       accent = completed || isNext,
                       testTag = "chapter_connect_${chapter.number}",

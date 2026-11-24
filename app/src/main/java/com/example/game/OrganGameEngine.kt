@@ -129,13 +129,13 @@ object OrganGameEngine {
     if (echoPulseReady) {
       val baseEchoMultiplier =
         when (nextState.echoDiversionPercent) {
-          25 -> 18.0
-          50 -> 30.0
+          25 -> 10.5
+          50 -> 18.0
           else -> 0.0
         }
       val echoYieldBoost =
-        (if (nextState.hasNode(ScarNodeId.ECHO_OSSUARY)) 1.35 else 1.0) *
-          (if (nextState.hasNode(ScarNodeId.BONE_RESONANCE)) 1.25 else 1.0)
+        (if (nextState.hasNode(ScarNodeId.ECHO_OSSUARY)) 1.25 else 1.0) *
+          (if (nextState.hasNode(ScarNodeId.BONE_RESONANCE)) 1.35 else 1.0)
       val echoBurst = max(250.0, nextState.rawIchorPerSecond * baseEchoMultiplier * echoYieldBoost)
       nextState =
         nextState.copy(
@@ -178,6 +178,26 @@ object OrganGameEngine {
     updatedCreatures[type] = (updatedCreatures[type] ?: 0) + 1
 
     val updated = state.copy(ichor = state.ichor - cost.toDouble(), creatures = updatedCreatures)
+    return finalizeProgression(updated, catalog)
+  }
+
+  fun buyMaxCreature(
+    state: OrganGameState,
+    type: CreatureType,
+    catalog: DialogueCatalog,
+  ): OrganGameState {
+    if (!state.isColonyProliferationUnlocked || !state.isCreatureUnlocked(type)) return state
+    val quote = state.maxAffordableCreatureQuote(type)
+    if (quote.count <= 0) return state
+
+    val updatedCreatures = state.creatures.toMutableMap()
+    updatedCreatures[type] = (updatedCreatures[type] ?: 0) + quote.count
+
+    val updated =
+      state.copy(
+        ichor = max(0.0, state.ichor - quote.totalCost.toDouble()),
+        creatures = updatedCreatures,
+      )
     return finalizeProgression(updated, catalog)
   }
 

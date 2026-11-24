@@ -167,6 +167,11 @@ class OrganViewModel(
       OrganGameEngine.buyCreature(it, type, catalog)
     }
 
+  fun buyMaxCreature(type: CreatureType) =
+    mutate(actionHint = SoundActionHint.CREATURE_BUY) {
+      OrganGameEngine.buyMaxCreature(it, type, catalog)
+    }
+
   fun bottleJar(jar: SpecimenJar) =
     mutate(actionHint = SoundActionHint.JAR_BOTTLE) {
       OrganGameEngine.bottleJar(it, jar, catalog)

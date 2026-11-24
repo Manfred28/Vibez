@@ -22,37 +22,37 @@ enum class ExcisionMilestone(
     number = 1,
     massThreshold = 210_000L,
     firstClearScarBonus = 0L,
-    code = "EXCISION I // FIRST SEVERANCE",
+    code = "FIRST SEVERANCE",
   ),
   SUNKEN_DRAIN(
     number = 2,
     massThreshold = 1_800_000L,
     firstClearScarBonus = 0L,
-    code = "EXCISION II // THE SUNKEN DRAIN",
+    code = "THE SUNKEN DRAIN",
   ),
   UNBRICKED_SEAM(
     number = 3,
     massThreshold = 16_000_000L,
     firstClearScarBonus = 0L,
-    code = "EXCISION III // THE UNBRICKED SEAM",
+    code = "THE UNBRICKED SEAM",
   ),
   BREATH_HOLD(
     number = 4,
     massThreshold = 140_000_000L,
     firstClearScarBonus = 0L,
-    code = "EXCISION IV // THE BREATH-HOLD",
+    code = "THE BREATH-HOLD",
   ),
   MEMBRANE_AUDIT(
     number = 5,
     massThreshold = 1_250_000_000L,
     firstClearScarBonus = 0L,
-    code = "EXCISION V // THE MEMBRANE AUDIT",
+    code = "THE MEMBRANE AUDIT",
   ),
   FINAL_SEVERANCE(
     number = 6,
-    massThreshold = 12_000_000_000L,
+    massThreshold = 36_000_000_000L,
     firstClearScarBonus = 0L,
-    code = "EXCISION VI // PLEAD FOR SALVATION",
+    code = "PLEAD FOR SALVATION",
   );
 
   companion object {
@@ -130,21 +130,21 @@ enum class ScarNodeId(
     id = "shorter_silence",
     branch = ScarBranch.STILLNESS,
     tier = 1,
-    cost = 2L,
+    cost = 1L,
     prerequisite = FIRST_INCISION,
   ),
   WAX_SEALED_MEMORY(
     id = "wax_sealed_memory",
     branch = ScarBranch.STILLNESS,
     tier = 2,
-    cost = 5L,
+    cost = 3L,
     prerequisite = SHORTER_SILENCE,
   ),
   DEEP_WEEPING(
     id = "deep_weeping",
     branch = ScarBranch.STILLNESS,
     tier = 3,
-    cost = 11L,
+    cost = 6L,
     prerequisite = WAX_SEALED_MEMORY,
   ),
   HOLLOW_LUNG_CHOIR(
@@ -214,17 +214,17 @@ enum class RepeatableScarGraft(
 ) {
   KELOID_THICKENING(
     id = "keloid_thickening",
-    baseCost = 3L,
+    baseCost = 1L,
     costGrowth = 1.45,
   ),
   SEDIMENT_WELL(
     id = "sediment_well",
-    baseCost = 3L,
+    baseCost = 1L,
     costGrowth = 1.45,
   ),
   SCAR_HARVEST_HOOK(
     id = "scar_harvest_hook",
-    baseCost = 4L,
+    baseCost = 1L,
     costGrowth = 1.55,
   );
 

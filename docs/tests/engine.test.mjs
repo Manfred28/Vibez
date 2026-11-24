@@ -23,6 +23,7 @@ import {
   arc2CanConnectNextChapter,
   bottleJar,
   buyCreature,
+  buyMaxCreature,
   buyRepeatableScarGraft,
   canAffordChoirLung,
   canAffordGraft,
@@ -33,6 +34,7 @@ import {
   canExcise,
   canOfferToThroat,
   canUnlockNode,
+  catatonicTideMultiplier,
   connectNextChapter,
   creatureCost,
   creatureCount,
@@ -53,6 +55,7 @@ import {
   effectiveJarCost,
   effectiveLampStillnessPerSec,
   enterArc3Convergence,
+  formatValveYield,
   gazeMultiplier,
   graftCooldownDurationSec,
   graftStillnessCost,
@@ -64,6 +67,7 @@ import {
   interactAnomaly,
   interactDeskAnomaly,
   isApparatusUnlocked,
+  isColonyProliferationUnlocked,
   isJarUnlocked,
   isJarsAndGraftUnlocked,
   isRepeatableGraftsUnlocked,
@@ -71,6 +75,7 @@ import {
   manualTapYield,
   marrowBloomDurationSec,
   massRequiredForScarCount,
+  maxAffordableCreatureQuote,
   nextBaseScarMassThreshold,
   nextScarProgress,
   offerToThroat,
@@ -83,6 +88,7 @@ import {
   pinDeduction,
   pressValve,
   progressWithinPhase,
+  rawIchorPerSecond,
   recruitContact,
   relicAmplifier,
   repeatableCost,
@@ -95,6 +101,7 @@ import {
   setEchoDiversion,
   stillnessCostMultiplier,
   stillnessDisplay,
+  stillnessIdleDelaySec,
   stillnessPerSecond,
   tick,
   toggleDrainSeal,
@@ -102,7 +109,18 @@ import {
   unlockScarNode,
   valveClampDurationSec,
 } from '../src/engine.js';
-import { applyDripMotionProfile, computeDripMotionProfile } from '../src/ui.js';
+import {
+  REPEAT_EVENT_DRIP_CHANCE,
+  applyDripMotionProfile,
+  arc1UnlockKeys,
+  arc2UnlockKeys,
+  computeDripMotionProfile,
+  isArc1TabReady,
+  isArc2TabReady,
+  shouldAlertArc1Tab,
+  shouldAlertArc2Tab,
+  shouldTriggerEventDrip,
+} from '../src/ui.js';
 import {
   AUDIO_MUTE_STORAGE_KEY,
   SOUND_ACTION_HINTS,
@@ -113,6 +131,7 @@ import {
   resolveTransitionCues,
   writeMutedPreference,
 } from '../src/audio.js';
+import { getWeepingLampLayout } from '../src/chamberCanvas.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(__dirname, '..', '..');
@@ -163,9 +182,17 @@ test('GitHub Pages static bundle integrity and Android dialogues.json parity', (
 
   // Verify index.html uses relative ./ paths so GitHub Pages subpaths work
   const html = fs.readFileSync(path.join(docsDir, 'index.html'), 'utf8');
-  assert.ok(html.includes('href="./styles.css?v=2.9"'));
-  assert.ok(html.includes('src="./src/app.js?v=2.9"'));
+  assert.ok(html.includes('href="./styles.css?v=3.5"'));
+  assert.ok(html.includes('src="./src/app.js?v=3.5"'));
   assert.ok(html.includes('src="./assets/img_recessed_valve.jpg"'));
+  assert.ok(html.includes('THE COUNTING ROOM'));
+  assert.ok(!html.includes('PHASE 00'), 'User-facing HTML must not show the word PHASE');
+  assert.ok(!html.includes('id="phase-badge"'), 'User-facing HTML must not show a P0..P4 phase badge');
+  assert.ok(!html.includes('id="arc2-chapter-badge"'), 'User-facing HTML must not show a CH 0/4 badge');
+  assert.ok(!html.includes('ARC 02 //'), 'User-facing HTML must not show ARC 02 prefix');
+  assert.ok(!html.includes('ARC 03 //'), 'User-facing HTML must not show ARC 03 prefix');
+  assert.ok(!html.includes('NEXT FRACTURE'), 'Upcoming unlock thresholds must be hidden');
+  assert.ok(!html.includes('NEXT CHAPTER'), 'Upcoming Inquiry chapters must be hidden');
   assert.ok(html.includes('id="audio-mute-btn"'), 'Web UI must include compact audio mute toggle');
   assert.ok(html.includes('id="open-dev-btn"'), 'Web UI must include Clinical Dev Console trigger');
   assert.ok(html.includes('id="arc2-shell"'), 'Web UI must include Arc 2 Investigator Desk shell');
@@ -368,10 +395,17 @@ test('Scar Tissue Surgical Skill Tree enforces prerequisites, deducts spendable 
   assert.equal(state.availableScarTissue, 11);
   assert.equal(state.activeDialogue?.id, 'dlg_scar_first_incision');
 
+  assert.equal(SCAR_NODES.find((n) => n.id === 'shorter_silence')?.cost, 1);
+  assert.equal(SCAR_NODES.find((n) => n.id === 'wax_sealed_memory')?.cost, 3);
+  assert.equal(SCAR_NODES.find((n) => n.id === 'deep_weeping')?.cost, 6);
+  assert.equal(SCAR_NODES.find((n) => n.id === 'hollow_lung_choir')?.cost, 22);
+  assert.equal(SCAR_NODES.find((n) => n.id === 'catatonic_tide')?.cost, 45);
+
   state = unlockScarNode(state, 'calloused_palm', realCatalog);
   state = unlockScarNode(state, 'shorter_silence', realCatalog);
   state = unlockScarNode(state, 'wax_sealed_memory', realCatalog);
-  assert.equal(state.availableScarTissue, 2);
+  // Spent: 1 (first_incision) + 2 (calloused_palm) + 1 (shorter_silence) + 3 (wax_sealed_memory) = 7 -> 5 left
+  assert.equal(state.availableScarTissue, 5);
 
   // Reworked Wax-Sealed Memory: clears jars on Excision, discounts Stillness costs by 30%, halves graft cooldown
   state = {
@@ -683,6 +717,63 @@ test('6-tier Specimen Jars, Next Scar quadratic progress, and cooldown serializa
     assert.ok(currentBaseScarHarvest({ ...s0, cycleLifetimeIchor: req - 1 }) < target);
   }
 
+  // Next Scar threshold never exceeds active Excision milestone and awards pulled scar early at M2..M6
+  const activeMilestoneExpectations = [
+    [1, 1800000, 4],
+    [2, 16000000, 8],
+    [3, 140000000, 15],
+    [4, 1250000000, 28],
+    [5, 36000000000, 75],
+  ];
+  for (const [cleared, milestoneMass, expectedScars] of activeMilestoneExpectations) {
+    const justBefore = {
+      ...s0,
+      highestExcisionMilestone: cleared,
+      cycleLifetimeIchor: milestoneMass - 1,
+    };
+    assert.equal(currentBaseScarHarvest(justBefore), expectedScars - 1);
+    assert.equal(nextBaseScarMassThreshold(justBefore), milestoneMass);
+    assert.ok(nextScarProgress(justBefore) > 0.99);
+
+    const exactMilestone = {
+      ...s0,
+      highestExcisionMilestone: cleared,
+      cycleLifetimeIchor: milestoneMass,
+    };
+    assert.equal(currentBaseScarHarvest(exactMilestone), expectedScars);
+    assert.equal(pendingScarTissue(exactMilestone), expectedScars);
+    assert.ok(Math.abs(nextScarProgress(exactMilestone)) < 0.001);
+    assert.ok(nextBaseScarMassThreshold(exactMilestone) > milestoneMass);
+  }
+
+  // M2 progression: 1.2M clamps to 1.8M, 1.8M awards 4 Scars on Excision, 2.12M does not double-grant
+  const m2Base = { ...s0, highestExcisionMilestone: 1 };
+  assert.equal(nextBaseScarMassThreshold({ ...m2Base, cycleLifetimeIchor: 1200000 }), 1800000);
+  assert.equal(currentBaseScarHarvest({ ...m2Base, cycleLifetimeIchor: 2120000 }), 4);
+  const fifthScarReq = massRequiredForScarCount(m2Base, 5);
+  assert.equal(nextBaseScarMassThreshold({ ...m2Base, cycleLifetimeIchor: 2120000 }), fifthScarReq);
+  assert.equal(currentBaseScarHarvest({ ...m2Base, cycleLifetimeIchor: fifthScarReq }), 5);
+
+  const excisedAtM2 = performExcision(
+    { ...m2Base, ichor: 1800000, cycleLifetimeIchor: 1800000, phase: 4 },
+    realCatalog,
+  );
+  assert.equal(excisedAtM2.highestExcisionMilestone, 2);
+  assert.equal(excisedAtM2.scarTissue, 4);
+
+  const hookedM2 = {
+    ...m2Base,
+    unlockedScarNodes: ['first_incision'],
+    repeatableScarRanks: { scar_harvest_hook: 1 },
+  };
+  for (const candidateState of [m2Base, hookedM2]) {
+    for (let target = 3; target <= 30; target += 1) {
+      const req = massRequiredForScarCount(candidateState, target);
+      assert.ok(currentBaseScarHarvest({ ...candidateState, cycleLifetimeIchor: req }) >= target);
+      assert.ok(currentBaseScarHarvest({ ...candidateState, cycleLifetimeIchor: req - 1 }) < target);
+    }
+  }
+
   // Cooldown, late-tier jar, and repeatableScarRanks serialization round-trip
   const withCooldown = {
     ...c1,
@@ -728,8 +819,11 @@ test('Anti-skip sequential cap, zero milestone bonus Scars, M5 Arc 2 gate, 16-no
   const afterM4 = performExcision(massiveM4, realCatalog);
   assert.equal(afterM4.highestExcisionMilestone, 5);
 
-  // M5 with 12B opens Breach to Arc 2 and grants 0 bonus Scars
-  const readyM5 = { ...afterM4, ichor: 12000000000, cycleLifetimeIchor: 12000000000, phase: 4 };
+  // M5 with 12B is below the 36B threshold; 36B opens Breach to Arc 2 and grants 0 bonus Scars
+  const shortM5 = { ...afterM4, ichor: 12000000000, cycleLifetimeIchor: 12000000000, phase: 4 };
+  assert.equal(canBreachToArc2(shortM5), false);
+
+  const readyM5 = { ...afterM4, ichor: 36000000000, cycleLifetimeIchor: 36000000000, phase: 4 };
   assert.equal(canBreachToArc2(readyM5), true);
   const scarBeforeBreach = readyM5.scarTissue;
   const breached = performBreachToArc2(readyM5, realCatalog);
@@ -737,7 +831,7 @@ test('Anti-skip sequential cap, zero milestone bonus Scars, M5 Arc 2 gate, 16-no
   assert.equal(breached.highestExcisionMilestone, 6);
   assert.equal(breached.scarTissue, scarBeforeBreach);
 
-  // New Tier 4-5 nodes: MEMBRANE_RECALL, PERPETUAL_SEAM, CATATONIC_TIDE, ECHO_OSSUARY, BLOOM_INCISION
+  // Tier 4-5 nodes: MEMBRANE_RECALL, PERPETUAL_SEAM, CATATONIC_TIDE, ECHO_OSSUARY, BLOOM_INCISION, BONE_RESONANCE
   const recallBase = {
     ...initialState(realCatalog),
     highestExcisionMilestone: 2,
@@ -745,26 +839,46 @@ test('Anti-skip sequential cap, zero milestone bonus Scars, M5 Arc 2 gate, 16-no
     ichor: 300000,
     cycleLifetimeIchor: 300000,
     phase: 4,
+    creatures: { [CREATURE_TYPES.SUMP_SIPHON.id]: 1 },
+    graftedTendrils: 1,
     unlockedScarNodes: ['membrane_recall'],
   };
+  const recallPlain = { ...recallBase, unlockedScarNodes: [] };
+  assert.ok(Math.abs(rawIchorPerSecond(recallBase) - rawIchorPerSecond(recallPlain) * 1.85) < 0.01);
   const resetRecall = performExcision(recallBase, realCatalog);
   assert.equal(creatureCount(resetRecall, CREATURE_TYPES.WEEPING_LAMP.id), 1);
   assert.equal(creatureCount(resetRecall, CREATURE_TYPES.SUMP_SIPHON.id), 1);
 
-  const perpetual = {
+  const perpetualPlain = {
     ...initialState(realCatalog),
-    unlockedScarNodes: ['perpetual_seam'],
     creatures: { [CREATURE_TYPES.WEEPING_LAMP.id]: 1 },
+    graftedTendrils: 1,
+    choirLungs: 1,
     secondsSinceLastTap: 5.0,
     isStillnessActive: true,
   };
-  const afterPerp = tick(perpetual, ORGAN_BALANCE.PERPETUAL_SEAM_INTERVAL_SEC + 0.1, realCatalog);
+  const perpetual = { ...perpetualPlain, unlockedScarNodes: ['perpetual_seam'] };
+  assert.equal(ORGAN_BALANCE.PERPETUAL_SEAM_INTERVAL_SEC, 0.75);
+  assert.ok(Math.abs(rawIchorPerSecond(perpetual) - rawIchorPerSecond(perpetualPlain) * 2.25) < 0.01);
+  const afterPerp = tick(perpetual, ORGAN_BALANCE.PERPETUAL_SEAM_INTERVAL_SEC + 0.05, realCatalog);
   assert.equal(afterPerp.isStillnessActive, true);
   assert.ok(afterPerp.ichor >= manualTapYield(perpetual));
 
+  const tideInactive = {
+    ...initialState(realCatalog),
+    unlockedScarNodes: ['catatonic_tide'],
+    creatures: { [CREATURE_TYPES.SUTURE_HAND.id]: 2 },
+    isStillnessActive: false,
+  };
+  assert.equal(stillnessIdleDelaySec(tideInactive), 0.8);
+  assert.equal(catatonicTideMultiplier(tideInactive), 1.45);
+  assert.equal(catatonicTideMultiplier({ ...tideInactive, isStillnessActive: true }), 2.6);
+  assert.equal(jarEffectBoost(tideInactive), 1.5);
+
   const ossuary = { ...initialState(realCatalog), highestExcisionMilestone: 3, unlockedScarNodes: ['echo_ossuary'] };
   assert.equal(echoPulseIntervalSec(ossuary), 9.0);
-  assert.equal(relicAmplifier(ossuary), 1.45);
+  assert.equal(relicAmplifier(ossuary), 1.35);
+  assert.ok(Math.abs(relicAmplifier({ ...ossuary, unlockedScarNodes: ['echo_ossuary', 'bone_resonance'] }) - 1.35 * 1.35) < 0.0001);
 
   const bloomNode = { ...initialState(realCatalog), highestExcisionMilestone: 4, unlockedScarNodes: ['bloom_incision'] };
   assert.equal(valveClampDurationSec(bloomNode), 15.0);
@@ -777,10 +891,24 @@ test('Anti-skip sequential cap, zero milestone bonus Scars, M5 Arc 2 gate, 16-no
 
   rep = unlockScarNode(rep, 'first_incision', realCatalog);
   assert.equal(isRepeatableGraftsUnlocked(rep), true);
-  assert.equal(repeatableCost(rep, 'keloid_thickening'), 3);
+  assert.equal(repeatableCost(rep, 'keloid_thickening'), 1);
+  assert.equal(repeatableCost(rep, 'sediment_well'), 1);
+  assert.equal(repeatableCost(rep, 'scar_harvest_hook'), 1);
+  assert.deepEqual(
+    [0, 1, 2, 3, 4, 5].map((rank) =>
+      repeatableCost({ ...rep, repeatableScarRanks: { keloid_thickening: rank } }, 'keloid_thickening'),
+    ),
+    [1, 1, 2, 3, 4, 6],
+  );
+  assert.deepEqual(
+    [0, 1, 2, 3, 4, 5].map((rank) =>
+      repeatableCost({ ...rep, repeatableScarRanks: { scar_harvest_hook: rank } }, 'scar_harvest_hook'),
+    ),
+    [1, 1, 2, 3, 5, 8],
+  );
   rep = buyRepeatableScarGraft(rep, 'keloid_thickening', realCatalog);
   assert.equal(repeatableRank(rep, 'keloid_thickening'), 1);
-  assert.equal(repeatableCost(rep, 'keloid_thickening'), 5);
+  assert.equal(repeatableCost(rep, 'keloid_thickening'), 1);
 
   rep = buyRepeatableScarGraft(rep, 'sediment_well', realCatalog);
   assert.equal(repeatableRank(rep, 'sediment_well'), 1);
@@ -800,7 +928,9 @@ test('Anti-skip sequential cap, zero milestone bonus Scars, M5 Arc 2 gate, 16-no
 
 test('Arc 1 escape-to-plea narrative threads, scar_node_specific, repeatable_graft_total, and Plead for Salvation match Android 1:1', () => {
   assert.ok(realCatalog.entries.length >= 70);
-  assert.equal(EXCISION_MILESTONES[5].code, 'EXCISION VI // PLEAD FOR SALVATION');
+  assert.equal(EXCISION_MILESTONES[0].code, 'FIRST SEVERANCE');
+  assert.equal(EXCISION_MILESTONES[5].code, 'PLEAD FOR SALVATION');
+  assert.ok(EXCISION_MILESTONES.every((m) => !m.code.includes('EXCISION')));
 
   // Specific Tier 5 Scar branch capstone trigger (prior M2-M4 and T1/T4 entries already seen in play)
   let s = {
@@ -871,8 +1001,8 @@ test('Arc 1 escape-to-plea narrative threads, scar_node_specific, repeatable_gra
   const readyForPlea = {
     ...s,
     highestExcisionMilestone: 5,
-    ichor: 12000000000,
-    cycleLifetimeIchor: 12000000000,
+    ichor: 36000000000,
+    cycleLifetimeIchor: 36000000000,
     phase: 4,
   };
   const arc2 = performBreachToArc2(readyForPlea, realCatalog);
@@ -897,7 +1027,7 @@ test('.drip-card multi-layer parallax CSS, randomized delay intervals, and safe 
   assert.equal(storyLow.delayMs, 40);
   assert.equal(storyHigh.delayMs, 280);
   assert.ok(storyHigh.delayMs > storyLow.delayMs);
-  assert.ok(storyLow.durationSec >= 6.45 && storyHigh.durationSec <= 7.35);
+  assert.ok(storyLow.durationSec >= 11.5 && storyHigh.durationSec <= 13.0);
   assert.ok(storyLow.parallaxZ < storyHigh.parallaxZ);
   assert.ok(storyLow.ribbonDelayMs > storyLow.delayMs);
   assert.ok(storyLow.beadDelayMs > storyLow.delayMs);
@@ -907,6 +1037,7 @@ test('.drip-card multi-layer parallax CSS, randomized delay intervals, and safe 
   assert.equal(eventLow.kind, 'event');
   assert.equal(eventLow.delayMs, 90);
   assert.equal(eventHigh.delayMs, 540);
+  assert.ok(storyLow.durationSec > eventHigh.durationSec * 2, 'Story drip must be explicitly slower than chamber event drip');
   assert.ok(eventHigh.delayMs > storyHigh.delayMs, 'Event lane should have wider delay jitter than priority Story lane');
   assert.ok(eventHigh.parallaxZ < 0, 'Event drips stay recessed on a deeper Z-plane behind Story drips');
 
@@ -951,15 +1082,36 @@ test('.drip-card multi-layer parallax CSS, randomized delay intervals, and safe 
   assert.ok(css.includes('@keyframes drip-ribbon-seep'));
   assert.ok(css.includes('@keyframes drip-bead-swell'));
   assert.ok(css.includes('@keyframes drip-bubble-parallax'));
+  assert.ok(css.includes('@keyframes tab-clot-pulse'));
+  assert.ok(css.includes('.deck-tab--alert:not(.is-active)'));
+  assert.ok(css.includes('.drip-lane--event.is-suppressed'));
   assert.ok(css.includes('@media (prefers-reduced-motion: reduce)'));
 
-  // Verify ui.js ignores bubbled child animationend events so ribbon/bubble animations never kill .drip-card early
+  // Verify ui.js ignores bubbled child animationend events, suppresses chamber drips during active story drips, and omits clinical meta-labels
   const uiSrc = fs.readFileSync(path.join(docsDir, 'src', 'ui.js'), 'utf8');
   assert.ok(uiSrc.includes('if (event.target !== card) return;'));
+  assert.ok(uiSrc.includes('storyDripLayer.childElementCount > 0'));
+  assert.ok(uiSrc.includes("eventDripLayer.classList.add('is-suppressed')"));
+  for (const forbidden of [
+    'PHASE 0',
+    'NEXT MILESTONE',
+    'MILESTONE M',
+    'EXCISION MILESTONES',
+    'EXCISION VI //',
+    'FLOOR DRAIN GRATE // M2',
+    'NEIGHBOR APERTURE // M3',
+    'VALVE CLAMP // M4',
+    'THE OSSIFIED THROAT // M5',
+    'ARC 02 //',
+    'ARC 1 SCAR ECHOES',
+    '[RANK ',
+  ]) {
+    assert.ok(!uiSrc.includes(forbidden), `ui.js must not render clinical meta-label: ${forbidden}`);
+  }
 });
 
 test('Web procedural audio cue resolver, ambient profile escalation, and independent mute persistence match Android 1:1', () => {
-  assert.equal(Object.keys(SOUND_CUES).length, 26);
+  assert.equal(Object.keys(SOUND_CUES).length, 29);
 
   const start = initialState(realCatalog);
 
@@ -970,6 +1122,35 @@ test('Web procedural audio cue resolver, ambient profile escalation, and indepen
     [],
   );
 
+  // All 4 purchasable organisms resolve to distinct signature cues
+  const richBase = {
+    ...start,
+    ichor: 50000,
+    cycleLifetimeIchor: 50000,
+    phase: 3,
+    highestExcisionMilestone: 2,
+    triggeredDialogueIds: [
+      'dlg_p0_suture_hand',
+      'dlg_p1_leech_clerk',
+      'dlg_p2_weeping_lamp',
+      'dlg_m2_sump_siphon',
+    ],
+  };
+  for (const [creatureId, expectedCue] of [
+    [CREATURE_TYPES.SUTURE_HAND.id, SOUND_CUES.CREATURE_BUY_SUTURE_HAND],
+    [CREATURE_TYPES.LEECH_CLERK.id, SOUND_CUES.CREATURE_BUY_LEECH_CLERK],
+    [CREATURE_TYPES.WEEPING_LAMP.id, SOUND_CUES.CREATURE_BUY_WEEPING_LAMP],
+    [CREATURE_TYPES.SUMP_SIPHON.id, SOUND_CUES.CREATURE_BUY_SUMP_SIPHON],
+  ]) {
+    const bought = buyCreature(richBase, creatureId, realCatalog);
+    assert.ok(
+      resolveTransitionCues(richBase, bought, SOUND_ACTION_HINTS.CREATURE_BUY).includes(
+        expectedCue,
+      ),
+      `Expected ${creatureId} to emit ${expectedCue}`,
+    );
+  }
+
   // First valve press emits VALVE_PRESS + STORY_DRIP
   const afterTap = pressValve(start, realCatalog);
   assert.deepEqual(
@@ -977,9 +1158,10 @@ test('Web procedural audio cue resolver, ambient profile escalation, and indepen
     [SOUND_CUES.VALVE_PRESS, SOUND_CUES.STORY_DRIP],
   );
 
-  // Dev console mutations emit zero cues
+  // Dev console mutations emit zero cues; switching tabs has no sound cue
   const devState = devAssignArc1Resources(start, { ichor: 500000 }, realCatalog);
   assert.deepEqual(resolveTransitionCues(start, devState, SOUND_ACTION_HINTS.DEV), []);
+  assert.equal('TAB_SWITCH' in SOUND_CUES, false);
 
   // Passive tick emits ECHO_PULSE, MARROW_BLOOM, and PHASE_SHIFT
   const tickBase = {
@@ -1003,8 +1185,8 @@ test('Web procedural audio cue resolver, ambient profile escalation, and indepen
   const readyPlea = {
     ...start,
     highestExcisionMilestone: 5,
-    ichor: 12000000000,
-    cycleLifetimeIchor: 12000000000,
+    ichor: 36000000000,
+    cycleLifetimeIchor: 36000000000,
     phase: 4,
   };
   const arc2 = performBreachToArc2(readyPlea, realCatalog);
@@ -1077,3 +1259,246 @@ test('Web procedural audio cue resolver, ambient profile escalation, and indepen
   webEngine.setForegroundActive(false);
   webEngine.dispose();
 });
+
+test('Web tab alert evaluator, Grafting-in-Organisms alignment, and unseen/readiness clearing match Android 1:1', () => {
+  const base = initialState(realCatalog);
+
+  // Phase 2 unlocks JARS; unseen jars trigger alert while on apparatus tab
+  const p2 = { ...base, ichor: 1700, cycleLifetimeIchor: 1700, phase: 2, stillness: 0 };
+  const p2JarKeys = arc1UnlockKeys(p2, 'jars_and_graft');
+  assert.ok(p2JarKeys.has('jar_yesterdays_dust'));
+  assert.equal(p2JarKeys.has('jar_salt_from_the_grout'), false);
+  assert.equal(shouldAlertArc1Tab(p2, 'jars_and_graft', 'apparatus', new Map()), true);
+
+  // Opening JARS clears unseen alert when no jar is affordable
+  const seen = new Map([['jars_and_graft', new Set(p2JarKeys)]]);
+  assert.equal(shouldAlertArc1Tab(p2, 'jars_and_graft', 'apparatus', seen), false);
+
+  // Becoming able to afford a jar pulses JARS while inactive, never while active
+  const p2Afford = { ...p2, stillness: 30 };
+  assert.equal(isArc1TabReady(p2Afford, 'jars_and_graft'), true);
+  assert.equal(shouldAlertArc1Tab(p2Afford, 'jars_and_graft', 'apparatus', seen), true);
+  assert.equal(shouldAlertArc1Tab(p2Afford, 'jars_and_graft', 'jars_and_graft', new Map()), false);
+
+  // Grafting (Choir-Tendril & Choir-Lung) lives inside apparatus (ORGANISMS)
+  const m4Ready = {
+    ...base,
+    phase: 3,
+    cycle: 1,
+    highestExcisionMilestone: 4,
+    stillness: 250,
+    graftedTendrils: 1,
+    creatures: {
+      [CREATURE_TYPES.SUTURE_HAND.id]: 2,
+      [CREATURE_TYPES.LEECH_CLERK.id]: 2,
+      [CREATURE_TYPES.WEEPING_LAMP.id]: 2,
+    },
+  };
+  const appKeys = arc1UnlockKeys(m4Ready, 'apparatus');
+  assert.ok(appKeys.has('graft_tendril'));
+  assert.ok(appKeys.has('graft_choir_lung'));
+  assert.equal(isArc1TabReady(m4Ready, 'apparatus'), true);
+  assert.equal(shouldAlertArc1Tab(m4Ready, 'apparatus', 'chamber_rites', new Map([['apparatus', new Set(appKeys)]])), true);
+
+  // Cycle 0 EXCISION stays hidden until ready, then alerts
+  assert.equal(arc1UnlockKeys(p2, 'excision').size, 0);
+  const exciseReady = { ...base, ichor: 220000, cycleLifetimeIchor: 220000, phase: 4 };
+  assert.equal(isArc1TabReady(exciseReady, 'excision'), true);
+  assert.equal(shouldAlertArc1Tab(exciseReady, 'excision', 'apparatus', new Map()), true);
+
+  // Arc 2 unseen chapter & readiness checks
+  const arc2Ready = {
+    ...devSetActiveArc(base, GAME_ARCS.ARC_2_INVESTIGATION, realCatalog),
+  };
+  arc2Ready.arc2 = { ...arc2Ready.arc2, leads: 1000, lifetimeLeads: 1000, silence: 50 };
+  assert.ok(arc2UnlockKeys(arc2Ready, 'evidence_board').has('arc2_ch_1'));
+  assert.equal(isArc2TabReady(arc2Ready, 'deductions'), true);
+  assert.equal(
+    shouldAlertArc2Tab(arc2Ready, 'deductions', 'contacts', new Map([['deductions', new Set(['arc2_deductions'])]])),
+    true,
+  );
+  assert.equal(shouldAlertArc2Tab(arc2Ready, 'deductions', 'deductions', new Map()), false);
+});
+
+test('Web wall/chamber event drip gate guarantees first sighting (100%) and applies 30% chance on repeats', () => {
+  assert.equal(REPEAT_EVENT_DRIP_CHANCE, 0.3);
+
+  const seen = new Set();
+  // Empty key never triggers
+  assert.equal(shouldTriggerEventDrip('', seen, () => 0.0), false);
+  assert.equal(shouldTriggerEventDrip(null, seen, () => 0.0), false);
+
+  // First sighting of a wall event always triggers even when rng returns 0.99
+  assert.equal(shouldTriggerEventDrip('anomaly_pale_tooth', seen, () => 0.99), true);
+  seen.add('anomaly_pale_tooth');
+
+  // Repeat sightings use strict < 0.30 probability
+  assert.equal(shouldTriggerEventDrip('anomaly_pale_tooth', seen, () => 0.0), true);
+  assert.equal(shouldTriggerEventDrip('anomaly_pale_tooth', seen, () => 0.299), true);
+  assert.equal(shouldTriggerEventDrip('anomaly_pale_tooth', seen, () => 0.3), false);
+  assert.equal(shouldTriggerEventDrip('anomaly_pale_tooth', seen, () => 0.99), false);
+  assert.equal(shouldTriggerEventDrip('anomaly_pale_tooth', seen, () => Number.NaN), false);
+
+  // A distinct unseen wall event still triggers 100% regardless of rng
+  assert.equal(shouldTriggerEventDrip('anomaly_glass_eye', seen, () => 0.99), true);
+
+  // Verify Web ui.js checks story suppression BEFORE repeat gating & seen marking, and clears on reset
+  const uiSrc = fs.readFileSync(path.join(docsDir, 'src', 'ui.js'), 'utf8');
+  const suppressIdx = uiSrc.indexOf('storyDripLayer.childElementCount > 0');
+  const gateIdx = uiSrc.indexOf('shouldTriggerEventDrip(resolvedKey, seenEventDripKeys');
+  const markIdx = uiSrc.indexOf('seenEventDripKeys.add(resolvedKey)');
+  assert.ok(suppressIdx > 0 && gateIdx > suppressIdx && markIdx > gateIdx);
+  assert.ok(uiSrc.includes('seenEventDripKeys.clear();'));
+
+  // Verify app.js passes explicit event keys and renders story drips before observing chamber events
+  const appSrc = fs.readFileSync(path.join(docsDir, 'src', 'app.js'), 'utf8');
+  for (const keyToken of [
+    "'echo_answer'",
+    '`graft_${sacrificeKind}`',
+    "'sump_dredge'",
+    "'valve_clamp'",
+    '`anomaly_${anomaly.type}`',
+    "`desk_${anomaly?.type ?? 'anomaly'}`",
+  ]) {
+    assert.ok(appSrc.includes(keyToken), `app.js must pass explicit event key ${keyToken}`);
+  }
+  const anomalyApplyIdx = appSrc.indexOf('applyState(interactAnomaly(state, anomalyId, catalog)');
+  const anomalyDripIdx = appSrc.indexOf('`anomaly_${anomaly.type}`');
+  assert.ok(anomalyApplyIdx > 0 && anomalyDripIdx > anomalyApplyIdx, 'Anomaly drip must run after applyState so story drips suppress it cleanly');
+});
+
+test('Web Weeping Lamps hang strictly on left/right flanks behind foreground HUD (no middle lamp over income)', () => {
+  assert.deepEqual(getWeepingLampLayout(0), []);
+  for (let count = 1; count <= 6; count += 1) {
+    const slots = getWeepingLampLayout(count);
+    assert.equal(slots.length, Math.min(count, 5));
+    for (const slot of slots) {
+      assert.ok(
+        slot.x <= 0.24 || slot.x >= 0.76,
+        `Lamp at x=${slot.x} for count=${count} must stay clear of center income band (0.25..0.75)`,
+      );
+    }
+  }
+
+  // Verify drawChamberBackdrop renders lamps behind foreground HUD while drawForegroundLampsAndSacrifice only draws sacrifice FX
+  const canvasSrc = fs.readFileSync(path.join(docsDir, 'src', 'chamberCanvas.js'), 'utf8');
+  const backdropFnStart = canvasSrc.indexOf('export function drawChamberBackdrop(');
+  const foregroundFnStart = canvasSrc.indexOf('export function drawForegroundLampsAndSacrifice(');
+  const lampsCallIdx = canvasSrc.indexOf('drawWeepingLampsCeiling(ctx, width, lampCount');
+  assert.ok(
+    backdropFnStart >= 0 && foregroundFnStart > backdropFnStart && lampsCallIdx > backdropFnStart && lampsCallIdx < foregroundFnStart,
+    'Weeping lamps must draw inside drawChamberBackdrop behind foreground income text',
+  );
+});
+
+test('Web wall anomaly nodes use subtle CSS keyframe breathing/pulsing with desynchronized delays and reduced-motion support', () => {
+  const css = fs.readFileSync(path.join(docsDir, 'styles.css'), 'utf8');
+  const uiSrc = fs.readFileSync(path.join(docsDir, 'src', 'ui.js'), 'utf8');
+
+  // Verify both organic breathing and arterial pulse keyframes exist with translate(-50%, -50%) centering preserved
+  assert.ok(css.includes('@keyframes wall-anomaly-breathe'));
+  assert.ok(css.includes('@keyframes wall-anomaly-pulse'));
+  assert.ok(css.includes('.anomaly-layer .anomaly-node,\n.anomaly-node--wall'));
+  assert.ok(css.includes('animation: wall-anomaly-breathe var(--breath-duration, 4.6s)'));
+
+  // Verify all 4 wall anomaly types have dedicated breathing tokens (and swollen_nodule uses pulse)
+  for (const selector of [
+    '.anomaly-node--pale_tooth',
+    '.anomaly-node--glass_eye',
+    '.anomaly-node--swollen_nodule',
+    '.anomaly-node--chitin_rib',
+  ]) {
+    assert.ok(css.includes(selector), `styles.css must define ${selector}`);
+  }
+  const noduleIdx = css.indexOf('.anomaly-node--swollen_nodule');
+  const ribIdx = css.indexOf('.anomaly-node--chitin_rib');
+  assert.ok(
+    noduleIdx > 0 && ribIdx > noduleIdx && css.slice(noduleIdx, ribIdx).includes('animation-name: wall-anomaly-pulse;'),
+    'Swollen nodule must use the arterial wall-anomaly-pulse keyframe',
+  );
+
+  // Verify hover override and prefers-reduced-motion disable animation cleanly
+  assert.ok(css.includes('.anomaly-layer .anomaly-node:hover'));
+  const reducedMotionBlock = css.slice(css.indexOf('@media (prefers-reduced-motion: reduce)'));
+  assert.ok(
+    reducedMotionBlock.includes('.anomaly-layer .anomaly-node') &&
+      reducedMotionBlock.includes('animation: none;'),
+    'Reduced-motion media query must disable wall anomaly breathing animation',
+  );
+
+  // Verify ui.js tags wall anomalies with anomaly-node--wall and negative --breath-delay (without tagging desk anomalies)
+  assert.ok(uiSrc.includes('anomaly-node anomaly-node--wall anomaly-node--${anomaly.type}'));
+  assert.ok(uiSrc.includes("btn.style.setProperty('--breath-delay'"));
+  const deskSyncStart = uiSrc.indexOf('function syncDeskAnomalies(');
+  const deskSyncSlice = uiSrc.slice(deskSyncStart, deskSyncStart + 1200);
+  assert.ok(
+    !deskSyncSlice.includes('anomaly-node--wall'),
+    'Arc 2 desk anomalies must stay separate from Arc 1 wall anomaly breathing class',
+  );
+});
+
+test('Web Colony Proliferation (M3 bulk-buy), Echo burst rebalancing, and compact valve yield match Android 1:1', () => {
+  // Proliferate locked at M2
+  const m2 = {
+    ...initialState(realCatalog),
+    highestExcisionMilestone: 2,
+    cycle: 2,
+    ichor: 50000,
+    cycleLifetimeIchor: 50000,
+  };
+  assert.equal(isColonyProliferationUnlocked(m2), false);
+  assert.equal(buyMaxCreature(m2, CREATURE_TYPES.SUTURE_HAND.id, realCatalog), m2);
+  assert.equal(arc1UnlockKeys(m2, 'apparatus').has('colony_proliferation'), false);
+
+  // Unlocked at M3: exact parity with sequential buyCreature across all 4 organisms
+  const m3 = {
+    ...m2,
+    highestExcisionMilestone: 3,
+    ichor: 250000,
+    cycleLifetimeIchor: 250000,
+    unlockedScarNodes: ['colony_inertia'],
+    creatures: { [CREATURE_TYPES.SUTURE_HAND.id]: 3, [CREATURE_TYPES.LEECH_CLERK.id]: 1 },
+  };
+  assert.equal(isColonyProliferationUnlocked(m3), true);
+  assert.equal(arc1UnlockKeys(m3, 'apparatus').has('colony_proliferation'), true);
+
+  for (const spec of Object.values(CREATURE_TYPES)) {
+    const quote = maxAffordableCreatureQuote(m3, spec.id);
+    assert.ok(quote.count > 0);
+    let seq = m3;
+    let seqCount = 0;
+    while (seq.ichor >= creatureCost(seq, spec.id)) {
+      seq = buyCreature(seq, spec.id, realCatalog);
+      seqCount += 1;
+    }
+    const bulk = buyMaxCreature(m3, spec.id, realCatalog);
+    assert.equal(quote.count, seqCount);
+    assert.equal(creatureCount(bulk, spec.id), creatureCount(seq, spec.id));
+    assert.ok(Math.abs(bulk.ichor - seq.ichor) < 0.01);
+    assert.ok(bulk.ichor < creatureCost(bulk, spec.id));
+  }
+
+  // Rebalanced Echo burst at 50% diversion = 18x raw/sec
+  const echo50 = {
+    ...initialState(realCatalog),
+    highestExcisionMilestone: 3,
+    echoDiversionPercent: 50,
+    echoChargeSeconds: 11.9,
+    creatures: { [CREATURE_TYPES.SUMP_SIPHON.id]: 4 },
+  };
+  const afterEcho = tick(echo50, 0.2, realCatalog);
+  assert.equal(afterEcho.echoPulsesTriggered, 1);
+  assert.ok(
+    Math.abs(afterEcho.ichor - (rawIchorPerSecond(echo50) * 18.0 + ichorPerSecond(echo50) * 0.2)) < 0.5,
+  );
+
+  // Compact valve yield formatting prevents late-game circle overflow
+  assert.equal(formatValveYield(1), '1');
+  assert.equal(formatValveYield(9840), '9,840');
+  assert.equal(formatValveYield(12500), '12.5K');
+  assert.equal(formatValveYield(142300), '142K');
+  assert.equal(formatValveYield(2923756), '2.92M');
+  assert.equal(formatValveYield(36000000000), '36B');
+});
+
+

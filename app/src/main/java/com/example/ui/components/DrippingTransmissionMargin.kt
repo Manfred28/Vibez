@@ -46,6 +46,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.R
 import com.example.data.DialogueEntry
+import kotlin.random.Random
 import kotlinx.coroutines.delay
 
 @Immutable
@@ -53,32 +54,70 @@ internal data class ThematicDripEvent(
   val id: Long,
   val speaker: String,
   val text: String,
+  val eventKey: String = "$speaker:$text",
 )
+
+internal const val STORY_DRIP_SWELL_MS = 1300
+internal const val STORY_DRIP_HOLD_MS = 4400L
+internal const val STORY_DRIP_DESCEND_MS = 6300
+internal const val STORY_DRIP_TOTAL_MS =
+  STORY_DRIP_SWELL_MS + STORY_DRIP_HOLD_MS + STORY_DRIP_DESCEND_MS
+
+internal const val REPEAT_EVENT_DRIP_CHANCE = 0.30
+
+internal object EventDripGate {
+  fun shouldShow(
+    eventKey: String,
+    seenKeys: Set<String>,
+    roll: () -> Double = { Random.nextDouble() },
+  ): Boolean {
+    if (eventKey.isBlank()) return false
+    if (eventKey !in seenKeys) return true
+    val sample = roll()
+    return !sample.isNaN() && sample < REPEAT_EVENT_DRIP_CHANCE
+  }
+}
 
 /**
  * Dual-lane non-blocking side-margin dripping seepage overlay with strict story priority:
  *
  * 1. **Primary Priority Story Lane (Right Margin, `dripping_story_overlay`)**:
- *    Dedicated exclusively to newly unlocked `DialogueEntry` story fragments. Wall anomalies,
- *    Neighbor Aperture echoes, or sacrifice notes can NEVER overwrite, interrupt, or overlap it.
- *    Skips initial mount/hydration so restoring a save does not falsely trigger a drip.
+ *    Dedicated exclusively to newly unlocked `DialogueEntry` story fragments, seeping slowly
+ *    (~12s) for comfortable reading. Wall anomalies, Neighbor Aperture echoes, or sacrifice notes
+ *    can NEVER overwrite, interrupt, or overlap it. Skips initial mount/hydration so restoring a
+ *    save does not falsely trigger a drip.
  *
  * 2. **Subordinate Event Lane (Left Margin, `dripping_event_overlay`)**:
- *    Hosts slow, readable thematic descriptions for wall-anomaly interactions, Neighbor Aperture
- *    echo answers, and graft sacrifices. Automatically softens when a primary story fragment is
- *    actively descending on the opposite edge so story transmissions always command attention.
+ *    Hosts readable thematic descriptions for wall-anomaly interactions, Neighbor Aperture echo
+ *    answers, and graft sacrifices (~4.8s). Completely hidden and suppressed whenever a primary
+ *    story fragment is actively descending so story transmissions command undivided attention.
+ *    Each distinct event key always drips the first time it is actually shown (100%), then triggers
+ *    at a 30% random chance (`REPEAT_EVENT_DRIP_CHANCE`) on subsequent repeats.
  */
 @Composable
 internal fun DrippingTransmissionOverlay(
   activeDialogue: DialogueEntry?,
   latestEvent: ThematicDripEvent?,
   modifier: Modifier = Modifier,
+  eventDripRoll: () -> Double = { Random.nextDouble() },
 ) {
   // Primary story state: never evicted by events, only updates on genuinely new dialogue IDs.
   var initializedDialogue by remember { mutableStateOf(false) }
   var lastSeenDialogueId by remember { mutableStateOf<String?>(null) }
   var activeStoryDrip by remember { mutableStateOf<DialogueEntry?>(null) }
   val storyProgress = remember { Animatable(0f) }
+
+  // Subordinate chamber event state (anomalies / echoes / sacrifices) on the opposite left edge.
+  var lastSeenEventId by remember { mutableStateOf<Long?>(null) }
+  var seenEventKeys by remember { mutableStateOf(emptySet<String>()) }
+  var activeEventDrip by remember { mutableStateOf<ThematicDripEvent?>(null) }
+  val eventProgress = remember { Animatable(0f) }
+
+  LaunchedEffect(activeDialogue == null && latestEvent == null) {
+    if (activeDialogue == null && latestEvent == null) {
+      seenEventKeys = emptySet()
+    }
+  }
 
   LaunchedEffect(activeDialogue?.id) {
     val currentId = activeDialogue?.id
@@ -89,31 +128,34 @@ internal fun DrippingTransmissionOverlay(
     }
     if (currentId != null && currentId != lastSeenDialogueId) {
       lastSeenDialogueId = currentId
+      // Story takes exclusive priority — immediately clear any active chamber event drip
+      activeEventDrip = null
       activeStoryDrip = activeDialogue
       storyProgress.snapTo(0f)
-      // Swell bead briefly, then slowly drip down the right margin (~6.8s total)
+      // Swell bead slowly, pause for unhurried reading, then descend down the right margin (~12s total)
       storyProgress.animateTo(
-        targetValue = 0.22f,
-        animationSpec = tween(durationMillis = 900, easing = FastOutSlowInEasing),
+        targetValue = 0.20f,
+        animationSpec = tween(durationMillis = STORY_DRIP_SWELL_MS, easing = FastOutSlowInEasing),
       )
-      delay(2200)
+      delay(STORY_DRIP_HOLD_MS)
       storyProgress.animateTo(
         targetValue = 1f,
-        animationSpec = tween(durationMillis = 3700, easing = LinearEasing),
+        animationSpec = tween(durationMillis = STORY_DRIP_DESCEND_MS, easing = LinearEasing),
       )
       activeStoryDrip = null
     }
   }
 
-  // Subordinate chamber event state (anomalies / echoes / sacrifices) on the opposite left edge.
-  var lastSeenEventId by remember { mutableStateOf<Long?>(null) }
-  var activeEventDrip by remember { mutableStateOf<ThematicDripEvent?>(null) }
-  val eventProgress = remember { Animatable(0f) }
-
   LaunchedEffect(latestEvent?.id) {
     val event = latestEvent ?: return@LaunchedEffect
     if (event.id == lastSeenEventId) return@LaunchedEffect
     lastSeenEventId = event.id
+    // Suppress chamber event drips whenever a story fragment is actively dripping (without marking seen)
+    if (activeStoryDrip != null) return@LaunchedEffect
+    if (!EventDripGate.shouldShow(event.eventKey, seenEventKeys, eventDripRoll)) {
+      return@LaunchedEffect
+    }
+    seenEventKeys = seenEventKeys + event.eventKey
     activeEventDrip = event
     eventProgress.snapTo(0f)
     eventProgress.animateTo(
@@ -128,33 +170,35 @@ internal fun DrippingTransmissionOverlay(
     activeEventDrip = null
   }
 
-  if (activeStoryDrip == null && activeEventDrip == null) return
+  val storyActive = activeStoryDrip != null
+  if (!storyActive && activeEventDrip == null) return
 
   BoxWithConstraints(modifier = modifier.fillMaxSize()) {
     val travelPx = (constraints.maxHeight * 0.56f).coerceAtLeast(120f)
-    val storyActive = activeStoryDrip != null
 
-    // Subordinate Left Margin Lane (anomalies, echoes, sacrifices)
-    activeEventDrip?.let { event ->
-      val p = eventProgress.value
-      val fadeAlpha =
-        when {
-          p < 0.08f -> (p / 0.08f)
-          p > 0.80f -> ((1f - p) / 0.20f)
-          else -> 1f
-        }.coerceIn(0f, 1f) * (if (storyActive) 0.58f else 0.90f)
+    // Subordinate Left Margin Lane — completely hidden while a story drip is active
+    if (!storyActive) {
+      activeEventDrip?.let { event ->
+        val p = eventProgress.value
+        val fadeAlpha =
+          when {
+            p < 0.08f -> (p / 0.08f)
+            p > 0.80f -> ((1f - p) / 0.20f)
+            else -> 1f
+          }.coerceIn(0f, 1f) * 0.90f
 
-      DripMarginSlip(
-        speaker = event.speaker,
-        body = event.text,
-        progress = p,
-        travelPx = travelPx * 0.85f,
-        alpha = fadeAlpha,
-        alignRight = false,
-        primaryPriority = false,
-        testTag = "dripping_event_overlay",
-        modifier = Modifier.align(Alignment.TopStart).padding(start = 6.dp, top = 74.dp),
-      )
+        DripMarginSlip(
+          speaker = event.speaker,
+          body = event.text,
+          progress = p,
+          travelPx = travelPx * 0.85f,
+          alpha = fadeAlpha,
+          alignRight = false,
+          primaryPriority = false,
+          testTag = "dripping_event_overlay",
+          modifier = Modifier.align(Alignment.TopStart).padding(start = 6.dp, top = 74.dp),
+        )
+      }
     }
 
     // Primary Right Margin Lane (Story Fragments — strict top priority)

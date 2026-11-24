@@ -144,10 +144,50 @@ internal fun LeechClerksGlassOverlay(
   }
 }
 
+internal data class WeepingLampSlot(
+  val xFraction: Float,
+  val cordDp: Float,
+)
+
 /**
- * Suspended organic pear/bell glass Weeping Lamps (up to 5) rendered in the **foreground** over the
- * chamber ceiling & counter bezel so vessels and downward condensation drops are never hidden
- * behind the counter glass while leaving the center digits legible.
+ * Computes staggered ceiling anchor positions for 1..5 visible Weeping Lamps.
+ * Every slot stays strictly on the left (`<= 0.24`) or right (`>= 0.76`) flanks so no lamp,
+ * Stillness halo, or condensation droplet ever sits over the center income readout or digits.
+ */
+internal fun weepingLampLayout(lampCount: Int): List<WeepingLampSlot> {
+  val visibleLamps = min(lampCount, 5)
+  if (visibleLamps <= 0) return emptyList()
+  return when (visibleLamps) {
+    1 -> listOf(WeepingLampSlot(0.14f, 26f))
+    2 -> listOf(WeepingLampSlot(0.13f, 26f), WeepingLampSlot(0.87f, 30f))
+    3 ->
+      listOf(
+        WeepingLampSlot(0.10f, 30f),
+        WeepingLampSlot(0.21f, 16f),
+        WeepingLampSlot(0.88f, 28f),
+      )
+    4 ->
+      listOf(
+        WeepingLampSlot(0.09f, 32f),
+        WeepingLampSlot(0.21f, 16f),
+        WeepingLampSlot(0.79f, 18f),
+        WeepingLampSlot(0.91f, 32f),
+      )
+    else ->
+      listOf(
+        WeepingLampSlot(0.08f, 24f),
+        WeepingLampSlot(0.20f, 14f),
+        WeepingLampSlot(0.14f, 62f),
+        WeepingLampSlot(0.80f, 16f),
+        WeepingLampSlot(0.92f, 34f),
+      )
+  }
+}
+
+/**
+ * Suspended organic pear/bell glass Weeping Lamps (up to 5) hanging on staggered left/right
+ * ceiling flanks behind the foreground counter/income HUD so every lamp stays visible while
+ * never obscuring the center Ichor rate or digits.
  */
 @Composable
 internal fun WeepingLampsCeilingOverlay(
@@ -160,32 +200,20 @@ internal fun WeepingLampsCeilingOverlay(
   if (lampCount <= 0) return
 
   val colorScheme = MaterialTheme.colorScheme
-  val visibleLamps = min(lampCount, 5)
+  val slots = remember(lampCount) { weepingLampLayout(lampCount) }
   val cordPath = remember { Path() }
   val vesselPath = remember { Path() }
   val dropPath = remember { Path() }
-
-  // Flanking-biased horizontal slots keep center digits unobstructed while draping over the counter bezel
-  val slotFractions =
-    when (visibleLamps) {
-      1 -> listOf(0.18f)
-      2 -> listOf(0.16f, 0.84f)
-      3 -> listOf(0.14f, 0.50f, 0.86f)
-      4 -> listOf(0.12f, 0.30f, 0.70f, 0.88f)
-      else -> listOf(0.11f, 0.27f, 0.50f, 0.73f, 0.89f)
-    }
 
   Canvas(modifier = modifier.fillMaxSize().testTag("weeping_lamps_overlay")) {
     val breath = breathPhaseProvider()
     val dropPhase = dropPhaseProvider()
 
-    for (idx in 0 until visibleLamps) {
-      val frac = slotFractions[idx]
-      val isCenterSlot = frac in 0.42f..0.58f
-      val anchorX = size.width * frac
-      val sway = sin(breath * 2.0 * PI + (idx + 1) * 0.95).toFloat() * 5.5.dp.toPx()
-      // Center lamp hangs shorter over the upper counter edge; flanking lamps hang deeper in front
-      val cordLen = (if (isCenterSlot) 12f else 24f + (idx % 2) * 10f).dp.toPx()
+    for (idx in slots.indices) {
+      val slot = slots[idx]
+      val anchorX = size.width * slot.xFraction
+      val sway = sin(breath * 2.0 * PI + (idx + 1) * 0.95).toFloat() * 4.5.dp.toPx()
+      val cordLen = slot.cordDp.dp.toPx()
       val socketCenter = Offset(anchorX + sway, cordLen)
 
       // Ceiling iron hook + swaying braided cord
@@ -282,12 +310,12 @@ internal fun WeepingLampsCeilingOverlay(
         style = Stroke(width = 1.dp.toPx()),
       )
 
-      // Strictly downward-falling teardrop condensation droplets in foreground during Stillness
+      // Strictly downward-falling teardrop condensation droplets along the flanks during Stillness
       if (isStillnessActive) {
         val dropProgress = (dropPhase + (idx + 1) * 0.27f) % 1f
         val fallNorm = ((dropProgress - 0.16f) / 0.84f).coerceIn(0f, 1f)
         val gravityCurve = fallNorm * fallNorm
-        val fallDistance = (if (isCenterSlot) 20f else 38f).dp.toPx()
+        val fallDistance = 36f.dp.toPx()
         val dropY = vesselBottom + 2.dp.toPx() + gravityCurve * fallDistance
         val swellScale =
           if (dropProgress < 0.16f) 0.55f + (dropProgress / 0.16f) * 0.45f else 1f

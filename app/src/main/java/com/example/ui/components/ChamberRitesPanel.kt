@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -34,14 +33,13 @@ import com.example.game.CultDossierLine
 import com.example.game.DredgedRelic
 import com.example.game.OrganGameState
 import com.example.ui.theme.BleakTheme
-import java.text.NumberFormat
 import kotlin.math.ceil
 
 /**
  * Progressive Chamber Rites Deck panel hosting Excision II–V active mechanics:
  * - Excision II: Floor Drain Grate Seal/Vent + Tappable Inspectable Dredged Relics
  * - Excision III: Neighbor Aperture Echo Diversion (0% / 25% / 50%)
- * - Excision IV: Valve Clamp (20s hold -> Marrow Bloom) & Choir-Lung Grafting (with Stillness & cooldown)
+ * - Excision IV: Valve Clamp (20s hold -> Marrow Bloom)
  * - Excision V: The Ossified Throat & Redacted Cult Dossier
  */
 @Composable
@@ -51,13 +49,11 @@ fun ChamberRitesPanel(
   onDredgeSump: () -> Unit,
   onSetEchoDiversion: (Int) -> Unit,
   onActivateValveClamp: () -> Unit,
-  onPerformChoirLungGraft: () -> Unit,
   onOfferToThroat: (CultDossierLine) -> Unit,
   modifier: Modifier = Modifier,
 ) {
   val colorScheme = MaterialTheme.colorScheme
   val atmosphere = BleakTheme.atmosphere
-  val numberFormat = remember { NumberFormat.getIntegerInstance() }
   var inspectedRelic by remember { mutableStateOf<DredgedRelic?>(null) }
 
   Column(
@@ -232,7 +228,7 @@ fun ChamberRitesPanel(
       }
     }
 
-    // --- Excision IV: Valve Clamp & Choir-Lung Grafting ---
+    // --- Excision IV: Valve Clamp ---
     if (state.highestExcisionMilestone >= 4) {
       RiteSectionCard(
         title = stringResource(R.string.rite_clamp_title),
@@ -255,66 +251,6 @@ fun ChamberRitesPanel(
           onClick = onActivateValveClamp,
           modifier = Modifier.fillMaxWidth(),
         )
-        HorizontalDivider(color = atmosphere.hairline, thickness = 1.dp)
-
-        val onLungCooldown = state.isChoirLungOnCooldown
-        val lungActionLabel =
-          if (onLungCooldown) {
-            stringResource(
-              R.string.graft_cooldown_format,
-              ceil(state.choirLungCooldownRemainingSeconds).toInt(),
-            )
-          } else {
-            stringResource(
-              R.string.choir_lung_action_cost,
-              numberFormat.format(state.choirLungStillnessCost),
-            )
-          }
-
-        Row(
-          modifier = Modifier.fillMaxWidth(),
-          horizontalArrangement = Arrangement.SpaceBetween,
-          verticalAlignment = Alignment.CenterVertically,
-        ) {
-          GraftArtworkEmblem(
-            isLung = true,
-            ready = state.canAffordChoirLung,
-            onCooldown = onLungCooldown,
-          )
-          Spacer(modifier = Modifier.width(8.dp))
-          Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
-            Text(
-              text = "${stringResource(R.string.choir_lung_title)} [${state.choirLungs}]",
-              style = MaterialTheme.typography.labelMedium,
-              color = colorScheme.onBackground,
-            )
-            Text(
-              text = stringResource(R.string.choir_lung_desc),
-              style = MaterialTheme.typography.bodySmall,
-              color = colorScheme.onSurfaceVariant,
-            )
-          }
-          RiteButton(
-            label = lungActionLabel,
-            enabled = state.canAffordChoirLung,
-            highlighted = state.canAffordChoirLung,
-            testTag = "perform_choir_lung_button",
-            onClick = onPerformChoirLungGraft,
-          )
-        }
-        if (onLungCooldown) {
-          val ratio =
-            (state.choirLungCooldownRemainingSeconds / state.choirLungCooldownDurationSec)
-              .toFloat()
-              .coerceIn(0f, 1f)
-          LinearProgressIndicator(
-            progress = { 1f - ratio },
-            modifier = Modifier.fillMaxWidth().height(3.dp).testTag("choir_lung_cooldown_bar"),
-            color = colorScheme.tertiary,
-            trackColor = atmosphere.hairline,
-            drawStopIndicator = {},
-          )
-        }
       }
     }
 

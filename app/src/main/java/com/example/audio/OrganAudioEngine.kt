@@ -140,8 +140,12 @@ class AndroidOrganAudioEngine(
       lastPlayedMs[cue] = now
       val pitchJitter =
         when (cue) {
-          SoundCue.VALVE_PRESS, SoundCue.ARC2_STAMP, SoundCue.CREATURE_BUY ->
-            0.93f + Random.nextFloat() * 0.14f
+          SoundCue.VALVE_PRESS,
+          SoundCue.ARC2_STAMP,
+          SoundCue.CREATURE_BUY_SUTURE_HAND,
+          SoundCue.CREATURE_BUY_LEECH_CLERK,
+          SoundCue.CREATURE_BUY_WEEPING_LAMP,
+          SoundCue.CREATURE_BUY_SUMP_SIPHON -> 0.93f + Random.nextFloat() * 0.14f
           else -> 0.97f + Random.nextFloat() * 0.06f
         }
       try {
