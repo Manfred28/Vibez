@@ -65,6 +65,12 @@ import {
   createWebAudioEngine,
   resolveTransitionCues,
 } from './audio.js?v=3.11';
+import {
+  ANOMALY_ASSET_URLS,
+  DIALOGUES_ASSET_URL,
+  JAR_ASSET_URLS,
+  WALL_ASSET_URLS,
+} from './version.js?v=3.11';
 
 const SAVE_STORAGE_KEY_V2 = 'unnamed_organ_save_v2';
 const SAVE_STORAGE_KEY_V1 = 'unnamed_organ_save_v1';
@@ -100,7 +106,7 @@ function clearSavedRaw() {
 
 async function loadDialogueCatalog() {
   try {
-    const response = await fetch('./assets/dialogues.json?v=3.11', { cache: 'no-cache' });
+    const response = await fetch(DIALOGUES_ASSET_URL, { cache: 'no-cache' });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     return await response.json();
   } catch (err) {
@@ -120,28 +126,28 @@ async function main() {
   let state = deserializeState(readSavedRaw(), catalog) ?? initialState(catalog);
 
   const wallImages = {
-    phase1: preloadWallImage('./assets/img_wall_phase1.jpg?v=3.11'),
-    phase2: preloadWallImage('./assets/img_wall_fleshy.jpg?v=3.11'),
-    phase3: preloadWallImage('./assets/img_wall_phase3.jpg?v=3.11'),
-    phase4: preloadWallImage('./assets/img_wall_phase4.jpg?v=3.11'),
-    excisionLate: preloadWallImage('./assets/img_wall_excision_late.jpg?v=3.11'),
+    phase1: preloadWallImage(WALL_ASSET_URLS.phase1),
+    phase2: preloadWallImage(WALL_ASSET_URLS.phase2),
+    phase3: preloadWallImage(WALL_ASSET_URLS.phase3),
+    phase4: preloadWallImage(WALL_ASSET_URLS.phase4),
+    excisionLate: preloadWallImage(WALL_ASSET_URLS.excisionLate),
   };
   // Preload photographic wall anomaly macro specimens so eruptions appear immediately on spawn
   const anomalyImages = {
-    pale_tooth: preloadWallImage('./assets/img_anomaly_pale_tooth.jpg?v=3.11'),
-    glass_eye: preloadWallImage('./assets/img_anomaly_glass_eye.jpg?v=3.11'),
-    swollen_nodule: preloadWallImage('./assets/img_anomaly_swollen_nodule.jpg?v=3.11'),
-    chitin_rib: preloadWallImage('./assets/img_anomaly_chitin_rib.jpg?v=3.11'),
+    pale_tooth: preloadWallImage(ANOMALY_ASSET_URLS.pale_tooth),
+    glass_eye: preloadWallImage(ANOMALY_ASSET_URLS.glass_eye),
+    swollen_nodule: preloadWallImage(ANOMALY_ASSET_URLS.swollen_nodule),
+    chitin_rib: preloadWallImage(ANOMALY_ASSET_URLS.chitin_rib),
   };
   void anomalyImages;
   // Preload all 6 wet-lab macro specimen jar photos for chamber wall shelves & JARS tab portraits
   const jarImages = {
-    yesterdays_dust: preloadWallImage('./assets/img_jar_yesterdays_dust.jpg?v=3.11'),
-    unspent_breath: preloadWallImage('./assets/img_jar_unspent_breath.jpg?v=3.11'),
-    almost_a_name: preloadWallImage('./assets/img_jar_almost_a_name.jpg?v=3.11'),
-    salt_from_the_grout: preloadWallImage('./assets/img_jar_salt_from_the_grout.jpg?v=3.11'),
-    a_borrowed_pulse: preloadWallImage('./assets/img_jar_a_borrowed_pulse.jpg?v=3.11'),
-    the_uncounted_hour: preloadWallImage('./assets/img_jar_the_uncounted_hour.jpg?v=3.11'),
+    yesterdays_dust: preloadWallImage(JAR_ASSET_URLS.yesterdays_dust),
+    unspent_breath: preloadWallImage(JAR_ASSET_URLS.unspent_breath),
+    almost_a_name: preloadWallImage(JAR_ASSET_URLS.almost_a_name),
+    salt_from_the_grout: preloadWallImage(JAR_ASSET_URLS.salt_from_the_grout),
+    a_borrowed_pulse: preloadWallImage(JAR_ASSET_URLS.a_borrowed_pulse),
+    the_uncounted_hour: preloadWallImage(JAR_ASSET_URLS.the_uncounted_hour),
   };
   void jarImages;
 
