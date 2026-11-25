@@ -10,10 +10,10 @@
     />
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
     <meta http-equiv="Pragma" content="no-cache" />
-    <meta name="app-build" content="3.7" />
+    <meta name="app-build" content="3.8" />
     <title>Tap Counter // The Counting Room</title>
     <link rel="icon" type="image/png" href="./assets/icon.png" />
-    <link rel="stylesheet" href="./styles.css?v=3.7" />
+    <link rel="stylesheet" href="./styles.css?v=3.8" />
   </head>
   <body data-phase="0" data-arc="arc_1">
     <main class="app-shell">
@@ -87,7 +87,10 @@
           <div class="telemetry-row">
             <span id="phase-header" class="phase-label">THE COUNTING ROOM</span>
           </div>
-          <div id="threshold-status" class="threshold-status" hidden></div>
+          <div class="progress-track" aria-hidden="true">
+            <div id="phase-progress-fill" class="progress-fill"></div>
+          </div>
+          <div id="threshold-status" class="threshold-status">NEXT: UNCANNY DRIFT · 0 / 75</div>
         </section>
 
         <section class="chamber-card" aria-label="Chamber wall and valve">
@@ -339,10 +342,10 @@
               <button id="dev-apply-arc1-btn" type="button" class="dev-chip dev-chip--primary">APPLY ARC 1</button>
               <button type="button" class="dev-chip" data-dev-ichor="210000">SET 210K</button>
               <button type="button" class="dev-chip" data-dev-ichor="1800000">SET 1.8M</button>
-              <button type="button" class="dev-chip" data-dev-ichor="16000000">SET 16M</button>
-              <button type="button" class="dev-chip" data-dev-ichor="140000000">SET 140M</button>
-              <button type="button" class="dev-chip" data-dev-ichor="1250000000">SET 1.25B</button>
-              <button type="button" class="dev-chip" data-dev-ichor="36000000000">SET 36B</button>
+              <button type="button" class="dev-chip" data-dev-ichor="24000000">SET 24M</button>
+              <button type="button" class="dev-chip" data-dev-ichor="320000000">SET 320M</button>
+              <button type="button" class="dev-chip" data-dev-ichor="4500000000">SET 4.5B</button>
+              <button type="button" class="dev-chip" data-dev-ichor="160000000000">SET 160B</button>
               <button id="dev-preset-stillness-btn" type="button" class="dev-chip">+300 STILL</button>
               <button id="dev-preset-scar-btn" type="button" class="dev-chip">+40 SCAR</button>
             </div>
@@ -403,6 +406,6 @@
       </div>
     </div>
 
-    <script type="module" src="./src/app.js?v=3.7"></script>
+    <script type="module" src="./src/app.js?v=3.8"></script>
   </body>
 </html>

@@ -85,6 +85,17 @@ fun ApparatusDeck(
     )
   }
 
+  val isFreshReset =
+    state.cycle == 0 &&
+      state.cycleLifetimeIchor == 0.0 &&
+      state.scarTissue == 0L &&
+      state.highestExcisionMilestone == 0
+  LaunchedEffect(isFreshReset) {
+    if (isFreshReset) {
+      seenKeysByTab = mapOf(activeTab to TabAlertEvaluator.arc1UnlockKeys(state, activeTab))
+    }
+  }
+
   val activeTabKeys = TabAlertEvaluator.arc1UnlockKeys(state, activeTab)
   LaunchedEffect(activeTab, activeTabKeys) {
     val existing = seenKeysByTab[activeTab].orEmpty()

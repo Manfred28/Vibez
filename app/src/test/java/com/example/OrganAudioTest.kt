@@ -250,8 +250,8 @@ class OrganAudioTest {
     val breachReady =
       base.copy(
         highestExcisionMilestone = 5,
-        ichor = 36_000_000_000.0,
-        cycleLifetimeIchor = 36_000_000_000.0,
+        ichor = 160_000_000_000.0,
+        cycleLifetimeIchor = 160_000_000_000.0,
         phase = 4,
       )
     val breached = OrganGameEngine.performBreachToArc2(breachReady, DialogueCatalog.Empty)

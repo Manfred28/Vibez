@@ -12,6 +12,13 @@ import kotlin.math.min
  */
 object OrganGameEngine {
 
+  private val FOUNDATIONAL_RETAINED_JARS: Set<SpecimenJar> =
+    setOf(
+      SpecimenJar.YESTERDAYS_DUST,
+      SpecimenJar.UNSPENT_BREATH,
+      SpecimenJar.ALMOST_A_NAME,
+    )
+
   private val anomalyAnchors: List<Pair<Float, Float>> =
     listOf(
       0.16f to 0.24f,
@@ -134,8 +141,8 @@ object OrganGameEngine {
           else -> 0.0
         }
       val echoYieldBoost =
-        (if (nextState.hasNode(ScarNodeId.ECHO_OSSUARY)) 1.25 else 1.0) *
-          (if (nextState.hasNode(ScarNodeId.BONE_RESONANCE)) 1.35 else 1.0)
+        (if (nextState.hasNode(ScarNodeId.ECHO_OSSUARY)) 1.35 else 1.0) *
+          (if (nextState.hasNode(ScarNodeId.BONE_RESONANCE)) 1.40 else 1.0)
       val echoBurst = max(250.0, nextState.rawIchorPerSecond * baseEchoMultiplier * echoYieldBoost)
       nextState =
         nextState.copy(
@@ -457,12 +464,21 @@ object OrganGameEngine {
         put(CreatureType.LEECH_CLERK, 1)
       }
       if (state.hasNode(ScarNodeId.MEMBRANE_RECALL)) {
-        put(CreatureType.WEEPING_LAMP, 1)
+        put(CreatureType.WEEPING_LAMP, 2)
         if (newHighestMilestone >= 2) {
-          put(CreatureType.SUMP_SIPHON, 1)
+          put(CreatureType.SUMP_SIPHON, 2)
         }
       }
     }
+    val startingTendrils = if (state.hasNode(ScarNodeId.MEMBRANE_RECALL)) 1 else 0
+    val retainedRelics =
+      if (state.hasNode(ScarNodeId.HOLLOW_LUNG_CHOIR)) state.dredgedRelics else emptySet()
+    val retainedJars =
+      if (state.hasNode(ScarNodeId.CATATONIC_TIDE)) {
+        state.ownedJars.filterTo(mutableSetOf()) { it in FOUNDATIONAL_RETAINED_JARS }
+      } else {
+        emptySet()
+      }
 
     val resetState =
       OrganGameState(
@@ -482,12 +498,12 @@ object OrganGameEngine {
         nextPhaseThreshold = EscalationCurve.nextThresholdForPhase(0),
         phaseProgress = 0f,
         creatures = startingCreatures,
-        graftedTendrils = 0,
+        graftedTendrils = startingTendrils,
         choirLungs = 0,
         graftCooldownRemainingSeconds = 0.0,
         choirLungCooldownRemainingSeconds = 0.0,
         autoValveChargeSeconds = 0.0,
-        ownedJars = emptySet(),
+        ownedJars = retainedJars,
         activeAnomalies = emptyList(),
         anomalyInteractions = emptyMap(),
         secondsSinceLastTap = 0.0,
@@ -497,7 +513,7 @@ object OrganGameEngine {
         nextAnomalyId = state.nextAnomalyId,
         drainSealed = false,
         drainPressure = 0.0,
-        dredgedRelics = emptySet(),
+        dredgedRelics = retainedRelics,
         lifetimeRelicsDredged = state.lifetimeRelicsDredged,
         echoDiversionPercent = 0,
         echoChargeSeconds = 0.0,

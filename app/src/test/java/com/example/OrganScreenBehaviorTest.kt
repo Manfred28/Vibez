@@ -85,9 +85,12 @@ class OrganScreenBehaviorTest {
       .onNodeWithTag("phase_header")
       .assertIsDisplayed()
       .assertTextEquals("THE COUNTING ROOM")
-    // Upcoming threshold previews and progress bar stay hidden until an action is ready
-    composeTestRule.onNodeWithTag("phase_progress_bar").assertDoesNotExist()
-    composeTestRule.onNodeWithTag("threshold_status").assertDoesNotExist()
+    // Diegetic progress bar & next room stage readout render without clinical PHASE / P0 meta-jargon
+    composeTestRule.onNodeWithTag("phase_progress_bar").assertIsDisplayed()
+    composeTestRule
+      .onNodeWithTag("threshold_status")
+      .assertIsDisplayed()
+      .assertTextEquals("NEXT: UNCANNY DRIFT · 0 / 75")
     composeTestRule.onNodeWithTag("chamber_wall_art").assertIsDisplayed()
     composeTestRule.onNodeWithTag("chamber_wall_phase_0").assertIsDisplayed()
     composeTestRule.onNodeWithTag("suture_hands_overlay").assertDoesNotExist()
@@ -313,8 +316,14 @@ class OrganScreenBehaviorTest {
     composeTestRule.onNodeWithTag("chamber_wall_phase_4").assertIsDisplayed()
 
     if (!viewModel.uiState.value.canExcise) {
-      // Upcoming Excision threshold and Cycle 0 EXCISION tab stay hidden until Excision is ready
-      composeTestRule.onNodeWithTag("threshold_status").assertDoesNotExist()
+      // Phase 4 pre-Excision displays progress toward First Severance while hiding Cycle 0 EXCISION tab
+      composeTestRule.onNodeWithTag("phase_progress_bar").assertIsDisplayed()
+      composeTestRule
+        .onNodeWithTag("threshold_status")
+        .assertIsDisplayed()
+        .assertTextEquals(
+          "NEXT: FIRST SEVERANCE · ${String.format(java.util.Locale.US, "%,d", viewModel.uiState.value.cycleLifetimeIchorDisplay)} / 210,000"
+        )
       composeTestRule.onNodeWithTag("deck_tab_excision").assertDoesNotExist()
       composeTestRule.runOnIdle { viewModel.advanceTime(9_000.0) }
       composeTestRule.waitForIdle()
@@ -324,7 +333,7 @@ class OrganScreenBehaviorTest {
 
     composeTestRule
       .onNodeWithTag("threshold_status")
-      .assertTextEquals("OVERGROWTH CRITICAL // EXCISION READY")
+      .assertTextEquals("SEAM READY // FIRST SEVERANCE")
     composeTestRule
       .onNodeWithTag("deck_tab_alert_excision", useUnmergedTree = true)
       .performScrollTo()
@@ -610,7 +619,7 @@ class OrganScreenBehaviorTest {
 
   @Test
   fun drippingMarginOverlay_slowsStoryDripSuppressesEventDripDuringStoryAndShowsEventWhenIdle() {
-    assertEquals(12_000L, STORY_DRIP_TOTAL_MS)
+    assertEquals(16_000L, STORY_DRIP_TOTAL_MS)
     val context = ApplicationProvider.getApplicationContext<Context>()
     val catalog = AssetDialogueRepository(context).loadCatalog()
     var state by
@@ -649,14 +658,14 @@ class OrganScreenBehaviorTest {
     composeTestRule.onNodeWithTag("dripping_story_overlay").assertIsDisplayed()
     composeTestRule.onNodeWithTag("dripping_event_overlay").assertDoesNotExist()
 
-    // Still active past 8 seconds (explicitly slower 12s story drip)
-    composeTestRule.mainClock.advanceTimeBy(7_500)
+    // Still active past 12 seconds (slower 16s story drip)
+    composeTestRule.mainClock.advanceTimeBy(12_000)
     composeTestRule.waitForIdle()
     composeTestRule.onNodeWithTag("dripping_story_overlay").assertIsDisplayed()
     composeTestRule.onNodeWithTag("dripping_event_overlay").assertDoesNotExist()
 
-    // Once story drip completes, a subsequent chamber anomaly without a new story beat shows the chamber event drip
-    composeTestRule.mainClock.advanceTimeBy(5_000)
+    // Once 16s story drip completes, a subsequent chamber anomaly without a new story beat shows the chamber event drip
+    composeTestRule.mainClock.advanceTimeBy(4_500)
     composeTestRule.waitForIdle()
     composeTestRule.onNodeWithTag("dripping_story_overlay").assertDoesNotExist()
 
@@ -854,9 +863,9 @@ class OrganScreenBehaviorTest {
       .performScrollTo()
       .assertTextEquals("SEVER: THE SUNKEN DRAIN (+4 SCAR)")
 
-    // Jump to 20M Ichor (exceeds both M2 1.8M and M3 16M) -> displays SEVER: THE SUNKEN DRAIN + seam hold note
+    // Jump to 30M Ichor (exceeds both M2 1.8M and M3 24M) -> displays SEVER: THE SUNKEN DRAIN + seam hold note
     composeTestRule.runOnIdle {
-      state = state.copy(ichor = 20_000_000.0, cycleLifetimeIchor = 20_000_000.0)
+      state = state.copy(ichor = 30_000_000.0, cycleLifetimeIchor = 30_000_000.0)
     }
     composeTestRule.waitForIdle()
     composeTestRule.onNodeWithTag("excision_seam_hold_note").performScrollTo().assertIsDisplayed()
@@ -869,7 +878,7 @@ class OrganScreenBehaviorTest {
     composeTestRule.onNodeWithTag("excision_confirm_button").performScrollTo().performClick()
     composeTestRule.waitForIdle()
 
-    // Hard sequential cap: even with 20M mass, advances strictly to THE SUNKEN DRAIN (M2)
+    // Hard sequential cap: even with 30M mass, advances strictly to THE SUNKEN DRAIN (M2)
     assertEquals(2, state.highestExcisionMilestone)
   }
 
@@ -880,9 +889,9 @@ class OrganScreenBehaviorTest {
     val arc2PleaEntry = catalog.entries.first { it.id == "dlg_arc2_entry" }
     val viewModel = createViewModel()
 
-    // Prepare Excision V cleared + 36B cycle mass so Excision VI ("Plead for Salvation") opens cleanly
+    // Prepare Excision V cleared + 160B cycle mass so Excision VI ("Plead for Salvation") opens cleanly
     viewModel.devSetHighestMilestone(5)
-    viewModel.devAssignArc1Resources(ichor = 36_000_000_000.0)
+    viewModel.devAssignArc1Resources(ichor = 160_000_000_000.0)
 
     composeTestRule.setContent { OrganRoute(viewModel = viewModel) }
     composeTestRule.waitForIdle()
@@ -1159,8 +1168,8 @@ class OrganScreenBehaviorTest {
     composeTestRule.onNodeWithTag("dripping_story_overlay").assertIsDisplayed()
     composeTestRule.onNodeWithTag("dripping_event_overlay").assertDoesNotExist()
 
-    // Wait for 12s story drip to complete
-    composeTestRule.mainClock.advanceTimeBy(12_500)
+    // Wait for 16s story drip to complete
+    composeTestRule.mainClock.advanceTimeBy(16_500)
     composeTestRule.waitForIdle()
     composeTestRule.onNodeWithTag("dripping_story_overlay").assertDoesNotExist()
 
@@ -1559,5 +1568,115 @@ class OrganScreenBehaviorTest {
     composeTestRule.onNodeWithTag("anomaly_swollen_nodule_103").performClick()
     composeTestRule.waitForIdle()
     assertEquals(listOf(103L), interactedIds)
+  }
+
+  @Test
+  fun scarsAndExcisionTabs_stopPulsingAfterFirstClickAndOnlyRepulseOnFreshEvents() {
+    val context = ApplicationProvider.getApplicationContext<Context>()
+    val catalog = AssetDialogueRepository(context).loadCatalog()
+
+    // 1. Pure TabAlertEvaluator assertions: SCARS and EXCISION are one-shot (never persistent isArc1TabReady)
+    val postM1 =
+      OrganGameEngine.initialState(catalog).copy(
+        cycle = 1,
+        highestExcisionMilestone = 1,
+        scarTissue = 4L,
+        availableScarTissue = 4L,
+        ichor = 300_000.0,
+        cycleLifetimeIchor = 300_000.0,
+        phase = 4,
+        phaseName = catalog.phaseName(4),
+        nextPhaseThreshold = null,
+      )
+    assertFalse(TabAlertEvaluator.isArc1TabReady(postM1, OrganDeckTab.SCAR_TREE))
+    assertFalse(TabAlertEvaluator.isArc1TabReady(postM1, OrganDeckTab.EXCISION))
+    assertTrue(
+      TabAlertEvaluator.shouldAlertArc1Tab(postM1, OrganDeckTab.SCAR_TREE, OrganDeckTab.APPARATUS, emptyMap())
+    )
+    assertTrue(
+      TabAlertEvaluator.shouldAlertArc1Tab(postM1, OrganDeckTab.EXCISION, OrganDeckTab.APPARATUS, emptyMap())
+    )
+
+    // After viewing SCARS & EXCISION without spending Scars or excising, both stay silent
+    val seenOnce =
+      mapOf(
+        OrganDeckTab.SCAR_TREE to TabAlertEvaluator.arc1UnlockKeys(postM1, OrganDeckTab.SCAR_TREE),
+        OrganDeckTab.EXCISION to TabAlertEvaluator.arc1UnlockKeys(postM1, OrganDeckTab.EXCISION),
+      )
+    assertFalse(
+      TabAlertEvaluator.shouldAlertArc1Tab(postM1, OrganDeckTab.SCAR_TREE, OrganDeckTab.APPARATUS, seenOnce)
+    )
+    assertFalse(
+      TabAlertEvaluator.shouldAlertArc1Tab(postM1, OrganDeckTab.EXCISION, OrganDeckTab.APPARATUS, seenOnce)
+    )
+
+    // Earning fresh Scar Tissue (raising lifetime scarTissue) re-pulses SCARS; crossing M2 (1.8M) re-pulses EXCISION
+    val freshScars = postM1.copy(scarTissue = 8L, availableScarTissue = 8L)
+    assertTrue(
+      TabAlertEvaluator.shouldAlertArc1Tab(freshScars, OrganDeckTab.SCAR_TREE, OrganDeckTab.APPARATUS, seenOnce)
+    )
+    val crossedM2 = postM1.copy(ichor = 1_800_000.0, cycleLifetimeIchor = 1_800_000.0)
+    assertTrue(
+      TabAlertEvaluator.shouldAlertArc1Tab(crossedM2, OrganDeckTab.EXCISION, OrganDeckTab.APPARATUS, seenOnce)
+    )
+
+    // 2. Live Robolectric Compose UI verification of click-to-silence & fresh-event re-pulse
+    var state by mutableStateOf(postM1)
+    composeTestRule.setContent {
+      BleakTheme(phase = state.phase) {
+        OrganScreen(
+          state = state,
+          onPressValve = {},
+          onBuyCreature = {},
+          onBottleJar = {},
+          onPerformGraft = {},
+          onInteractAnomaly = {},
+          onPerformExcision = {},
+        )
+      }
+    }
+    composeTestRule.waitForIdle()
+
+    // Both SCARS and EXCISION pulse initially; Phase 4 header shows milestone progress + EXCISION READY
+    composeTestRule
+      .onNodeWithTag("threshold_status")
+      .assertTextEquals("THE SUNKEN DRAIN · 300,000 / 1,800,000 · EXCISION READY")
+    composeTestRule
+      .onNodeWithTag("deck_tab_alert_scar_tree", useUnmergedTree = true)
+      .performScrollTo()
+      .assertIsDisplayed()
+    composeTestRule
+      .onNodeWithTag("deck_tab_alert_excision", useUnmergedTree = true)
+      .performScrollTo()
+      .assertIsDisplayed()
+
+    // Click SCARS without spending any Scars, then return to ORGANISMS -> SCARS pip is silenced
+    composeTestRule.onNodeWithTag("deck_tab_scar_tree").performScrollTo().performClick()
+    composeTestRule.waitForIdle()
+    composeTestRule.onNodeWithTag("deck_tab_apparatus").performScrollTo().performClick()
+    composeTestRule.waitForIdle()
+    composeTestRule
+      .onNodeWithTag("deck_tab_alert_scar_tree", useUnmergedTree = true)
+      .assertDoesNotExist()
+
+    // Click EXCISION without severing, then return to ORGANISMS -> EXCISION pip is silenced
+    composeTestRule.onNodeWithTag("deck_tab_excision").performScrollTo().performClick()
+    composeTestRule.waitForIdle()
+    composeTestRule.onNodeWithTag("deck_tab_apparatus").performScrollTo().performClick()
+    composeTestRule.waitForIdle()
+    composeTestRule
+      .onNodeWithTag("deck_tab_alert_excision", useUnmergedTree = true)
+      .assertDoesNotExist()
+
+    // Crossing M2 (1.8M) re-pulses EXCISION and updates header to SEAM READY // THE SUNKEN DRAIN
+    composeTestRule.runOnIdle { state = crossedM2 }
+    composeTestRule.waitForIdle()
+    composeTestRule
+      .onNodeWithTag("threshold_status")
+      .assertTextEquals("SEAM READY // THE SUNKEN DRAIN")
+    composeTestRule
+      .onNodeWithTag("deck_tab_alert_excision", useUnmergedTree = true)
+      .performScrollTo()
+      .assertIsDisplayed()
   }
 }

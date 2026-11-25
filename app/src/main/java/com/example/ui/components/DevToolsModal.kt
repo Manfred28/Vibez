@@ -235,11 +235,11 @@ fun DevToolsModal(
               modifier = Modifier.weight(1f),
             )
             DevChip(
-              label = "+40B ICHOR",
+              label = "+200B ICHOR",
               selected = false,
               testTag = "dev_add_5b_ichor",
               onClick = {
-                val next = state.ichor + 40_000_000_000.0
+                val next = state.ichor + 200_000_000_000.0
                 ichorInput = next.toLong().toString()
                 onAssignArc1Resources(next, null, null)
               },

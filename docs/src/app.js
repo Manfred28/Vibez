@@ -50,21 +50,21 @@ import {
   tick,
   toggleDrainSeal,
   unlockScarNode,
-} from './engine.js?v=3.7';
+} from './engine.js?v=3.8';
 import {
   drawChamberBackdrop,
   drawForegroundLampsAndSacrifice,
   drawInvestigatorDeskBackdrop,
   drawLeechClerks,
   drawValveAndHands,
-} from './chamberCanvas.js?v=3.7';
-import { createUiController } from './ui.js?v=3.7';
+} from './chamberCanvas.js?v=3.8';
+import { createUiController } from './ui.js?v=3.8';
 import {
   SOUND_ACTION_HINTS,
   computeAmbientProfile,
   createWebAudioEngine,
   resolveTransitionCues,
-} from './audio.js?v=3.7';
+} from './audio.js?v=3.8';
 
 const SAVE_STORAGE_KEY_V2 = 'unnamed_organ_save_v2';
 const SAVE_STORAGE_KEY_V1 = 'unnamed_organ_save_v1';
@@ -100,7 +100,7 @@ function clearSavedRaw() {
 
 async function loadDialogueCatalog() {
   try {
-    const response = await fetch('./assets/dialogues.json?v=3.7', { cache: 'no-cache' });
+    const response = await fetch('./assets/dialogues.json?v=3.8', { cache: 'no-cache' });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     return await response.json();
   } catch (err) {
@@ -120,18 +120,18 @@ async function main() {
   let state = deserializeState(readSavedRaw(), catalog) ?? initialState(catalog);
 
   const wallImages = {
-    phase1: preloadWallImage('./assets/img_wall_phase1.jpg?v=3.7'),
-    phase2: preloadWallImage('./assets/img_wall_fleshy.jpg?v=3.7'),
-    phase3: preloadWallImage('./assets/img_wall_phase3.jpg?v=3.7'),
-    phase4: preloadWallImage('./assets/img_wall_phase4.jpg?v=3.7'),
-    excisionLate: preloadWallImage('./assets/img_wall_excision_late.jpg?v=3.7'),
+    phase1: preloadWallImage('./assets/img_wall_phase1.jpg?v=3.8'),
+    phase2: preloadWallImage('./assets/img_wall_fleshy.jpg?v=3.8'),
+    phase3: preloadWallImage('./assets/img_wall_phase3.jpg?v=3.8'),
+    phase4: preloadWallImage('./assets/img_wall_phase4.jpg?v=3.8'),
+    excisionLate: preloadWallImage('./assets/img_wall_excision_late.jpg?v=3.8'),
   };
   // Preload photographic wall anomaly macro specimens so eruptions appear immediately on spawn
   const anomalyImages = {
-    pale_tooth: preloadWallImage('./assets/img_anomaly_pale_tooth.jpg?v=3.7'),
-    glass_eye: preloadWallImage('./assets/img_anomaly_glass_eye.jpg?v=3.7'),
-    swollen_nodule: preloadWallImage('./assets/img_anomaly_swollen_nodule.jpg?v=3.7'),
-    chitin_rib: preloadWallImage('./assets/img_anomaly_chitin_rib.jpg?v=3.7'),
+    pale_tooth: preloadWallImage('./assets/img_anomaly_pale_tooth.jpg?v=3.8'),
+    glass_eye: preloadWallImage('./assets/img_anomaly_glass_eye.jpg?v=3.8'),
+    swollen_nodule: preloadWallImage('./assets/img_anomaly_swollen_nodule.jpg?v=3.8'),
+    chitin_rib: preloadWallImage('./assets/img_anomaly_chitin_rib.jpg?v=3.8'),
   };
   void anomalyImages;
 

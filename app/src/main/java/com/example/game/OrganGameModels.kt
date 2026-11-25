@@ -251,7 +251,7 @@ data class OrganGameState(
     get() =
       1.0 +
         (if (hasNode(ScarNodeId.WAX_SEALED_MEMORY)) 0.35 else 0.0) +
-        (if (hasNode(ScarNodeId.CATATONIC_TIDE)) 0.50 else 0.0)
+        (if (hasNode(ScarNodeId.CATATONIC_TIDE)) 0.65 else 0.0)
 
   val sedimentCostMultiplier: Double
     get() =
@@ -364,9 +364,9 @@ data class OrganGameState(
       if (!hasNode(ScarNodeId.CATATONIC_TIDE)) {
         1.0
       } else if (isStillnessActive) {
-        2.60
+        3.20
       } else {
-        1.45
+        1.75
       }
 
   /**
@@ -380,7 +380,7 @@ data class OrganGameState(
           highestExcisionMilestone * OrganBalance.MILESTONE_ICHOR_RESONANCE +
           sqrt(scarTissue.toDouble()) * OrganBalance.SCAR_RESONANCE_SQRT_FACTOR
       val rootMult = if (hasNode(ScarNodeId.FIRST_INCISION)) 1.45 else 1.0
-      val boneMult = if (hasNode(ScarNodeId.BONE_RESONANCE)) 1.85 else 1.0
+      val boneMult = if (hasNode(ScarNodeId.BONE_RESONANCE)) 2.10 else 1.0
       return baseResonance * rootMult * boneMult * keloidIchorMultiplier
     }
 
@@ -391,14 +391,14 @@ data class OrganGameState(
           highestExcisionMilestone * OrganBalance.MILESTONE_STILLNESS_RESONANCE +
           sqrt(scarTissue.toDouble()) * OrganBalance.SCAR_STILLNESS_SQRT_FACTOR
       val rootMult = if (hasNode(ScarNodeId.FIRST_INCISION)) 1.20 else 1.0
-      val silenceMult = if (hasNode(ScarNodeId.SHORTER_SILENCE)) 1.40 else 1.0
+      val silenceMult = if (hasNode(ScarNodeId.SHORTER_SILENCE)) 1.50 else 1.0
       return baseResonance * rootMult * silenceMult * sedimentStillnessMultiplier
     }
 
   val relicAmplifier: Double
     get() =
       (if (hasNode(ScarNodeId.ECHO_OSSUARY)) 1.35 else 1.0) *
-        (if (hasNode(ScarNodeId.BONE_RESONANCE)) 1.35 else 1.0)
+        (if (hasNode(ScarNodeId.BONE_RESONANCE)) 1.40 else 1.0)
 
   val relicIchorMultiplier: Double
     get() {
@@ -421,7 +421,7 @@ data class OrganGameState(
   val dossierIchorMultiplier: Double
     get() {
       var mult = 1.0
-      val perLineBoost = if (hasNode(ScarNodeId.BONE_RESONANCE)) 1.12 else 1.0
+      val perLineBoost = if (hasNode(ScarNodeId.BONE_RESONANCE)) 1.18 else 1.0
       unredactedDossierLines.forEach { line -> mult *= line.ichorMultiplier * perLineBoost }
       return mult
     }
@@ -454,9 +454,9 @@ data class OrganGameState(
           else -> 0.0
         }
       val echoBoost =
-        1.0 + baseEchoBonus * (if (hasNode(ScarNodeId.BONE_RESONANCE)) 1.35 else 1.0)
+        1.0 + baseEchoBonus * (if (hasNode(ScarNodeId.BONE_RESONANCE)) 1.40 else 1.0)
       val bloomAnomalyBoost =
-        if (marrowBloomRemainingSeconds > 0.0 && hasNode(ScarNodeId.BLOOM_INCISION)) 1.4 else 1.0
+        if (marrowBloomRemainingSeconds > 0.0 && hasNode(ScarNodeId.BLOOM_INCISION)) 1.5 else 1.0
       return jarBoost * mortarBoost * echoBoost * bloomAnomalyBoost
     }
 
@@ -470,7 +470,7 @@ data class OrganGameState(
         }
       val toothBonus = (anomalyInteractions[WallAnomalyType.PALE_TOOTH] ?: 0) * 0.5
       val palmMult = if (hasNode(ScarNodeId.CALLOUSED_PALM)) 1.8 else 1.0
-      val seamMult = if (hasNode(ScarNodeId.PERPETUAL_SEAM)) 2.25 else 1.0
+      val seamMult = if (hasNode(ScarNodeId.PERPETUAL_SEAM)) 2.50 else 1.0
       val echoBurst = if (hasNode(ScarNodeId.TWIN_STITCH)) ichorPerSecond * 1.5 else 0.0
       return (1.0 + dustBonus + toothBonus) *
         scarMultiplier *
@@ -491,8 +491,8 @@ data class OrganGameState(
         catatonicTideMultiplier
 
   fun effectiveCreatureIchorPerSec(type: CreatureType): Double {
-    val inertiaMult = if (hasNode(ScarNodeId.COLONY_INERTIA)) 1.75 else 1.0
-    val seamMult = if (hasNode(ScarNodeId.PERPETUAL_SEAM)) 2.25 else 1.0
+    val inertiaMult = if (hasNode(ScarNodeId.COLONY_INERTIA)) 1.90 else 1.0
+    val seamMult = if (hasNode(ScarNodeId.PERPETUAL_SEAM)) 2.50 else 1.0
     val specimenMultiplier =
       when (type) {
         CreatureType.SUTURE_HAND,
@@ -519,12 +519,12 @@ data class OrganGameState(
               hasNode(ScarNodeId.DEEP_WEEPING) -> 1.25
               else -> 1.0
             }
-          val deepMult = if (hasNode(ScarNodeId.DEEP_WEEPING)) 1.8 else 1.0
+          val deepMult = if (hasNode(ScarNodeId.DEEP_WEEPING)) 2.0 else 1.0
           nameJar * weepingSurge * deepMult
         }
         CreatureType.SUMP_SIPHON -> {
-          val autoMult = if (hasNode(ScarNodeId.AUTO_TENDRIL_SUTURE)) 1.55 else 1.0
-          val recallMult = if (hasNode(ScarNodeId.MEMBRANE_RECALL)) 1.85 else 1.0
+          val autoMult = if (hasNode(ScarNodeId.AUTO_TENDRIL_SUTURE)) 1.65 else 1.0
+          val recallMult = if (hasNode(ScarNodeId.MEMBRANE_RECALL)) 2.20 else 1.0
           val sealPenalty = if (drainSealed) 0.85 else 1.0
           autoMult * recallMult * sealPenalty
         }
@@ -558,10 +558,10 @@ data class OrganGameState(
     get() {
       val creaturesRate =
         CreatureType.entries.sumOf { totalCreatureIchorPerSec(it) }
-      val seamColonyMult = if (hasNode(ScarNodeId.PERPETUAL_SEAM)) 2.25 else 1.0
+      val seamColonyMult = if (hasNode(ScarNodeId.PERPETUAL_SEAM)) 2.50 else 1.0
       val graftNodeMult =
-        (if (hasNode(ScarNodeId.AUTO_TENDRIL_SUTURE)) 1.55 else 1.0) *
-          (if (hasNode(ScarNodeId.MEMBRANE_RECALL)) 1.85 else 1.0)
+        (if (hasNode(ScarNodeId.AUTO_TENDRIL_SUTURE)) 1.65 else 1.0) *
+          (if (hasNode(ScarNodeId.MEMBRANE_RECALL)) 2.20 else 1.0)
       val graftRate =
         graftedTendrils *
           OrganBalance.GRAFT_ICHOR_PER_SEC *
@@ -600,7 +600,7 @@ data class OrganGameState(
       val lampFraction =
         when {
           isStillnessActive -> 1.0
-          hasNode(ScarNodeId.DEEP_WEEPING) && creatureCount(CreatureType.WEEPING_LAMP) > 0 -> 0.40
+          hasNode(ScarNodeId.DEEP_WEEPING) && creatureCount(CreatureType.WEEPING_LAMP) > 0 -> 0.50
           else -> 0.0
         }
       val lampStillness =
@@ -893,5 +893,5 @@ object OrganBalance {
   const val MARROW_BLOOM_DURATION_SEC: Double = 25.0
   const val BLOOM_INCISION_DURATION_SEC: Double = 32.0
   const val MARROW_BLOOM_MULTIPLIER: Double = 2.2
-  const val BLOOM_INCISION_MULTIPLIER: Double = 2.9
+  const val BLOOM_INCISION_MULTIPLIER: Double = 3.1
 }

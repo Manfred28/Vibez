@@ -57,9 +57,9 @@ internal data class ThematicDripEvent(
   val eventKey: String = "$speaker:$text",
 )
 
-internal const val STORY_DRIP_SWELL_MS = 1300
-internal const val STORY_DRIP_HOLD_MS = 4400L
-internal const val STORY_DRIP_DESCEND_MS = 6300
+internal const val STORY_DRIP_SWELL_MS = 1600
+internal const val STORY_DRIP_HOLD_MS = 6200L
+internal const val STORY_DRIP_DESCEND_MS = 8200
 internal const val STORY_DRIP_TOTAL_MS =
   STORY_DRIP_SWELL_MS + STORY_DRIP_HOLD_MS + STORY_DRIP_DESCEND_MS
 
@@ -83,7 +83,7 @@ internal object EventDripGate {
  *
  * 1. **Primary Priority Story Lane (Right Margin, `dripping_story_overlay`)**:
  *    Dedicated exclusively to newly unlocked `DialogueEntry` story fragments, seeping slowly
- *    (~12s) for comfortable reading. Wall anomalies, Neighbor Aperture echoes, or sacrifice notes
+ *    (~16s) for comfortable reading. Wall anomalies, Neighbor Aperture echoes, or sacrifice notes
  *    can NEVER overwrite, interrupt, or overlap it. Skips initial mount/hydration so restoring a
  *    save does not falsely trigger a drip.
  *
@@ -132,7 +132,7 @@ internal fun DrippingTransmissionOverlay(
       activeEventDrip = null
       activeStoryDrip = activeDialogue
       storyProgress.snapTo(0f)
-      // Swell bead slowly, pause for unhurried reading, then descend down the right margin (~12s total)
+      // Swell bead slowly, pause for unhurried reading, then descend down the right margin (~16s total)
       storyProgress.animateTo(
         targetValue = 0.20f,
         animationSpec = tween(durationMillis = STORY_DRIP_SWELL_MS, easing = FastOutSlowInEasing),

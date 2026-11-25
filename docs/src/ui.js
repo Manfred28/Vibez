@@ -10,6 +10,7 @@ import {
   CREATURE_LIST,
   CREATURE_TYPES,
   CULT_DOSSIER_LINES,
+  DEFAULT_PHASE_NAMES,
   DESK_ANOMALY_TYPES,
   DREDGED_RELICS,
   EXCISION_MILESTONES,
@@ -86,13 +87,13 @@ import {
   stillnessIdleDelaySec,
   totalCreatureIchorPerSec,
   valveClampDurationSec,
-} from './engine.js?v=3.7';
+} from './engine.js?v=3.8';
 import {
   drawActionArtwork,
   drawDeskAnomalyGlyph,
   drawSumpSiphonPortrait,
   drawWeepingLampPortrait,
-} from './chamberCanvas.js?v=3.7';
+} from './chamberCanvas.js?v=3.8';
 
 function randomBetween(min, max, rng) {
   const raw = typeof rng === 'function' ? Number(rng()) : Math.random();
@@ -102,7 +103,7 @@ function randomBetween(min, max, rng) {
 
 /**
  * Computes randomized, non-uniform seepage timing and subtle multi-layer parallax parameters
- * for a `.drip-card`. Story drips descend slowly (~11.5–13.0s) for unhurried reading; chamber
+ * for a `.drip-card`. Story drips descend slowly (~15.0–17.0s) for unhurried reading; chamber
  * event drips remain brisk (~4.45–5.55s) on a deeper Z-plane and are hidden while story drips run.
  */
 export function computeDripMotionProfile(kind = 'story', rng = Math.random) {
@@ -111,7 +112,7 @@ export function computeDripMotionProfile(kind = 'story', rng = Math.random) {
     isEvent ? randomBetween(90, 540, rng) : randomBetween(40, 280, rng),
   );
   const durationSec = Number(
-    (isEvent ? randomBetween(4.45, 5.55, rng) : randomBetween(11.5, 13.0, rng)).toFixed(2),
+    (isEvent ? randomBetween(4.45, 5.55, rng) : randomBetween(15.0, 17.0, rng)).toFixed(2),
   );
   const driftX = Number(
     (isEvent ? randomBetween(-7.5, 7.5, rng) : randomBetween(-5.5, 5.5, rng)).toFixed(2),
@@ -215,6 +216,11 @@ export function arc1UnlockKeys(state, tab) {
   } else if (tab === 'scar_tree') {
     if (isScarTreeUnlocked(state)) keys.add('scar_tree');
     if (isRepeatableGraftsUnlocked(state)) keys.add('scar_repeatables');
+    const hasAffordableScar =
+      isScarTreeUnlocked(state) &&
+      (SCAR_NODES.some((n) => canUnlockNode(state, n.id)) ||
+        REPEATABLE_SCAR_GRAFTS.some((g) => canBuyRepeatableGraft(state, g)));
+    if (hasAffordableScar) keys.add(`scar_budget_${state.scarTissue}`);
   } else if (tab === 'chamber_rites') {
     if (state.highestExcisionMilestone >= 2) keys.add('rite_m2_drain');
     if (state.highestExcisionMilestone >= 3) keys.add('rite_m3_echo');
@@ -229,10 +235,10 @@ export function arc1UnlockKeys(state, tab) {
     ) {
       keys.add('excision_tab');
     }
-    if (canExcise(state)) keys.add('excision_ready');
+    if (canExcise(state)) keys.add(`excision_ready_c${state.cycle}`);
     if (canClearNextMilestone(state)) {
       const next = nextExcisionMilestone(state);
-      if (next) keys.add(`milestone_${next.number}_ready`);
+      if (next) keys.add(`milestone_${next.number}_ready_c${state.cycle}`);
     }
     if (canBreachToArc2(state)) keys.add('breach_arc2');
   }
@@ -252,11 +258,7 @@ export function isArc1TabReady(state, tab) {
     );
   }
   if (tab === 'scar_tree') {
-    return (
-      isScarTreeUnlocked(state) &&
-      (SCAR_NODES.some((n) => canUnlockNode(state, n.id)) ||
-        REPEATABLE_SCAR_GRAFTS.some((g) => canBuyRepeatableGraft(state, g)))
-    );
+    return false;
   }
   if (tab === 'chamber_rites') {
     return (
@@ -265,7 +267,7 @@ export function isArc1TabReady(state, tab) {
     );
   }
   if (tab === 'excision') {
-    return canExcise(state) || canBreachToArc2(state);
+    return false;
   }
   return false;
 }
@@ -326,8 +328,9 @@ export function createUiController(handlers) {
     arc2Shell: document.getElementById('arc2-shell'),
     arc3Shell: document.getElementById('arc3-shell'),
 
-    // Arc 1 (Decluttered Top Telemetry)
+    // Arc 1 (Diegetic Top Telemetry)
     phaseHeader: document.getElementById('phase-header'),
+    phaseProgressFill: document.getElementById('phase-progress-fill'),
     thresholdStatus: document.getElementById('threshold-status'),
 
     ichorRate: document.getElementById('ichor-rate'),
@@ -566,13 +569,37 @@ export function createUiController(handlers) {
     const phaseTitle = (state.phaseName || '').toUpperCase();
     els.phaseHeader.textContent = phaseTitle;
 
-    const ready = canBreachToArc2(state) || canExcise(state);
-    els.thresholdStatus.hidden = !ready;
-    els.thresholdStatus.classList.toggle('threshold-status--ready', ready);
-    if (canBreachToArc2(state)) {
+    const nextThreshold = state.nextPhaseThreshold;
+    const nextMilestone = nextExcisionMilestone(state);
+    const readyAccent =
+      canBreachToArc2(state) || canClearNextMilestone(state) || canExcise(state);
+    const pct = Math.max(0, Math.min(1, state.phaseProgress ?? 0)) * 100;
+    if (els.phaseProgressFill) {
+      els.phaseProgressFill.style.width = `${pct.toFixed(1)}%`;
+      els.phaseProgressFill.classList.toggle('progress-fill--deep', readyAccent);
+    }
+
+    els.thresholdStatus.hidden = false;
+    els.thresholdStatus.classList.toggle(
+      'threshold-status--ready',
+      readyAccent && nextThreshold == null,
+    );
+
+    const currentFormatted = formatInteger(cycleLifetimeIchorDisplay(state));
+    if (nextThreshold != null) {
+      const nextStageName =
+        DEFAULT_PHASE_NAMES[Math.min(state.phase + 1, 4)] ?? DEFAULT_PHASE_NAMES[4];
+      els.thresholdStatus.textContent = `NEXT: ${nextStageName} · ${currentFormatted} / ${formatInteger(nextThreshold)}`;
+    } else if (canBreachToArc2(state)) {
       els.thresholdStatus.textContent = 'SEAM UNSEALED // PLEAD FOR SALVATION';
-    } else if (canExcise(state)) {
-      els.thresholdStatus.textContent = 'OVERGROWTH CRITICAL // EXCISION READY';
+    } else if (nextMilestone && canClearNextMilestone(state)) {
+      els.thresholdStatus.textContent = `SEAM READY // ${nextMilestone.code}`;
+    } else if (nextMilestone && canExcise(state)) {
+      els.thresholdStatus.textContent = `${nextMilestone.code} · ${currentFormatted} / ${formatInteger(nextMilestone.massThreshold)} · EXCISION READY`;
+    } else if (nextMilestone) {
+      els.thresholdStatus.textContent = `NEXT: ${nextMilestone.code} · ${currentFormatted} / ${formatInteger(nextMilestone.massThreshold)}`;
+    } else {
+      els.thresholdStatus.textContent = 'SEAM UNSEALED // PLEAD FOR SALVATION';
     }
   }
 
@@ -659,7 +686,7 @@ export function createUiController(handlers) {
 
       const photo = document.createElement('img');
       photo.className = 'anomaly-photo';
-      photo.src = `./assets/img_anomaly_${anomaly.type}.jpg?v=3.7`;
+      photo.src = `./assets/img_anomaly_${anomaly.type}.jpg?v=3.8`;
       photo.alt = '';
       photo.draggable = false;
       photo.setAttribute('aria-hidden', 'true');

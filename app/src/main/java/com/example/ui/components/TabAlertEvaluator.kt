@@ -76,6 +76,11 @@ object TabAlertEvaluator {
         buildSet {
           if (state.isScarTreeUnlocked) add("scar_tree")
           if (state.isRepeatableGraftsUnlocked) add("scar_repeatables")
+          val hasAffordableScar =
+            state.isScarTreeUnlocked &&
+              (ScarNodeId.entries.any { state.canUnlockNode(it) } ||
+                RepeatableScarGraft.entries.any { state.canBuyRepeatableGraft(it) })
+          if (hasAffordableScar) add("scar_budget_${state.scarTissue}")
         }
       OrganDeckTab.CHAMBER_RITES ->
         buildSet {
@@ -89,9 +94,9 @@ object TabAlertEvaluator {
           if (state.canExcise || state.canBreachToArc2 || state.cycle > 0 || state.highestExcisionMilestone > 0) {
             add("excision_tab")
           }
-          if (state.canExcise) add("excision_ready")
+          if (state.canExcise) add("excision_ready_c${state.cycle}")
           if (state.canClearNextMilestone) {
-            state.nextExcisionMilestone?.let { add("milestone_${it.number}_ready") }
+            state.nextExcisionMilestone?.let { add("milestone_${it.number}_ready_c${state.cycle}") }
           }
           if (state.canBreachToArc2) add("breach_arc2")
         }
@@ -106,14 +111,11 @@ object TabAlertEvaluator {
             jar !in state.ownedJars &&
             state.stillness >= state.effectiveJarCost(jar)
         }
-      OrganDeckTab.SCAR_TREE ->
-        state.isScarTreeUnlocked &&
-          (ScarNodeId.entries.any { state.canUnlockNode(it) } ||
-            RepeatableScarGraft.entries.any { state.canBuyRepeatableGraft(it) })
+      OrganDeckTab.SCAR_TREE -> false
       OrganDeckTab.CHAMBER_RITES ->
         state.canDredgeSump ||
           CultDossierLine.entries.any { state.canOfferToThroat(it) }
-      OrganDeckTab.EXCISION -> state.canExcise || state.canBreachToArc2
+      OrganDeckTab.EXCISION -> false
     }
 
   fun shouldAlertArc1Tab(

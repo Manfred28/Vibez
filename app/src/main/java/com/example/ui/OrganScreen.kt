@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -71,6 +72,7 @@ import com.example.ui.components.DevToolsModal
 import com.example.ui.components.FragmentArchiveSheet
 import com.example.ui.components.PinnedLedgerBottomBar
 import com.example.ui.theme.BleakTheme
+import java.text.NumberFormat
 import kotlin.random.Random
 
 @Composable
@@ -454,22 +456,57 @@ private fun PhaseTelemetryHeader(
       }
     }
 
-    val readyStatusText =
+    val numberFormat = remember { NumberFormat.getIntegerInstance() }
+    val nextThreshold = state.nextPhaseThreshold
+    val nextMilestone = state.nextExcisionMilestone
+    val isReadyAccent = state.canBreachToArc2 || state.canClearNextMilestone || state.canExcise
+
+    Spacer(modifier = Modifier.height(6.dp))
+    LinearProgressIndicator(
+      progress = { state.phaseProgress.coerceIn(0f, 1f) },
+      modifier = Modifier.fillMaxWidth().height(2.5.dp).testTag("phase_progress_bar"),
+      color = if (isReadyAccent) colorScheme.tertiary else colorScheme.primary,
+      trackColor = colorScheme.surfaceVariant,
+    )
+
+    val statusText =
       when {
+        nextThreshold != null -> {
+          val nextStageName = defaultPhaseName(state.phase + 1)
+          stringResource(
+            R.string.threshold_next_stage,
+            nextStageName,
+            numberFormat.format(state.cycleLifetimeIchorDisplay),
+            numberFormat.format(nextThreshold),
+          )
+        }
         state.canBreachToArc2 -> stringResource(R.string.threshold_breach_ready)
-        state.canExcise -> stringResource(R.string.threshold_excision_ready)
-        else -> null
+        nextMilestone != null && state.canClearNextMilestone ->
+          stringResource(R.string.threshold_milestone_ready, nextMilestone.code)
+        nextMilestone != null && state.canExcise ->
+          stringResource(
+            R.string.threshold_milestone_excision_ready,
+            nextMilestone.code,
+            numberFormat.format(state.cycleLifetimeIchorDisplay),
+            numberFormat.format(nextMilestone.massThreshold),
+          )
+        nextMilestone != null ->
+          stringResource(
+            R.string.threshold_next_stage,
+            nextMilestone.code,
+            numberFormat.format(state.cycleLifetimeIchorDisplay),
+            numberFormat.format(nextMilestone.massThreshold),
+          )
+        else -> stringResource(R.string.threshold_breach_ready)
       }
 
-    if (readyStatusText != null) {
-      Spacer(modifier = Modifier.height(5.dp))
-      Text(
-        text = readyStatusText,
-        style = MaterialTheme.typography.labelSmall,
-        color = colorScheme.tertiary,
-        modifier = Modifier.testTag("threshold_status"),
-      )
-    }
+    Spacer(modifier = Modifier.height(5.dp))
+    Text(
+      text = statusText,
+      style = MaterialTheme.typography.labelSmall,
+      color = if (isReadyAccent && nextThreshold == null) colorScheme.tertiary else colorScheme.onSurfaceVariant,
+      modifier = Modifier.testTag("threshold_status"),
+    )
   }
 }
 

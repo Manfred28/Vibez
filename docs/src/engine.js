@@ -32,7 +32,7 @@ export const EXCISION_MILESTONES = Object.freeze([
   }),
   Object.freeze({
     number: 3,
-    massThreshold: 16000000,
+    massThreshold: 24000000,
     firstClearScarBonus: 0,
     code: 'THE UNBRICKED SEAM',
     unlockSummary:
@@ -40,21 +40,21 @@ export const EXCISION_MILESTONES = Object.freeze([
   }),
   Object.freeze({
     number: 4,
-    massThreshold: 140000000,
+    massThreshold: 320000000,
     firstClearScarBonus: 0,
     code: 'THE BREATH-HOLD',
     unlockSummary: 'Unlocks Valve Clamp (Marrow Bloom) & Choir-Lung Grafting.',
   }),
   Object.freeze({
     number: 5,
-    massThreshold: 1250000000,
+    massThreshold: 4500000000,
     firstClearScarBonus: 0,
     code: 'THE MEMBRANE AUDIT',
     unlockSummary: 'Unlocks The Ossified Throat & the 4-line Redacted Cult Dossier.',
   }),
   Object.freeze({
     number: 6,
-    massThreshold: 36000000000,
+    massThreshold: 160000000000,
     firstClearScarBonus: 0,
     code: 'PLEAD FOR SALVATION',
     unlockSummary: 'Opens the last wet seam — send a desperate plea for salvation upward into The Inquiry.',
@@ -94,7 +94,7 @@ export const SCAR_NODES = Object.freeze([
     id: 'colony_inertia',
     branch: 'suture',
     tier: 3,
-    cost: 11,
+    cost: 8,
     prerequisite: 'twin_stitch',
     name: 'COLONY INERTIA',
     desc: 'The flesh multiplies with less persuasion.',
@@ -103,19 +103,19 @@ export const SCAR_NODES = Object.freeze([
     id: 'membrane_recall',
     branch: 'suture',
     tier: 4,
-    cost: 22,
+    cost: 12,
     prerequisite: 'colony_inertia',
     name: 'MEMBRANE RECALL',
-    desc: 'A lamp and a sump-bladder already hang where you left them.',
+    desc: 'Lamps, sump-bladders, and a braided tendril already hang where you left them, pulling twice as hard.',
   }),
   Object.freeze({
     id: 'perpetual_seam',
     branch: 'suture',
     tier: 5,
-    cost: 45,
+    cost: 36,
     prerequisite: 'membrane_recall',
     name: 'PERPETUAL SEAM',
-    desc: "The valve turns on its own without breaking the quiet; every stitch and lung answers harder.",
+    desc: 'The valve turns on its own without breaking the quiet; every stitch and lung answers harder.',
   }),
   // STILLNESS BRANCH (T1..T5)
   Object.freeze({
@@ -125,13 +125,13 @@ export const SCAR_NODES = Object.freeze([
     cost: 1,
     prerequisite: 'first_incision',
     name: 'SHORTER SILENCE',
-    desc: 'The room falls quiet almost as soon as you let go.',
+    desc: 'The room falls quiet almost as soon as you let go, and the quiet gathers thicker.',
   }),
   Object.freeze({
     id: 'wax_sealed_memory',
     branch: 'stillness',
     tier: 2,
-    cost: 3,
+    cost: 2,
     prerequisite: 'shorter_silence',
     name: 'WAX-SEALED MEMORY',
     desc: "Wax softens the quiet's price; fresh grafts knit twice as fast.",
@@ -140,7 +140,7 @@ export const SCAR_NODES = Object.freeze([
     id: 'deep_weeping',
     branch: 'stillness',
     tier: 3,
-    cost: 6,
+    cost: 3,
     prerequisite: 'wax_sealed_memory',
     name: 'DEEP WEEPING',
     desc: 'Even while you press the iron, the lamps keep weeping.',
@@ -149,19 +149,19 @@ export const SCAR_NODES = Object.freeze([
     id: 'hollow_lung_choir',
     branch: 'stillness',
     tier: 4,
-    cost: 22,
+    cost: 9,
     prerequisite: 'deep_weeping',
     name: 'HOLLOW LUNG CHOIR',
-    desc: 'When the room goes still, the grafted lungs draw twice as deep.',
+    desc: 'Hauled relics never sink back beneath the grate; in quiet, lamps and lungs draw twice as deep.',
   }),
   Object.freeze({
     id: 'catatonic_tide',
     branch: 'stillness',
     tier: 5,
-    cost: 45,
+    cost: 36,
     prerequisite: 'hollow_lung_choir',
     name: 'CATATONIC TIDE',
-    desc: 'Quiet settles in a heartbeat and rises like a heavy tide carrying every jar and vein.',
+    desc: 'Quiet settles in a heartbeat, swells like a deep tide over every vein, and keeps the first three jars sealed.',
   }),
   // MARROW BRANCH (T1..T5)
   Object.freeze({
@@ -177,7 +177,7 @@ export const SCAR_NODES = Object.freeze([
     id: 'auto_tendril_suture',
     branch: 'marrow',
     tier: 2,
-    cost: 6,
+    cost: 5,
     prerequisite: 'softened_mortar',
     name: 'AUTO-TENDRIL SUTURE',
     desc: 'Spare hands and leeches braid themselves without your consent.',
@@ -186,7 +186,7 @@ export const SCAR_NODES = Object.freeze([
     id: 'echo_ossuary',
     branch: 'marrow',
     tier: 3,
-    cost: 12,
+    cost: 9,
     prerequisite: 'auto_tendril_suture',
     name: 'ECHO OSSUARY',
     desc: 'The sump swells faster; the neighbor answers sooner and louder.',
@@ -195,7 +195,7 @@ export const SCAR_NODES = Object.freeze([
     id: 'bloom_incision',
     branch: 'marrow',
     tier: 4,
-    cost: 24,
+    cost: 16,
     prerequisite: 'echo_ossuary',
     name: 'BLOOM INCISION',
     desc: 'The clamped wall splits sooner and bleeds wider through every fissure.',
@@ -204,7 +204,7 @@ export const SCAR_NODES = Object.freeze([
     id: 'bone_resonance',
     branch: 'marrow',
     tier: 5,
-    cost: 48,
+    cost: 40,
     prerequisite: 'bloom_incision',
     name: 'BONE RESONANCE',
     desc: 'The masonry hums in tune with every unsealed line and drowned relic.',
@@ -650,7 +650,7 @@ export const ORGAN_BALANCE = Object.freeze({
   MARROW_BLOOM_DURATION_SEC: 25.0,
   BLOOM_INCISION_DURATION_SEC: 32.0,
   MARROW_BLOOM_MULTIPLIER: 2.2,
-  BLOOM_INCISION_MULTIPLIER: 2.9,
+  BLOOM_INCISION_MULTIPLIER: 3.1,
 });
 
 export const ARC2_BALANCE = Object.freeze({
@@ -873,7 +873,7 @@ export function jarEffectBoost(state) {
   return (
     1.0 +
     (hasNode(state, 'wax_sealed_memory') ? 0.35 : 0.0) +
-    (hasNode(state, 'catatonic_tide') ? 0.5 : 0.0)
+    (hasNode(state, 'catatonic_tide') ? 0.65 : 0.0)
   );
 }
 
@@ -993,7 +993,7 @@ export function scarHarvestMultiplier(state) {
 
 export function catatonicTideMultiplier(state) {
   if (!hasNode(state, 'catatonic_tide')) return 1.0;
-  return state.isStillnessActive ? 2.6 : 1.45;
+  return state.isStillnessActive ? 3.2 : 1.75;
 }
 
 export function scarMultiplier(state) {
@@ -1002,7 +1002,7 @@ export function scarMultiplier(state) {
     state.highestExcisionMilestone * ORGAN_BALANCE.MILESTONE_ICHOR_RESONANCE +
     Math.sqrt(state.scarTissue) * ORGAN_BALANCE.SCAR_RESONANCE_SQRT_FACTOR;
   const rootMult = hasNode(state, 'first_incision') ? 1.45 : 1.0;
-  const boneMult = hasNode(state, 'bone_resonance') ? 1.85 : 1.0;
+  const boneMult = hasNode(state, 'bone_resonance') ? 2.1 : 1.0;
   return baseResonance * rootMult * boneMult * keloidIchorMultiplier(state);
 }
 
@@ -1012,12 +1012,12 @@ export function scarStillnessMultiplier(state) {
     state.highestExcisionMilestone * ORGAN_BALANCE.MILESTONE_STILLNESS_RESONANCE +
     Math.sqrt(state.scarTissue) * ORGAN_BALANCE.SCAR_STILLNESS_SQRT_FACTOR;
   const rootMult = hasNode(state, 'first_incision') ? 1.2 : 1.0;
-  const silenceMult = hasNode(state, 'shorter_silence') ? 1.4 : 1.0;
+  const silenceMult = hasNode(state, 'shorter_silence') ? 1.5 : 1.0;
   return baseResonance * rootMult * silenceMult * sedimentStillnessMultiplier(state);
 }
 
 export function relicAmplifier(state) {
-  return (hasNode(state, 'echo_ossuary') ? 1.35 : 1.0) * (hasNode(state, 'bone_resonance') ? 1.35 : 1.0);
+  return (hasNode(state, 'echo_ossuary') ? 1.35 : 1.0) * (hasNode(state, 'bone_resonance') ? 1.4 : 1.0);
 }
 
 export function relicIchorMultiplier(state) {
@@ -1043,7 +1043,7 @@ export function relicStillnessMultiplier(state) {
 
 export function dossierIchorMultiplier(state) {
   let mult = 1.0;
-  const perLineBoost = hasNode(state, 'bone_resonance') ? 1.12 : 1.0;
+  const perLineBoost = hasNode(state, 'bone_resonance') ? 1.18 : 1.0;
   for (const id of state.unredactedDossierLines ?? []) {
     const line = dossierLineById(id);
     if (line) mult *= line.ichorMultiplier * perLineBoost;
@@ -1071,9 +1071,9 @@ export function anomalyRewardMultiplier(state) {
   const mortarBoost = hasNode(state, 'softened_mortar') ? 1.8 : 1.0;
   const baseEchoBonus =
     state.echoDiversionPercent === 25 ? 0.35 : state.echoDiversionPercent === 50 ? 0.7 : 0.0;
-  const echoBoost = 1.0 + baseEchoBonus * (hasNode(state, 'bone_resonance') ? 1.35 : 1.0);
+  const echoBoost = 1.0 + baseEchoBonus * (hasNode(state, 'bone_resonance') ? 1.4 : 1.0);
   const bloomAnomalyBoost =
-    state.marrowBloomRemainingSeconds > 0 && hasNode(state, 'bloom_incision') ? 1.4 : 1.0;
+    state.marrowBloomRemainingSeconds > 0 && hasNode(state, 'bloom_incision') ? 1.5 : 1.0;
   return jarBoost * mortarBoost * echoBoost * bloomAnomalyBoost;
 }
 
@@ -1092,8 +1092,8 @@ export function globalIchorMultiplier(state) {
 export function effectiveCreatureIchorPerSec(state, typeId) {
   const spec = typeof typeId === 'string' ? creatureById(typeId) : typeId;
   if (!spec) return 0.0;
-  const inertiaMult = hasNode(state, 'colony_inertia') ? 1.75 : 1.0;
-  const seamMult = hasNode(state, 'perpetual_seam') ? 2.25 : 1.0;
+  const inertiaMult = hasNode(state, 'colony_inertia') ? 1.9 : 1.0;
+  const seamMult = hasNode(state, 'perpetual_seam') ? 2.5 : 1.0;
   const jarPotency = jarEffectBoost(state);
 
   let specimenMultiplier = 1.0;
@@ -1114,11 +1114,11 @@ export function effectiveCreatureIchorPerSec(state, typeId) {
       : hasNode(state, 'deep_weeping')
         ? 1.25
         : 1.0;
-    const deepMult = hasNode(state, 'deep_weeping') ? 1.8 : 1.0;
+    const deepMult = hasNode(state, 'deep_weeping') ? 2.0 : 1.0;
     specimenMultiplier = nameJar * weepingSurge * deepMult;
   } else if (spec.id === CREATURE_TYPES.SUMP_SIPHON.id) {
-    const autoMult = hasNode(state, 'auto_tendril_suture') ? 1.55 : 1.0;
-    const recallMult = hasNode(state, 'membrane_recall') ? 1.85 : 1.0;
+    const autoMult = hasNode(state, 'auto_tendril_suture') ? 1.65 : 1.0;
+    const recallMult = hasNode(state, 'membrane_recall') ? 2.2 : 1.0;
     const sealPenalty = state.drainSealed ? 0.85 : 1.0;
     specimenMultiplier = autoMult * recallMult * sealPenalty;
   }
@@ -1156,10 +1156,10 @@ export function rawIchorPerSecond(state) {
   for (const spec of CREATURE_LIST) {
     creaturesRate += totalCreatureIchorPerSec(state, spec.id);
   }
-  const seamColonyMult = hasNode(state, 'perpetual_seam') ? 2.25 : 1.0;
+  const seamColonyMult = hasNode(state, 'perpetual_seam') ? 2.5 : 1.0;
   const graftNodeMult =
-    (hasNode(state, 'auto_tendril_suture') ? 1.55 : 1.0) *
-    (hasNode(state, 'membrane_recall') ? 1.85 : 1.0);
+    (hasNode(state, 'auto_tendril_suture') ? 1.65 : 1.0) *
+    (hasNode(state, 'membrane_recall') ? 2.2 : 1.0);
   const pulseMult = borrowedPulseMultiplier(state);
   const graftRate =
     state.graftedTendrils *
@@ -1197,7 +1197,7 @@ export function manualTapYield(state) {
     : 0.0;
   const toothBonus = (state.anomalyInteractions?.pale_tooth ?? 0) * 0.5;
   const palmMult = hasNode(state, 'calloused_palm') ? 1.8 : 1.0;
-  const seamMult = hasNode(state, 'perpetual_seam') ? 2.25 : 1.0;
+  const seamMult = hasNode(state, 'perpetual_seam') ? 2.5 : 1.0;
   const echoBurst = hasNode(state, 'twin_stitch') ? ichorPerSecond(state) * 1.5 : 0.0;
   return (
     (1.0 + dustBonus + toothBonus) *
@@ -1215,7 +1215,7 @@ export function stillnessPerSecond(state) {
   const lampFraction = state.isStillnessActive
     ? 1.0
     : hasNode(state, 'deep_weeping') && lampCount > 0
-      ? 0.4
+      ? 0.5
       : 0.0;
   const lampStillness = lampCount * effectiveLampStillnessPerSec(state) * lampFraction;
   const graftStillness =
@@ -1851,8 +1851,8 @@ export function tick(state, deltaSeconds, catalog) {
           ? 18.0
           : 0.0;
     const echoYieldBoost =
-      (hasNode(nextState, 'echo_ossuary') ? 1.25 : 1.0) *
-      (hasNode(nextState, 'bone_resonance') ? 1.35 : 1.0);
+      (hasNode(nextState, 'echo_ossuary') ? 1.35 : 1.0) *
+      (hasNode(nextState, 'bone_resonance') ? 1.4 : 1.0);
     const echoBurst = Math.max(
       250.0,
       rawIchorPerSecond(nextState) * baseEchoMultiplier * echoYieldBoost,
@@ -2160,11 +2160,21 @@ export function performExcision(state, catalog) {
     startingCreatures.leech_clerk = 1;
   }
   if (hasNode(state, 'membrane_recall')) {
-    startingCreatures.weeping_lamp = 1;
+    startingCreatures.weeping_lamp = 2;
     if (newHighest >= 2) {
-      startingCreatures.sump_siphon = 1;
+      startingCreatures.sump_siphon = 2;
     }
   }
+  const startingTendrils = hasNode(state, 'membrane_recall') ? 1 : 0;
+  const retainedRelics = hasNode(state, 'hollow_lung_choir') ? [...(state.dredgedRelics ?? [])] : [];
+  const foundationalJars = new Set([
+    SPECIMEN_JARS.YESTERDAYS_DUST.id,
+    SPECIMEN_JARS.UNSPENT_BREATH.id,
+    SPECIMEN_JARS.ALMOST_A_NAME.id,
+  ]);
+  const retainedJars = hasNode(state, 'catatonic_tide')
+    ? (state.ownedJars ?? []).filter((id) => foundationalJars.has(id))
+    : [];
 
   const reset = {
     ...initialState(catalog),
@@ -2176,7 +2186,9 @@ export function performExcision(state, catalog) {
     repeatableScarRanks: { ...(state.repeatableScarRanks ?? {}) },
     cycle: state.cycle + 1,
     creatures: startingCreatures,
-    ownedJars: [],
+    graftedTendrils: startingTendrils,
+    ownedJars: retainedJars,
+    dredgedRelics: retainedRelics,
     autoValveChargeSeconds: 0.0,
     nextAnomalyId: state.nextAnomalyId,
     lifetimeRelicsDredged: state.lifetimeRelicsDredged,
