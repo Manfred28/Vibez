@@ -12,7 +12,7 @@
  *   damp subterranean room, with zero tab-switch clicks.
  */
 
-import { CREATURE_TYPES, DESK_ANOMALY_TYPES, GAME_ARCS, WALL_ANOMALY_TYPES } from './engine.js?v=3.9';
+import { CREATURE_TYPES, DESK_ANOMALY_TYPES, GAME_ARCS, WALL_ANOMALY_TYPES } from './engine.js?v=3.11';
 
 export const AUDIO_MUTE_STORAGE_KEY = 'unnamed_organ_audio_muted_v1';
 
@@ -792,10 +792,12 @@ export function createWebAudioEngine({ storage } = {}) {
     peakGain,
     decayScale = 1.0,
     includeRatchet = true,
+    clangScale = 1.0,
   ) {
     const bus = ctx.createGain();
     bus.gain.value = peakGain;
     bus.connect(sfxBus);
+    const modeAttack = clangScale < 0.5 ? 0.006 : 0.003;
 
     for (let m = 0; m < IRON_MODE_RATIOS.length; m += 1) {
       const f = Math.min(3200, Math.max(60, baseFreq * IRON_MODE_RATIOS[m]));
@@ -807,7 +809,7 @@ export function createWebAudioEngine({ storage } = {}) {
       osc.frequency.exponentialRampToValueAtTime(f, startTime + 0.032);
 
       g.gain.setValueAtTime(0.0001, startTime);
-      g.gain.linearRampToValueAtTime(IRON_MODE_AMPS[m] * 0.48, startTime + 0.003);
+      g.gain.linearRampToValueAtTime(IRON_MODE_AMPS[m] * 0.48, startTime + modeAttack);
       g.gain.exponentialRampToValueAtTime(0.0001, startTime + modeDur);
 
       osc.connect(g);
@@ -827,7 +829,7 @@ export function createWebAudioEngine({ storage } = {}) {
     clangFilter.Q.value = 3.4;
     const clangGain = ctx.createGain();
     clangGain.gain.setValueAtTime(0.0001, startTime);
-    clangGain.gain.linearRampToValueAtTime(0.52, startTime + 0.0025);
+    clangGain.gain.linearRampToValueAtTime(Math.max(0.0002, 0.52 * clangScale), startTime + 0.0025);
     clangGain.gain.exponentialRampToValueAtTime(0.0001, startTime + clangDur);
     clangSrc.connect(clangFilter);
     clangFilter.connect(clangGain);
@@ -850,14 +852,14 @@ export function createWebAudioEngine({ storage } = {}) {
       rFilter.Q.value = 4.2;
 
       const rModGain = ctx.createGain();
-      rModGain.gain.setValueAtTime(0.28, startTime);
+      rModGain.gain.setValueAtTime(Math.max(0.0002, 0.28 * clangScale), startTime);
       rModGain.gain.exponentialRampToValueAtTime(0.0001, startTime + rDur);
 
       const teethLfo = ctx.createOscillator();
       teethLfo.type = 'sine';
       teethLfo.frequency.value = 46;
       const teethDepth = ctx.createGain();
-      teethDepth.gain.value = 0.18;
+      teethDepth.gain.value = 0.18 * clangScale;
       teethLfo.connect(teethDepth);
       teethDepth.connect(rModGain.gain);
 
@@ -1122,14 +1124,16 @@ export function createWebAudioEngine({ storage } = {}) {
 
     switch (cue) {
       case SOUND_CUES.VALVE_PRESS:
-        // Heavy wet cast-iron wall valve crank: 6-mode iron clang + pawl ratchet + tight housing weight
-        triggerIronModalRing(now, 0.25, 285 * darkPitch, 0.78, 0.95, true);
-        triggerTone(now, 0.14, 88 * darkPitch, 44 * darkPitch, 0.28, 'sine', 0.004);
-        triggerIronModalRing(now + 0.042, 0.16, 365 * darkPitch, 0.38, 1.28, false);
+        // Deep heavy cast-iron-in-masonry wall valve thump: dominant sub/chest thump + darkened iron ring
+        triggerTone(now, 0.24, 108 * darkPitch, 36 * darkPitch, 0.66, 'sine', 0.005);
+        triggerTone(now, 0.15, 152 * darkPitch, 62 * darkPitch, 0.36, 'sine', 0.005);
+        triggerNoise(now, 0.11, 'lowpass', 260 * darkPitch, 115 * darkPitch, 1.35, 0.34, 0.004);
+        triggerIronModalRing(now, 0.25, 154 * darkPitch, 0.40, 1.25, true, 0.24);
+        triggerIronModalRing(now + 0.046, 0.17, 192 * darkPitch, 0.15, 1.50, false, 0.20);
         if (p >= 1) {
           const wet = Math.max(0.25, Math.min(1.0, p / 4));
-          triggerWetSquelch(now + 0.055, 0.17, darkPitch, 0.28 * wet, 340, 180, 12.0);
-          triggerBubbleCluster(now + 0.065, 0.12, 2 + Math.min(4, p), 190 * darkPitch, 0.13 * wet);
+          triggerWetSquelch(now + 0.06, 0.18, darkPitch, 0.26 * wet, 280, 140, 10.5);
+          triggerBubbleCluster(now + 0.07, 0.13, 2 + Math.min(4, p), 165 * darkPitch, 0.12 * wet);
         }
         break;
 
@@ -1290,9 +1294,10 @@ export function createWebAudioEngine({ storage } = {}) {
         break;
 
       case SOUND_CUES.ARC2_STAMP:
-        // Heavy muffled wooden desk stamp + dark blotter slap
-        triggerTone(now, 0.14, 98 * pitch, 44 * pitch, 0.38, 'sine', 0.003);
-        triggerNoise(now, 0.10, 'lowpass', 520 * pitch, 220 * pitch, 1.3, 0.22, 0.003);
+        // Deep heavy muffled wooden desk stamp thump + dark blotter slap
+        triggerTone(now, 0.18, 84 * pitch, 36 * pitch, 0.52, 'sine', 0.004);
+        triggerTone(now, 0.12, 128 * pitch, 56 * pitch, 0.22, 'sine', 0.004);
+        triggerNoise(now, 0.10, 'lowpass', 340 * pitch, 145 * pitch, 1.25, 0.24, 0.004);
         break;
 
       case SOUND_CUES.ARC2_CONTACT:

@@ -62,8 +62,48 @@ internal const val STORY_DRIP_HOLD_MS = 6200L
 internal const val STORY_DRIP_DESCEND_MS = 8200
 internal const val STORY_DRIP_TOTAL_MS =
   STORY_DRIP_SWELL_MS + STORY_DRIP_HOLD_MS + STORY_DRIP_DESCEND_MS
+internal const val STORY_DRIP_QUEUE_GAP_MS = 300L
 
 internal const val REPEAT_EVENT_DRIP_CHANCE = 0.30
+
+@Immutable
+internal data class StoryDripQueueState(
+  val active: DialogueEntry? = null,
+  val pending: List<DialogueEntry> = emptyList(),
+) {
+  val isBusy: Boolean
+    get() = active != null || pending.isNotEmpty()
+}
+
+/**
+ * Pure FIFO queue for right-margin story drips.
+ * Guarantees an incoming story fragment never interrupts or dismisses an ongoing drip,
+ * while deduplicating identical dialogue IDs already active or waiting.
+ */
+internal object StoryDripQueue {
+  fun enqueue(state: StoryDripQueueState, entry: DialogueEntry): StoryDripQueueState {
+    if (state.active?.id == entry.id || state.pending.any { it.id == entry.id }) {
+      return state
+    }
+    return if (state.active == null) {
+      state.copy(active = entry)
+    } else {
+      state.copy(pending = state.pending + entry)
+    }
+  }
+
+  fun completeActive(state: StoryDripQueueState): StoryDripQueueState {
+    if (state.pending.isEmpty()) {
+      return StoryDripQueueState()
+    }
+    return StoryDripQueueState(
+      active = state.pending.first(),
+      pending = state.pending.drop(1),
+    )
+  }
+
+  fun clear(): StoryDripQueueState = StoryDripQueueState()
+}
 
 internal object EventDripGate {
   fun shouldShow(
@@ -83,16 +123,17 @@ internal object EventDripGate {
  *
  * 1. **Primary Priority Story Lane (Right Margin, `dripping_story_overlay`)**:
  *    Dedicated exclusively to newly unlocked `DialogueEntry` story fragments, seeping slowly
- *    (~16s) for comfortable reading. Wall anomalies, Neighbor Aperture echoes, or sacrifice notes
- *    can NEVER overwrite, interrupt, or overlap it. Skips initial mount/hydration so restoring a
- *    save does not falsely trigger a drip.
+ *    (~16s) for comfortable reading. Incoming story fragments are strictly **queued (FIFO)** so
+ *    a new story beat NEVER interrupts or dismisses an ongoing drip. Wall anomalies, Neighbor
+ *    Aperture echoes, or sacrifice notes can NEVER overwrite, interrupt, or overlap it. Skips
+ *    initial mount/hydration so restoring a save does not falsely trigger a drip.
  *
  * 2. **Subordinate Event Lane (Left Margin, `dripping_event_overlay`)**:
  *    Hosts readable thematic descriptions for wall-anomaly interactions, Neighbor Aperture echo
  *    answers, and graft sacrifices (~4.8s). Completely hidden and suppressed whenever a primary
- *    story fragment is actively descending so story transmissions command undivided attention.
- *    Each distinct event key always drips the first time it is actually shown (100%), then triggers
- *    at a 30% random chance (`REPEAT_EVENT_DRIP_CHANCE`) on subsequent repeats.
+ *    story fragment is actively descending or queued so story transmissions command undivided
+ *    attention. Each distinct event key always drips the first time it is actually shown (100%),
+ *    then triggers at a 30% random chance (`REPEAT_EVENT_DRIP_CHANCE`) on subsequent repeats.
  */
 @Composable
 internal fun DrippingTransmissionOverlay(
@@ -101,10 +142,11 @@ internal fun DrippingTransmissionOverlay(
   modifier: Modifier = Modifier,
   eventDripRoll: () -> Double = { Random.nextDouble() },
 ) {
-  // Primary story state: never evicted by events, only updates on genuinely new dialogue IDs.
+  // Primary story queue: never evicted by events or newer story arrivals; drains strictly FIFO.
   var initializedDialogue by remember { mutableStateOf(false) }
   var lastSeenDialogueId by remember { mutableStateOf<String?>(null) }
-  var activeStoryDrip by remember { mutableStateOf<DialogueEntry?>(null) }
+  var storyQueue by remember { mutableStateOf(StoryDripQueueState()) }
+  var inStoryGap by remember { mutableStateOf(false) }
   val storyProgress = remember { Animatable(0f) }
 
   // Subordinate chamber event state (anomalies / echoes / sacrifices) on the opposite left edge.
@@ -119,6 +161,7 @@ internal fun DrippingTransmissionOverlay(
     }
   }
 
+  // Producer: enqueue genuinely new story fragments without interrupting any ongoing drip.
   LaunchedEffect(activeDialogue?.id) {
     val currentId = activeDialogue?.id
     if (!initializedDialogue) {
@@ -126,32 +169,50 @@ internal fun DrippingTransmissionOverlay(
       lastSeenDialogueId = currentId
       return@LaunchedEffect
     }
-    if (currentId != null && currentId != lastSeenDialogueId) {
+    if (currentId == null) {
+      lastSeenDialogueId = null
+      storyQueue = StoryDripQueue.clear()
+      inStoryGap = false
+      return@LaunchedEffect
+    }
+    if (currentId != lastSeenDialogueId) {
       lastSeenDialogueId = currentId
       // Story takes exclusive priority — immediately clear any active chamber event drip
       activeEventDrip = null
-      activeStoryDrip = activeDialogue
-      storyProgress.snapTo(0f)
-      // Swell bead slowly, pause for unhurried reading, then descend down the right margin (~16s total)
-      storyProgress.animateTo(
-        targetValue = 0.20f,
-        animationSpec = tween(durationMillis = STORY_DRIP_SWELL_MS, easing = FastOutSlowInEasing),
-      )
-      delay(STORY_DRIP_HOLD_MS)
-      storyProgress.animateTo(
-        targetValue = 1f,
-        animationSpec = tween(durationMillis = STORY_DRIP_DESCEND_MS, easing = LinearEasing),
-      )
-      activeStoryDrip = null
+      storyQueue = StoryDripQueue.enqueue(storyQueue, activeDialogue)
     }
+  }
+
+  // Consumer: keyed strictly on the currently active head of the FIFO queue so enqueuing
+  // subsequent entries never cancels or resets the ongoing drip animation.
+  LaunchedEffect(storyQueue.active?.id) {
+    if (storyQueue.active == null) return@LaunchedEffect
+    inStoryGap = false
+    storyProgress.snapTo(0f)
+    // Swell bead slowly, pause for unhurried reading, then descend down the right margin (~16s total)
+    storyProgress.animateTo(
+      targetValue = 0.20f,
+      animationSpec = tween(durationMillis = STORY_DRIP_SWELL_MS, easing = FastOutSlowInEasing),
+    )
+    delay(STORY_DRIP_HOLD_MS)
+    storyProgress.animateTo(
+      targetValue = 1f,
+      animationSpec = tween(durationMillis = STORY_DRIP_DESCEND_MS, easing = LinearEasing),
+    )
+    if (storyQueue.pending.isNotEmpty()) {
+      inStoryGap = true
+      delay(STORY_DRIP_QUEUE_GAP_MS)
+      inStoryGap = false
+    }
+    storyQueue = StoryDripQueue.completeActive(storyQueue)
   }
 
   LaunchedEffect(latestEvent?.id) {
     val event = latestEvent ?: return@LaunchedEffect
     if (event.id == lastSeenEventId) return@LaunchedEffect
     lastSeenEventId = event.id
-    // Suppress chamber event drips whenever a story fragment is actively dripping (without marking seen)
-    if (activeStoryDrip != null) return@LaunchedEffect
+    // Suppress chamber event drips whenever a story fragment is actively dripping or queued
+    if (storyQueue.isBusy || inStoryGap) return@LaunchedEffect
     if (!EventDripGate.shouldShow(event.eventKey, seenEventKeys, eventDripRoll)) {
       return@LaunchedEffect
     }
@@ -170,14 +231,15 @@ internal fun DrippingTransmissionOverlay(
     activeEventDrip = null
   }
 
-  val storyActive = activeStoryDrip != null
-  if (!storyActive && activeEventDrip == null) return
+  val storyBusy = storyQueue.isBusy || inStoryGap
+  val visibleStoryDrip = if (inStoryGap) null else storyQueue.active
+  if (!storyBusy && activeEventDrip == null) return
 
   BoxWithConstraints(modifier = modifier.fillMaxSize()) {
     val travelPx = (constraints.maxHeight * 0.56f).coerceAtLeast(120f)
 
-    // Subordinate Left Margin Lane — completely hidden while a story drip is active
-    if (!storyActive) {
+    // Subordinate Left Margin Lane — completely hidden while any story drip is active or queued
+    if (!storyBusy) {
       activeEventDrip?.let { event ->
         val p = eventProgress.value
         val fadeAlpha =
@@ -201,8 +263,8 @@ internal fun DrippingTransmissionOverlay(
       }
     }
 
-    // Primary Right Margin Lane (Story Fragments — strict top priority)
-    activeStoryDrip?.let { entry ->
+    // Primary Right Margin Lane (Story Fragments — strict top priority, FIFO queued)
+    visibleStoryDrip?.let { entry ->
       val p = storyProgress.value
       val fadeAlpha =
         when {

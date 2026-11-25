@@ -106,6 +106,7 @@ object ProceduralFoleySynth {
     decayScale: Double = 1.0,
     seed: Int = 71,
     includeRatchetGrit: Boolean = true,
+    clangScale: Double = 1.0,
   ) {
     val startIdx = (startSec * SAMPLE_RATE).toInt().coerceAtLeast(0)
     val count = (durationSec * SAMPLE_RATE).toInt().coerceAtLeast(1)
@@ -113,10 +114,11 @@ object ProceduralFoleySynth {
     val noise = NoiseGen(seed)
     val gritFilter = SvFilter()
     val clangFilter = SvFilter()
+    val attackRate = if (clangScale < 0.5) 220.0 else 420.0
 
     for (i in startIdx until endIdx) {
       val t = (i - startIdx).toDouble() / SAMPLE_RATE
-      val attack = 1.0 - exp(-t * 420.0)
+      val attack = 1.0 - exp(-t * attackRate)
       var modes = 0.0
       for (m in IRON_MODE_RATIOS.indices) {
         val f = baseFreqHz * IRON_MODE_RATIOS[m]
@@ -126,12 +128,12 @@ object ProceduralFoleySynth {
       }
       val n = noise.nextFloat().toDouble()
       val clangBurst = clangFilter.processBandpass(n, (baseFreqHz * 4.2).coerceIn(500.0, 2900.0), 3.4) *
-        exp(-t * 58.0) * 0.64
+        exp(-t * 58.0) * 0.64 * clangScale
       val ratchet =
         if (includeRatchetGrit && t < 0.085) {
           val teeth = 0.55 + 0.45 * sin(TWO_PI * 46.0 * t)
           val sweep = (baseFreqHz * 4.8 * exp(-t * 9.0)).coerceIn(360.0, 2600.0)
-          gritFilter.processBandpass(n, sweep, 4.2) * exp(-t * 26.0) * teeth * 0.46
+          gritFilter.processBandpass(n, sweep, 4.2) * exp(-t * 26.0) * teeth * 0.46 * clangScale
         } else 0.0
 
       buf[i] += ((modes * attack * 0.78 + clangBurst + ratchet) * gain).toFloat()
@@ -326,71 +328,88 @@ object ProceduralFoleySynth {
   }
 
   /**
-   * Heavy wet cast-iron wall valve crank: authentic 6-mode cast-iron wheel clang + pawl ratchet
-   * scrape + recessed iron housing sub-weight + phase-escalating wet organ seepage behind the rim.
+   * Deep heavy cast-iron-in-masonry wall valve thump: dominant sub-bass & low-mid wall-housing
+   * chest thump + low-passed impact mass + darkened bolted cast-iron modal under-ring +
+   * phase-escalating wet organ seepage behind the rim.
    */
   private fun renderValvePress(pitch: Double, phase: Int): ShortArray {
-    val len = (SAMPLE_RATE * 0.26).toInt()
+    val len = (SAMPLE_RATE * 0.28).toInt()
     val buf = FloatArray(len)
+    val thudNoise = NoiseGen(103 + phase * 19)
+    val thudFilter = SvFilter()
 
-    // 1. Heavy cast-iron wheel & mounting flange modal clang (dark cold iron fundamental ~285Hz)
+    // 1. Dominant deep sub-bass & masonry chest thump (108Hz -> 36Hz + 152Hz -> 62Hz body punch + damped impact)
+    var subPhase = 0.0
+    var bodyPhase = 0.0
+    for (i in 0 until len) {
+      val t = i.toDouble() / SAMPLE_RATE
+      val subF = (36.0 + 72.0 * exp(-t * 34.0)) * pitch
+      val bodyF = (62.0 + 90.0 * exp(-t * 40.0)) * pitch
+      subPhase += TWO_PI * subF / SAMPLE_RATE
+      bodyPhase += TWO_PI * bodyF / SAMPLE_RATE
+      val subAttack = 1.0 - exp(-t * 240.0)
+      val bodyAttack = 1.0 - exp(-t * 260.0)
+      val subThump = sin(subPhase) * subAttack * exp(-t * 13.5) * 0.98
+      val bodyPunch = sin(bodyPhase) * bodyAttack * exp(-t * 22.0) * 0.54
+      val impactCut = (115.0 + 145.0 * exp(-t * 30.0)) * pitch
+      val impactMass =
+        thudFilter.processLowpass(thudNoise.nextFloat().toDouble(), impactCut, 1.35) *
+          (1.0 - exp(-t * 280.0)) *
+          exp(-t * 26.0) *
+          0.56
+      buf[i] += (subThump + bodyPunch + impactMass).toFloat()
+    }
+
+    // 2. Darkened, heavy bolted cast-iron modal under-ring (154Hz fundamental + muted 192Hz lug seat)
     addIronModalRing(
       buf = buf,
       startSec = 0.0,
-      durationSec = 0.25,
-      baseFreqHz = 285.0 * pitch,
-      gain = 0.84,
-      decayScale = 0.95,
+      durationSec = 0.26,
+      baseFreqHz = 154.0 * pitch,
+      gain = 0.44,
+      decayScale = 1.25,
       seed = 101 + phase * 17,
       includeRatchetGrit = true,
+      clangScale = 0.24,
     )
-
-    // 2. Tight bolted cast-iron wall housing weight (88Hz -> 44Hz) + secondary pawl lug catch at 42ms
-    var lugPhase = 0.0
-    for (i in 0 until len) {
-      val t = i.toDouble() / SAMPLE_RATE
-      val subF = (44.0 + 44.0 * exp(-t * 28.0)) * pitch
-      lugPhase += TWO_PI * subF / SAMPLE_RATE
-      val housingThud = sin(lugPhase) * exp(-t * 24.0) * 0.36
-      buf[i] += housingThud.toFloat()
-    }
     addIronModalRing(
       buf = buf,
-      startSec = 0.042,
-      durationSec = 0.16,
-      baseFreqHz = 365.0 * pitch,
-      gain = 0.42,
-      decayScale = 1.28,
+      startSec = 0.046,
+      durationSec = 0.17,
+      baseFreqHz = 192.0 * pitch,
+      gain = 0.16,
+      decayScale = 1.50,
       seed = 149 + phase * 7,
       includeRatchetGrit = false,
+      clangScale = 0.20,
     )
 
-    // 3. Phase 1+: Damp organic ichor seepage trailing behind the iron turn
+    // 3. Phase 1+: Damp organic ichor seepage trailing behind the heavy iron turn
     if (phase >= 1) {
       val wet = (phase / 4.0).coerceIn(0.25, 1.0)
       addWetSquelch(
         buf = buf,
-        startSec = 0.055,
-        durationSec = 0.17,
+        startSec = 0.06,
+        durationSec = 0.18,
         pitch = pitch,
-        gain = 0.28 * wet,
-        formantStartHz = 340.0,
-        formantEndHz = 180.0,
-        wobbleHz = 12.0,
+        gain = 0.26 * wet,
+        formantStartHz = 280.0,
+        formantEndHz = 140.0,
+        wobbleHz = 10.5,
         seed = 181 + phase * 13,
       )
       addBubbleCluster(
         buf = buf,
-        startSec = 0.065,
-        spanSec = 0.12,
+        startSec = 0.07,
+        spanSec = 0.13,
         count = 2 + phase,
-        baseFreqHz = 190.0 * pitch,
-        gain = 0.14 * wet,
+        baseFreqHz = 165.0 * pitch,
+        gain = 0.13 * wet,
         seed = 197 + phase * 11,
       )
     }
 
-    return toPcm16(buf, 0.86f, roomWet = 0.18f)
+    return toPcm16(buf, 0.90f, roomWet = 0.16f)
   }
 
   /** Suture-Hand: wet fascia tearing loose from plaster + tendons snapping + cold iron rim grip. */
@@ -690,19 +709,27 @@ object ProceduralFoleySynth {
     return toPcm16(buf, 0.72f, roomWet = 0.22f)
   }
 
-  /** Heavy muffled wooden desk stamp + dark blotter slap (Arc 2). */
+  /** Deep heavy muffled wooden desk stamp thump + dark blotter slap (Arc 2). */
   private fun renderDeskStamp(pitch: Double): ShortArray {
-    val len = (SAMPLE_RATE * 0.20).toInt()
+    val len = (SAMPLE_RATE * 0.22).toInt()
     val buf = FloatArray(len)
     val noise = NoiseGen(1515)
     val woodFilter = SvFilter()
+    var subPhase = 0.0
+    var bodyPhase = 0.0
     for (i in 0 until len) {
       val t = i.toDouble() / SAMPLE_RATE
-      val wood = sin(TWO_PI * ((98.0 - t * 240.0).coerceAtLeast(44.0) * pitch) * t) * exp(-t * 24.0) * 0.76
-      val paper = woodFilter.processLowpass(noise.nextFloat().toDouble(), 520.0, 1.3) * exp(-t * 36.0) * 0.56
-      buf[i] = (wood + paper).toFloat()
+      val subF = (36.0 + 48.0 * exp(-t * 30.0)) * pitch
+      val bodyF = (56.0 + 72.0 * exp(-t * 36.0)) * pitch
+      subPhase += TWO_PI * subF / SAMPLE_RATE
+      bodyPhase += TWO_PI * bodyF / SAMPLE_RATE
+      val attack = 1.0 - exp(-t * 240.0)
+      val woodSub = sin(subPhase) * attack * exp(-t * 16.0) * 0.88
+      val woodBody = sin(bodyPhase) * attack * exp(-t * 24.0) * 0.34
+      val paper = woodFilter.processLowpass(noise.nextFloat().toDouble(), 340.0, 1.25) * exp(-t * 32.0) * 0.48
+      buf[i] = (woodSub + woodBody + paper).toFloat()
     }
-    return toPcm16(buf, 0.78f, roomWet = 0.12f)
+    return toPcm16(buf, 0.84f, roomWet = 0.12f)
   }
 
   /** Heavy damp manila folder slide + low desk drawer tap (Arc 2). */

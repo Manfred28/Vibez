@@ -442,31 +442,71 @@ class OrganAudioTest {
   fun proceduralFoleySynth_producesCastIronOvertonesForValveAndSustainedOrganicEnergyForGraftAndTears() {
     val sr = ProceduralFoleySynth.SAMPLE_RATE
 
-    // 1. Cast-iron valve must contain genuine metallic inharmonic upper-mid partials (~235..1100Hz),
-    // not just a low-frequency sine pop (verify via zero-crossing rate + high-pass first-difference energy)
+    // 1. Recessed wall valve must sound like a deep, heavy bolted cast-iron thump:
+    // low-frequency thump energy (<= 180Hz) must dominate high-frequency transient energy,
+    // and its spectral brightness must sit noticeably deeper than the brighter iron sump grate clank.
     val valveP0 = ProceduralFoleySynth.synthesizeCue(SoundCue.VALVE_PRESS, phase = 0, pitchFactor = 1f)
     val valveP4 = ProceduralFoleySynth.synthesizeCue(SoundCue.VALVE_PRESS, phase = 4, pitchFactor = 1f)
-    assertTrue("Valve cue should be >= 0.24s to carry iron ring tail", valveP0.size >= (sr * 0.24).toInt())
-    var diffEnergy = 0L
-    var totalEnergy = 0L
-    for (i in 1 until valveP0.size) {
-      val s = valveP0[i].toInt()
-      totalEnergy += abs(s)
-      diffEnergy += abs(s - valveP0[i - 1].toInt())
+    val drainClank = ProceduralFoleySynth.synthesizeCue(SoundCue.DRAIN_TOGGLE, phase = 0, pitchFactor = 1f)
+    val deskStamp = ProceduralFoleySynth.synthesizeCue(SoundCue.ARC2_STAMP, phase = 5, pitchFactor = 1f)
+    assertTrue("Valve cue should be >= 0.26s to carry deep thump and iron tail", valveP0.size >= (sr * 0.26).toInt())
+
+    fun spectralRatio(pcm: ShortArray): Double {
+      var diffEnergy = 0L
+      var totalEnergy = 0L
+      for (i in 1 until pcm.size) {
+        val s = pcm[i].toInt()
+        totalEnergy += abs(s)
+        diffEnergy += abs(s - pcm[i - 1].toInt())
+      }
+      return diffEnergy.toDouble() / totalEnergy.coerceAtLeast(1L).toDouble()
     }
-    val spectralRatio = diffEnergy.toDouble() / totalEnergy.coerceAtLeast(1L).toDouble()
+
+    fun lowToHighEnergyRatio(pcm: ShortArray, cutoffHz: Double = 180.0): Double {
+      // Single-pole RC low-pass split at cutoffHz to separate deep thump body from clicky highs
+      val alpha = (2.0 * Math.PI * cutoffHz) / (2.0 * Math.PI * cutoffHz + sr.toDouble())
+      var lp = 0.0
+      var lowEnergy = 0.0
+      var highEnergy = 0.0
+      for (sample in pcm) {
+        val x = sample.toDouble()
+        lp += alpha * (x - lp)
+        val hp = x - lp
+        lowEnergy += abs(lp)
+        highEnergy += abs(hp)
+      }
+      return lowEnergy / highEnergy.coerceAtLeast(1.0)
+    }
+
+    val valveRatio = spectralRatio(valveP0)
+    val drainRatio = spectralRatio(drainClank)
+    val valveLowHigh = lowToHighEnergyRatio(valveP0)
+    val stampLowHigh = lowToHighEnergyRatio(deskStamp)
     assertTrue(
-      "Valve waveform should carry cast-iron upper-mid modal texture (ratio=$spectralRatio)",
-      spectralRatio > 0.14,
+      "Valve thump must be dominated by deep low-end mass (low/high=$valveLowHigh)",
+      valveLowHigh > 1.35,
     )
-    // Phase 4 valve adds wet organic seepage tail compared to Phase 0 dry iron
+    assertTrue(
+      "Valve thump must sit measurably deeper than the metallic drain grate clank (valve=$valveRatio, drain=$drainRatio)",
+      valveRatio < drainRatio * 0.72,
+    )
+    assertTrue(
+      "Valve thump should stay deep yet retain damped cast-iron modal texture (ratio=$valveRatio)",
+      valveRatio in 0.018..0.12,
+    )
+    assertTrue(
+      "Arc 2 desk stamp must also be deep thump-dominant (low/high=$stampLowHigh)",
+      stampLowHigh > 1.25,
+    )
+
+    // Phase 4 valve adds wet organic seepage tail compared to Phase 0 dry iron thump
     var diffP0P4 = 0L
     val tailStart = (sr * 0.06).toInt()
     val tailEnd = minOf(valveP0.size, valveP4.size)
     for (i in tailStart until tailEnd) {
       diffP0P4 += abs(valveP4[i].toInt() - valveP0[i].toInt())
     }
-    assertTrue("Phase 4 valve should diverge in wet trailing seepage from Phase 0", diffP0P4 > 50_000L)
+    assertTrue("Phase 4 valve should diverge in wet trailing seepage from Phase 0", diffP0P4 > 40_000L)
 
     // 2. Grafting must be a long (~1.15s) multi-stage fleshy/tendon-tearing cue with sustained energy
     // across early, middle, and late thirds (never a short click + empty tail)

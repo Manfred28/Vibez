@@ -87,13 +87,13 @@ import {
   stillnessIdleDelaySec,
   totalCreatureIchorPerSec,
   valveClampDurationSec,
-} from './engine.js?v=3.9';
+} from './engine.js?v=3.11';
 import {
   drawActionArtwork,
   drawDeskAnomalyGlyph,
   drawSumpSiphonPortrait,
   drawWeepingLampPortrait,
-} from './chamberCanvas.js?v=3.9';
+} from './chamberCanvas.js?v=3.11';
 
 export const FOUNDATIONAL_SHELF_JARS = Object.freeze([
   'yesterdays_dust',
@@ -216,6 +216,55 @@ export function applyDripMotionProfile(card, profile) {
 }
 
 export const REPEAT_EVENT_DRIP_CHANCE = 0.30;
+export const STORY_DRIP_QUEUE_GAP_MS = 300;
+
+/**
+ * Pure FIFO queue for right-margin story drips.
+ * Mirrors Android `StoryDripQueue` 1:1: incoming story fragments never interrupt or
+ * dismiss an ongoing drip, and duplicate dialogue IDs already active or pending are ignored.
+ */
+export function createStoryDripQueue() {
+  let active = null;
+  let pending = [];
+
+  return {
+    enqueue(entry) {
+      if (!entry || !entry.id) return { started: null, queued: false };
+      if (active?.id === entry.id || pending.some((item) => item.id === entry.id)) {
+        return { started: null, queued: false };
+      }
+      if (!active) {
+        active = entry;
+        return { started: entry, queued: false };
+      }
+      pending = [...pending, entry];
+      return { started: null, queued: true };
+    },
+    completeActive() {
+      if (pending.length === 0) {
+        active = null;
+        return null;
+      }
+      const [next, ...rest] = pending;
+      active = next;
+      pending = rest;
+      return next;
+    },
+    clear() {
+      active = null;
+      pending = [];
+    },
+    get active() {
+      return active;
+    },
+    get pending() {
+      return [...pending];
+    },
+    get isBusy() {
+      return active != null || pending.length > 0;
+    },
+  };
+}
 
 export function shouldTriggerEventDrip(eventKey, seenKeys, rng = Math.random) {
   if (!eventKey) return false;
@@ -421,7 +470,9 @@ export function createUiController(handlers) {
   let hasHydratedDialogue = false;
   let residueSeq = 0;
   let ledgerPulseTimer = null;
+  let storyDripGapTimer = null;
 
+  const storyDripQueue = createStoryDripQueue();
   const seenArc1Keys = new Map();
   const seenArc2Keys = new Map();
   const seenEventDripKeys = new Set();
@@ -518,16 +569,24 @@ export function createUiController(handlers) {
     );
   }
 
-  function triggerStoryDrip(entry) {
+  function isStoryDripBusy() {
+    return (
+      storyDripQueue.isBusy ||
+      storyDripGapTimer != null ||
+      Boolean(els.storyDripLayer && els.storyDripLayer.childElementCount > 0)
+    );
+  }
+
+  function mountStoryDripCard(entry) {
     if (!els.storyDripLayer || !entry) return;
     // Story lane takes exclusive priority — clear and suppress chamber event drips while active
-    els.storyDripLayer.innerHTML = '';
     if (els.eventDripLayer) {
       els.eventDripLayer.innerHTML = '';
       els.eventDripLayer.classList.add('is-suppressed');
     }
     const card = document.createElement('div');
     card.className = 'drip-card drip-card--story';
+    card.dataset.dialogueId = entry.id;
     applyDripMotionProfile(card, computeDripMotionProfile('story'));
     const ribbon = document.createElement('div');
     ribbon.className = 'drip-ribbon';
@@ -548,17 +607,40 @@ export function createUiController(handlers) {
       if (event.target !== card) return;
       card.removeEventListener('animationend', handleAnimationEnd);
       card.remove();
-      if (els.storyDripLayer.childElementCount === 0) {
-        els.eventDripLayer?.classList.remove('is-suppressed');
+      if (storyDripQueue.pending.length > 0) {
+        window.clearTimeout(storyDripGapTimer);
+        storyDripGapTimer = window.setTimeout(() => {
+          storyDripGapTimer = null;
+          const next = storyDripQueue.completeActive();
+          if (next) {
+            mountStoryDripCard(next);
+          } else if (!isStoryDripBusy()) {
+            els.eventDripLayer?.classList.remove('is-suppressed');
+          }
+        }, STORY_DRIP_QUEUE_GAP_MS);
+      } else {
+        storyDripQueue.completeActive();
+        if (!isStoryDripBusy()) {
+          els.eventDripLayer?.classList.remove('is-suppressed');
+        }
       }
     };
     card.addEventListener('animationend', handleAnimationEnd);
   }
 
+  function triggerStoryDrip(entry) {
+    if (!els.storyDripLayer || !entry) return;
+    // FIFO queue: never dismiss or overwrite an ongoing story drip
+    const { started } = storyDripQueue.enqueue(entry);
+    if (started) {
+      mountStoryDripCard(started);
+    }
+  }
+
   function triggerEventDrip(text, speakerLabel = 'CHAMBER', eventKey = null, rng = Math.random) {
     if (!els.eventDripLayer || !text) return false;
-    // Suppress chamber event drips whenever a story fragment is actively dripping (without marking seen)
-    if (els.storyDripLayer && els.storyDripLayer.childElementCount > 0) return false;
+    // Suppress chamber event drips whenever a story fragment is actively dripping or queued
+    if (isStoryDripBusy()) return false;
     const resolvedKey = eventKey || `${speakerLabel}:${text}`;
     if (!shouldTriggerEventDrip(resolvedKey, seenEventDripKeys, rng)) return false;
     seenEventDripKeys.add(resolvedKey);
@@ -712,7 +794,7 @@ export function createUiController(handlers) {
 
       const photo = document.createElement('img');
       photo.className = 'anomaly-photo';
-      photo.src = `./assets/img_anomaly_${anomaly.type}.jpg?v=3.9`;
+      photo.src = `./assets/img_anomaly_${anomaly.type}.jpg?v=3.11`;
       photo.alt = '';
       photo.draggable = false;
       photo.setAttribute('aria-hidden', 'true');
@@ -763,7 +845,7 @@ export function createUiController(handlers) {
 
         const img = document.createElement('img');
         img.className = 'chamber-jar-img';
-        img.src = `./assets/img_jar_${jarId}.jpg?v=3.9`;
+        img.src = `./assets/img_jar_${jarId}.jpg?v=3.11`;
         img.alt = '';
         img.draggable = false;
         img.setAttribute('aria-hidden', 'true');
@@ -1184,7 +1266,7 @@ export function createUiController(handlers) {
         <span class="jar-photo-frame" data-role="jar-frame" aria-hidden="true">
           <img
             class="jar-photo-emblem"
-            src="./assets/img_jar_${jar.id}.jpg?v=3.9"
+            src="./assets/img_jar_${jar.id}.jpg?v=3.11"
             alt=""
             draggable="false"
             aria-hidden="true"
@@ -2303,6 +2385,9 @@ export function createUiController(handlers) {
       ritesPanelRefs = null;
       excisionRefs = null;
       arc2DeckRefs = null;
+      window.clearTimeout(storyDripGapTimer);
+      storyDripGapTimer = null;
+      storyDripQueue.clear();
       if (els.storyDripLayer) els.storyDripLayer.innerHTML = '';
       if (els.eventDripLayer) {
         els.eventDripLayer.innerHTML = '';

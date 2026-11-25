@@ -11,7 +11,9 @@ import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertContentDescriptionEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertTextEquals
+import androidx.compose.ui.test.hasAnyDescendant
 import androidx.compose.ui.test.hasClickAction
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -37,7 +39,10 @@ import com.example.ui.OrganScreen
 import com.example.ui.OrganViewModel
 import com.example.ui.components.EventDripGate
 import com.example.ui.components.REPEAT_EVENT_DRIP_CHANCE
+import com.example.ui.components.STORY_DRIP_QUEUE_GAP_MS
 import com.example.ui.components.STORY_DRIP_TOTAL_MS
+import com.example.ui.components.StoryDripQueue
+import com.example.ui.components.StoryDripQueueState
 import com.example.ui.components.TabAlertEvaluator
 import com.example.ui.components.computeWallAnomalyBreathScale
 import com.example.ui.components.computeWallLayerAlphas
@@ -1791,5 +1796,145 @@ class OrganScreenBehaviorTest {
       .onNodeWithTag("chamber_jar_yesterdays_dust", useUnmergedTree = true)
       .assertIsDisplayed()
     composeTestRule.onNodeWithTag("chamber_jar_shelf_right", useUnmergedTree = true).assertDoesNotExist()
+  }
+
+  @Test
+  fun drippingMarginOverlay_queuesIncomingStoryDripsFifoWithoutDismissingOngoingDrip() {
+    val context = ApplicationProvider.getApplicationContext<Context>()
+    val catalog = AssetDialogueRepository(context).loadCatalog()
+    val entryA = catalog.entries[0]
+    val entryB = catalog.entries[1]
+    val entryC = catalog.entries[2]
+    val textA = entryA.lines.joinToString(" ").trim()
+    val textB = entryB.lines.joinToString(" ").trim()
+    val textC = entryC.lines.joinToString(" ").trim()
+
+    // 1. Pure FIFO StoryDripQueue unit verification
+    assertEquals(300L, STORY_DRIP_QUEUE_GAP_MS)
+    var q = StoryDripQueueState()
+    assertFalse(q.isBusy)
+
+    q = StoryDripQueue.enqueue(q, entryA)
+    assertEquals(entryA.id, q.active?.id)
+    assertTrue(q.pending.isEmpty())
+    assertTrue(q.isBusy)
+
+    // Enqueueing newer entries never evicts active and ignores duplicate IDs
+    q = StoryDripQueue.enqueue(q, entryB)
+    q = StoryDripQueue.enqueue(q, entryA)
+    q = StoryDripQueue.enqueue(q, entryB)
+    q = StoryDripQueue.enqueue(q, entryC)
+    assertEquals(entryA.id, q.active?.id)
+    assertEquals(listOf(entryB.id, entryC.id), q.pending.map { it.id })
+
+    q = StoryDripQueue.completeActive(q)
+    assertEquals(entryB.id, q.active?.id)
+    assertEquals(listOf(entryC.id), q.pending.map { it.id })
+
+    q = StoryDripQueue.completeActive(q)
+    assertEquals(entryC.id, q.active?.id)
+    assertTrue(q.pending.isEmpty())
+
+    q = StoryDripQueue.completeActive(q)
+    assertFalse(q.isBusy)
+    assertEquals(null, q.active)
+
+    // 2. Live Robolectric Compose UI test through real OrganScreen: ongoing drip completes untouched, then queued drips play FIFO
+    var state by
+      mutableStateOf(
+        OrganGameEngine.initialState(catalog).copy(
+          ichor = 90.0,
+          cycleLifetimeIchor = 90.0,
+          phase = 1,
+          phaseName = catalog.phaseName(1),
+          triggeredDialogueIds = catalog.entries.map { it.id }.toSet(),
+          activeDialogue = null,
+          activeAnomalies =
+            listOf(
+              ActiveWallAnomaly(91L, WallAnomalyType.PALE_TOOTH, 0.2f, 0.25f),
+              ActiveWallAnomaly(92L, WallAnomalyType.PALE_TOOTH, 0.8f, 0.28f),
+            ),
+        )
+      )
+
+    composeTestRule.mainClock.autoAdvance = false
+    composeTestRule.setContent {
+      BleakTheme(phase = state.phase) {
+        OrganScreen(
+          state = state,
+          onPressValve = {},
+          onBuyCreature = {},
+          onBottleJar = {},
+          onPerformGraft = {},
+          onInteractAnomaly = { id -> state = OrganGameEngine.interactAnomaly(state, id, catalog) },
+          onPerformExcision = {},
+          eventDripRoll = { 0.0 },
+        )
+      }
+    }
+    composeTestRule.mainClock.advanceTimeBy(100)
+    composeTestRule.waitForIdle()
+
+    // Deliver entryA -> begins dripping on right margin
+    composeTestRule.runOnIdle { state = state.copy(activeDialogue = entryA) }
+    composeTestRule.mainClock.advanceTimeBy(600)
+    composeTestRule.waitForIdle()
+    composeTestRule
+      .onNodeWithTag("dripping_story_overlay")
+      .assertIsDisplayed()
+      .assert(hasAnyDescendant(hasText(textA)))
+
+    // 4 seconds later, entryB and entryC arrive -> entryA MUST continue undisturbed (never dismissed)
+    composeTestRule.mainClock.advanceTimeBy(4_000)
+    composeTestRule.runOnIdle { state = state.copy(activeDialogue = entryB) }
+    composeTestRule.mainClock.advanceTimeBy(300)
+    composeTestRule.runOnIdle { state = state.copy(activeDialogue = entryC) }
+    composeTestRule.mainClock.advanceTimeBy(300)
+    composeTestRule.waitForIdle()
+    composeTestRule
+      .onNodeWithTag("dripping_story_overlay")
+      .assertIsDisplayed()
+      .assert(hasAnyDescendant(hasText(textA)))
+
+    // Still showing entryA at 14.2s total elapsed
+    composeTestRule.mainClock.advanceTimeBy(9_000)
+    composeTestRule.waitForIdle()
+    composeTestRule
+      .onNodeWithTag("dripping_story_overlay")
+      .assertIsDisplayed()
+      .assert(hasAnyDescendant(hasText(textA)))
+
+    // At ~16.1s (inside 300ms inter-drip breather): pulling an anomaly keeps event drip suppressed
+    composeTestRule.mainClock.advanceTimeBy(1_900)
+    composeTestRule.onNodeWithTag("anomaly_pale_tooth_91").performClick()
+    composeTestRule.mainClock.advanceTimeBy(50)
+    composeTestRule.waitForIdle()
+    composeTestRule.onNodeWithTag("dripping_event_overlay").assertDoesNotExist()
+
+    // Past the 300ms breather -> entryB promotes and plays its full duration
+    composeTestRule.mainClock.advanceTimeBy(600)
+    composeTestRule.waitForIdle()
+    composeTestRule
+      .onNodeWithTag("dripping_story_overlay")
+      .assertIsDisplayed()
+      .assert(hasAnyDescendant(hasText(textB)))
+
+    // After entryB finishes (~16s + 300ms gap) -> entryC promotes and plays
+    composeTestRule.mainClock.advanceTimeBy(16_400)
+    composeTestRule.waitForIdle()
+    composeTestRule
+      .onNodeWithTag("dripping_story_overlay")
+      .assertIsDisplayed()
+      .assert(hasAnyDescendant(hasText(textC)))
+
+    // After entryC finishes -> story lane clears and chamber events are allowed again
+    composeTestRule.mainClock.advanceTimeBy(16_400)
+    composeTestRule.waitForIdle()
+    composeTestRule.onNodeWithTag("dripping_story_overlay").assertDoesNotExist()
+
+    composeTestRule.onNodeWithTag("anomaly_pale_tooth_92").performClick()
+    composeTestRule.mainClock.advanceTimeBy(500)
+    composeTestRule.waitForIdle()
+    composeTestRule.onNodeWithTag("dripping_event_overlay").assertIsDisplayed()
   }
 }

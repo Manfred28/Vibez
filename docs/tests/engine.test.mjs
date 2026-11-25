@@ -113,10 +113,12 @@ import {
   DEEP_SHELF_JARS,
   FOUNDATIONAL_SHELF_JARS,
   REPEAT_EVENT_DRIP_CHANCE,
+  STORY_DRIP_QUEUE_GAP_MS,
   applyDripMotionProfile,
   arc1UnlockKeys,
   arc2UnlockKeys,
   computeDripMotionProfile,
+  createStoryDripQueue,
   isArc1TabReady,
   isArc2TabReady,
   partitionChamberShelfJars,
@@ -225,8 +227,8 @@ test('GitHub Pages static bundle integrity and Android dialogues.json parity', (
 
   // Verify index.html uses relative ./ paths so GitHub Pages subpaths work
   const html = fs.readFileSync(path.join(docsDir, 'index.html'), 'utf8');
-  assert.ok(html.includes('href="./styles.css?v=3.9"'));
-  assert.ok(html.includes('src="./src/app.js?v=3.9"'));
+  assert.ok(html.includes('href="./styles.css?v=3.11"'));
+  assert.ok(html.includes('src="./src/app.js?v=3.11"'));
   assert.ok(html.includes('id="chamber-jar-shelves"'));
   assert.ok(html.includes('src="./assets/img_recessed_valve.jpg"'));
   assert.ok(html.includes('THE COUNTING ROOM'));
@@ -1658,24 +1660,24 @@ test('Web 5-stage progressive wall texture blending, heavy sump basin, sculpted 
   assert.ok(canvasSrc.includes('const rivets ='), 'Floor sump basin must include riveted cast-iron architecture');
   assert.ok(canvasSrc.includes('helixPts') && canvasSrc.includes('segRadius'), 'Grafted Choir-Tendrils must render sculpted segmented stalks with helical sinew');
 
-  // Verify app.js preloads all 5 wall textures + 4 wall anomalies + 6 specimen jars with v=3.9 cache bust
+  // Verify app.js preloads all 5 wall textures + 4 wall anomalies + 6 specimen jars with v=3.11 cache bust
   const appSrc = fs.readFileSync(path.join(docsDir, 'src', 'app.js'), 'utf8');
   for (const wallAsset of [
-    'img_wall_phase1.jpg?v=3.9',
-    'img_wall_fleshy.jpg?v=3.9',
-    'img_wall_phase3.jpg?v=3.9',
-    'img_wall_phase4.jpg?v=3.9',
-    'img_wall_excision_late.jpg?v=3.9',
-    'img_anomaly_pale_tooth.jpg?v=3.9',
-    'img_anomaly_glass_eye.jpg?v=3.9',
-    'img_anomaly_swollen_nodule.jpg?v=3.9',
-    'img_anomaly_chitin_rib.jpg?v=3.9',
-    'img_jar_yesterdays_dust.jpg?v=3.9',
-    'img_jar_unspent_breath.jpg?v=3.9',
-    'img_jar_almost_a_name.jpg?v=3.9',
-    'img_jar_salt_from_the_grout.jpg?v=3.9',
-    'img_jar_a_borrowed_pulse.jpg?v=3.9',
-    'img_jar_the_uncounted_hour.jpg?v=3.9',
+    'img_wall_phase1.jpg?v=3.11',
+    'img_wall_fleshy.jpg?v=3.11',
+    'img_wall_phase3.jpg?v=3.11',
+    'img_wall_phase4.jpg?v=3.11',
+    'img_wall_excision_late.jpg?v=3.11',
+    'img_anomaly_pale_tooth.jpg?v=3.11',
+    'img_anomaly_glass_eye.jpg?v=3.11',
+    'img_anomaly_swollen_nodule.jpg?v=3.11',
+    'img_anomaly_chitin_rib.jpg?v=3.11',
+    'img_jar_yesterdays_dust.jpg?v=3.11',
+    'img_jar_unspent_breath.jpg?v=3.11',
+    'img_jar_almost_a_name.jpg?v=3.11',
+    'img_jar_salt_from_the_grout.jpg?v=3.11',
+    'img_jar_a_borrowed_pulse.jpg?v=3.11',
+    'img_jar_the_uncounted_hour.jpg?v=3.11',
   ]) {
     assert.ok(appSrc.includes(wallAsset), `app.js must preload ${wallAsset}`);
   }
@@ -1688,7 +1690,7 @@ test('Web photographic feathered wall anomalies and cast-iron / tendon-tearing /
 
   // Photographic circular feathered wall anomalies replace flat icon canvases on Arc 1 wall
   assert.ok(uiSrc.includes("photo.className = 'anomaly-photo'"));
-  assert.ok(uiSrc.includes('./assets/img_anomaly_${anomaly.type}.jpg?v=3.9'));
+  assert.ok(uiSrc.includes('./assets/img_anomaly_${anomaly.type}.jpg?v=3.11'));
   assert.ok(css.includes('.anomaly-photo'));
   assert.ok(css.includes('mask-image: radial-gradient('));
   assert.ok(css.includes('border: none;') && css.includes('border-radius: 50%;'));
@@ -1703,6 +1705,10 @@ test('Web photographic feathered wall anomalies and cast-iron / tendon-tearing /
     'triggerBubbleCluster',
     'slapDelay1',
     'slapDelay2',
+    'clangScale = 1.0',
+    '108 * darkPitch, 36 * darkPitch',
+    '152 * darkPitch, 62 * darkPitch',
+    '154 * darkPitch',
   ]) {
     assert.ok(audioSrc.includes(token), `docs/src/audio.js must implement ${token}`);
   }
@@ -1750,9 +1756,69 @@ test('Web twin chamber specimen jar shelves and macro JARS tab portraits match A
   assert.ok(css.includes('.chamber-jar-shelves') && css.includes('pointer-events: none;'));
   assert.ok(css.includes('.chamber-jar-ledge') && css.includes('.jar-photo-emblem'));
   assert.ok(css.includes('@keyframes jar-borrowed-pulse'));
-  assert.ok(uiSrc.includes('./assets/img_jar_${jarId}.jpg?v=3.9'));
-  assert.ok(uiSrc.includes('./assets/img_jar_${jar.id}.jpg?v=3.9'));
+  assert.ok(uiSrc.includes('./assets/img_jar_${jarId}.jpg?v=3.11'));
+  assert.ok(uiSrc.includes('./assets/img_jar_${jar.id}.jpg?v=3.11'));
   assert.ok(uiSrc.includes('renderChamberJarShelves(state)'));
+});
+
+test('Web story drip FIFO queue never dismisses ongoing drips and matches Android 1:1', () => {
+  assert.equal(STORY_DRIP_QUEUE_GAP_MS, 300);
+  const queue = createStoryDripQueue();
+  const [a, b, c] = realCatalog.entries;
+
+  assert.equal(queue.isBusy, false);
+  assert.equal(queue.active, null);
+
+  // First story starts immediately
+  const r1 = queue.enqueue(a);
+  assert.equal(r1.started?.id, a.id);
+  assert.equal(r1.queued, false);
+  assert.equal(queue.isBusy, true);
+
+  // Subsequent stories queue behind the active drip without replacing it, deduplicating active & pending IDs
+  const r2 = queue.enqueue(b);
+  assert.equal(r2.started, null);
+  assert.equal(r2.queued, true);
+  assert.deepEqual(queue.enqueue(a), { started: null, queued: false });
+  assert.deepEqual(queue.enqueue(b), { started: null, queued: false });
+  const r3 = queue.enqueue(c);
+  assert.equal(r3.started, null);
+  assert.equal(r3.queued, true);
+  assert.equal(queue.active?.id, a.id);
+  assert.deepEqual(
+    queue.pending.map((x) => x.id),
+    [b.id, c.id],
+  );
+
+  // Completing active promotes strictly FIFO
+  assert.equal(queue.completeActive()?.id, b.id);
+  assert.equal(queue.active?.id, b.id);
+  assert.equal(queue.completeActive()?.id, c.id);
+  assert.equal(queue.active?.id, c.id);
+  assert.equal(queue.completeActive(), null);
+  assert.equal(queue.isBusy, false);
+
+  // Clear wipes both active and pending
+  queue.enqueue(a);
+  queue.enqueue(b);
+  queue.clear();
+  assert.equal(queue.isBusy, false);
+  assert.equal(queue.active, null);
+  assert.deepEqual(queue.pending, []);
+
+  // Verify ui.js never clears storyDripLayer inside triggerStoryDrip/mountStoryDripCard and suppresses events while busy
+  const uiSrc = fs.readFileSync(path.join(docsDir, 'src', 'ui.js'), 'utf8');
+  const mountFnIdx = uiSrc.indexOf('function mountStoryDripCard');
+  const triggerEventIdx = uiSrc.indexOf('function triggerEventDrip');
+  const storyDripBlock = uiSrc.slice(mountFnIdx, triggerEventIdx);
+  assert.ok(
+    !storyDripBlock.includes("els.storyDripLayer.innerHTML = ''"),
+    'Incoming story drips must never wipe/dismiss an ongoing story card',
+  );
+  assert.ok(storyDripBlock.includes('storyDripQueue.enqueue(entry)'));
+  assert.ok(storyDripBlock.includes('STORY_DRIP_QUEUE_GAP_MS'));
+  assert.ok(uiSrc.includes('if (isStoryDripBusy()) return false;'));
+  assert.ok(uiSrc.includes('storyDripQueue.clear();'));
 });
 
 

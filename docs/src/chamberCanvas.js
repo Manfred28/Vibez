@@ -8,7 +8,7 @@
  * - Weeping Lamp specimen portrait & anatomical Wall Anomaly glyphs
  */
 
-import { CREATURE_TYPES, creatureCount } from './engine.js?v=3.9';
+import { CREATURE_TYPES, creatureCount } from './engine.js?v=3.11';
 
 const PALETTE = Object.freeze({
   voidAbyss: '#0A0B0B',
