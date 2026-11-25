@@ -131,7 +131,7 @@ import {
   resolveTransitionCues,
   writeMutedPreference,
 } from '../src/audio.js';
-import { getWeepingLampLayout } from '../src/chamberCanvas.js';
+import { computeWallLayerAlphas, getWeepingLampLayout } from '../src/chamberCanvas.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(__dirname, '..', '..');
@@ -154,6 +154,9 @@ test('GitHub Pages static bundle integrity and Android dialogues.json parity', (
     'assets/dialogues.json',
     'assets/img_wall_phase1.jpg',
     'assets/img_wall_fleshy.jpg',
+    'assets/img_wall_phase3.jpg',
+    'assets/img_wall_phase4.jpg',
+    'assets/img_wall_excision_late.jpg',
     'assets/img_recessed_valve.jpg',
     'assets/img_suture_hand.jpg',
     'assets/img_leech_clerk.jpg',
@@ -164,6 +167,22 @@ test('GitHub Pages static bundle integrity and Android dialogues.json parity', (
   for (const rel of requiredFiles) {
     const abs = path.join(docsDir, rel);
     assert.ok(fs.existsSync(abs), `Missing required GitHub Pages file: docs/${rel}`);
+  }
+
+  // Verify all 5 progressive chamber wall JPEG assets match Android res/drawable byte-for-byte
+  for (const wallFile of [
+    'img_wall_phase1.jpg',
+    'img_wall_fleshy.jpg',
+    'img_wall_phase3.jpg',
+    'img_wall_phase4.jpg',
+    'img_wall_excision_late.jpg',
+  ]) {
+    const webBuf = fs.readFileSync(path.join(docsDir, 'assets', wallFile));
+    const androidBuf = fs.readFileSync(
+      path.join(repoRoot, 'app', 'src', 'main', 'res', 'drawable', wallFile),
+    );
+    assert.ok(webBuf.length > 5000, `${wallFile} must be a real photographic asset`);
+    assert.ok(webBuf.equals(androidBuf), `docs/assets/${wallFile} must match Android res/drawable/${wallFile}`);
   }
 
   // Verify exact dialogue parity with canonical Android dialogues.json
@@ -182,8 +201,8 @@ test('GitHub Pages static bundle integrity and Android dialogues.json parity', (
 
   // Verify index.html uses relative ./ paths so GitHub Pages subpaths work
   const html = fs.readFileSync(path.join(docsDir, 'index.html'), 'utf8');
-  assert.ok(html.includes('href="./styles.css?v=3.5"'));
-  assert.ok(html.includes('src="./src/app.js?v=3.5"'));
+  assert.ok(html.includes('href="./styles.css?v=3.6"'));
+  assert.ok(html.includes('src="./src/app.js?v=3.6"'));
   assert.ok(html.includes('src="./assets/img_recessed_valve.jpg"'));
   assert.ok(html.includes('THE COUNTING ROOM'));
   assert.ok(!html.includes('PHASE 00'), 'User-facing HTML must not show the word PHASE');
@@ -1500,5 +1519,64 @@ test('Web Colony Proliferation (M3 bulk-buy), Echo burst rebalancing, and compac
   assert.equal(formatValveYield(2923756), '2.92M');
   assert.equal(formatValveYield(36000000000), '36B');
 });
+
+test('Web 5-stage progressive wall texture blending, heavy sump basin, sculpted Choir-Tendrils, and breathing Choir-Lungs match Android 1:1', () => {
+  // Phase 0..4 Cycle 0 progression
+  const p0 = computeWallLayerAlphas(0, 0, 0);
+  assert.equal(p0.phase1Tile, 0.34);
+  assert.equal(p0.phase2Fleshy, 0);
+  assert.equal(p0.phase3Muscle, 0);
+  assert.equal(p0.phase4Hollow, 0);
+  assert.equal(p0.lateExcision, 0);
+
+  const p1 = computeWallLayerAlphas(1, 0, 0);
+  assert.equal(p1.phase1Tile, 0.76);
+  assert.equal(p1.phase2Fleshy, 0);
+
+  const p2 = computeWallLayerAlphas(2, 0, 0);
+  assert.equal(p2.phase1Tile, 0.34);
+  assert.equal(p2.phase2Fleshy, 0.8);
+  assert.equal(p2.phase3Muscle, 0);
+
+  const p3 = computeWallLayerAlphas(3, 0, 0);
+  assert.equal(p3.phase3Muscle, 0.86);
+  assert.equal(p3.phase4Hollow, 0);
+
+  const p4 = computeWallLayerAlphas(4, 0, 0);
+  assert.equal(p4.phase1Tile, 0);
+  assert.equal(p4.phase3Muscle, 0.26);
+  assert.equal(p4.phase4Hollow, 0.9);
+  assert.equal(p4.lateExcision, 0);
+
+  // Late-Excision surgical wall scar layer escalates across M3..M6 and scales cleanly by Phase
+  const m3p0 = computeWallLayerAlphas(0, 3, 3);
+  const m3p4 = computeWallLayerAlphas(4, 3, 3);
+  const m5p4 = computeWallLayerAlphas(4, 5, 5);
+  const m6p4 = computeWallLayerAlphas(4, 6, 6);
+  assert.ok(m3p0.lateExcision > 0 && m3p0.lateExcision < m3p4.lateExcision);
+  assert.ok(m3p4.lateExcision < m5p4.lateExcision && m5p4.lateExcision < m6p4.lateExcision);
+  assert.ok(m6p4.lateExcision <= 0.82);
+
+  // Verify chamberCanvas.js eliminated dashed CAD rings & flat side ovals, and includes new visual elements
+  const canvasSrc = fs.readFileSync(path.join(docsDir, 'src', 'chamberCanvas.js'), 'utf8');
+  assert.ok(!canvasSrc.includes('setLineDash([7, 7])'), 'Dashed CAD ring around valve must be replaced by bolted flange');
+  assert.ok(canvasSrc.includes('wallImages.phase3') && canvasSrc.includes('wallImages.phase4') && canvasSrc.includes('wallImages.excisionLate'));
+  assert.ok(canvasSrc.includes('visibleLungs'), 'Grafted Choir-Lungs must render visually around valve collar');
+  assert.ok(canvasSrc.includes('const rivets ='), 'Floor sump basin must include riveted cast-iron architecture');
+  assert.ok(canvasSrc.includes('helixPts') && canvasSrc.includes('segRadius'), 'Grafted Choir-Tendrils must render sculpted segmented stalks with helical sinew');
+
+  // Verify app.js preloads all 5 wall textures with v=3.6 cache bust
+  const appSrc = fs.readFileSync(path.join(docsDir, 'src', 'app.js'), 'utf8');
+  for (const wallAsset of [
+    'img_wall_phase1.jpg?v=3.6',
+    'img_wall_fleshy.jpg?v=3.6',
+    'img_wall_phase3.jpg?v=3.6',
+    'img_wall_phase4.jpg?v=3.6',
+    'img_wall_excision_late.jpg?v=3.6',
+  ]) {
+    assert.ok(appSrc.includes(wallAsset), `app.js must preload ${wallAsset}`);
+  }
+});
+
 
 

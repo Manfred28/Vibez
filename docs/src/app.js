@@ -50,21 +50,21 @@ import {
   tick,
   toggleDrainSeal,
   unlockScarNode,
-} from './engine.js?v=3.5';
+} from './engine.js?v=3.6';
 import {
   drawChamberBackdrop,
   drawForegroundLampsAndSacrifice,
   drawInvestigatorDeskBackdrop,
   drawLeechClerks,
   drawValveAndHands,
-} from './chamberCanvas.js?v=3.5';
-import { createUiController } from './ui.js?v=3.5';
+} from './chamberCanvas.js?v=3.6';
+import { createUiController } from './ui.js?v=3.6';
 import {
   SOUND_ACTION_HINTS,
   computeAmbientProfile,
   createWebAudioEngine,
   resolveTransitionCues,
-} from './audio.js?v=3.5';
+} from './audio.js?v=3.6';
 
 const SAVE_STORAGE_KEY_V2 = 'unnamed_organ_save_v2';
 const SAVE_STORAGE_KEY_V1 = 'unnamed_organ_save_v1';
@@ -100,7 +100,7 @@ function clearSavedRaw() {
 
 async function loadDialogueCatalog() {
   try {
-    const response = await fetch('./assets/dialogues.json?v=3.5', { cache: 'no-cache' });
+    const response = await fetch('./assets/dialogues.json?v=3.6', { cache: 'no-cache' });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     return await response.json();
   } catch (err) {
@@ -109,14 +109,23 @@ async function loadDialogueCatalog() {
   }
 }
 
+function preloadWallImage(src) {
+  const img = new Image();
+  img.src = src;
+  return img;
+}
+
 async function main() {
   const catalog = await loadDialogueCatalog();
   let state = deserializeState(readSavedRaw(), catalog) ?? initialState(catalog);
 
-  const wallImage = new Image();
-  wallImage.src = './assets/img_wall_phase1.jpg';
-  const fleshyWallImage = new Image();
-  fleshyWallImage.src = './assets/img_wall_fleshy.jpg';
+  const wallImages = {
+    phase1: preloadWallImage('./assets/img_wall_phase1.jpg?v=3.6'),
+    phase2: preloadWallImage('./assets/img_wall_fleshy.jpg?v=3.6'),
+    phase3: preloadWallImage('./assets/img_wall_phase3.jpg?v=3.6'),
+    phase4: preloadWallImage('./assets/img_wall_phase4.jpg?v=3.6'),
+    excisionLate: preloadWallImage('./assets/img_wall_excision_late.jpg?v=3.6'),
+  };
 
   const backdropCanvas = document.getElementById('chamber-backdrop-canvas');
   const lampsForegroundCanvas = document.getElementById('lamps-foreground-canvas');
@@ -626,8 +635,8 @@ async function main() {
 
         drawChamberBackdrop(
           backdropCanvas,
-          wallImage,
-          fleshyWallImage,
+          wallImages,
+          null,
           state,
           breath,
           dropPhase,

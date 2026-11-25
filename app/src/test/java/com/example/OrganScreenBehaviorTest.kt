@@ -40,6 +40,7 @@ import com.example.ui.components.REPEAT_EVENT_DRIP_CHANCE
 import com.example.ui.components.STORY_DRIP_TOTAL_MS
 import com.example.ui.components.TabAlertEvaluator
 import com.example.ui.components.computeWallAnomalyBreathScale
+import com.example.ui.components.computeWallLayerAlphas
 import com.example.ui.components.weepingLampLayout
 import com.example.ui.theme.BleakTheme
 import org.junit.Assert.assertEquals
@@ -1389,5 +1390,117 @@ class OrganScreenBehaviorTest {
     assertEquals("36B", com.example.ui.components.formatValveYield(36_000_000_000.0))
     // Regression check: formatCompactDecimal must not saturate at Int.MAX_VALUE above 214.7M
     assertEquals("500,000,000", com.example.ui.components.formatCompactDecimal(500_000_000.0))
+  }
+
+  @Test
+  fun progressiveChamberWallLayers_transformAcrossPhasesAndLateExcisionsAndRenderChoirLungs() {
+    // 1. Unit assertions for 5-stage photographic wall blending (exact parity with Web)
+    val p0 = computeWallLayerAlphas(phase = 0, highestExcisionMilestone = 0, cycle = 0)
+    assertEquals(0.34f, p0.phase1Tile, 0.001f)
+    assertEquals(0f, p0.phase2Fleshy, 0.001f)
+    assertEquals(0f, p0.phase3Muscle, 0.001f)
+    assertEquals(0f, p0.phase4Hollow, 0.001f)
+    assertEquals(0f, p0.lateExcision, 0.001f)
+
+    val p2 = computeWallLayerAlphas(phase = 2, highestExcisionMilestone = 0, cycle = 0)
+    assertEquals(0.34f, p2.phase1Tile, 0.001f)
+    assertEquals(0.80f, p2.phase2Fleshy, 0.001f)
+    assertEquals(0f, p2.phase3Muscle, 0.001f)
+
+    val p3 = computeWallLayerAlphas(phase = 3, highestExcisionMilestone = 0, cycle = 0)
+    assertEquals(0.86f, p3.phase3Muscle, 0.001f)
+    assertEquals(0f, p3.phase4Hollow, 0.001f)
+
+    val p4M0 = computeWallLayerAlphas(phase = 4, highestExcisionMilestone = 0, cycle = 0)
+    assertEquals(0f, p4M0.phase1Tile, 0.001f)
+    assertEquals(0.26f, p4M0.phase3Muscle, 0.001f)
+    assertEquals(0.90f, p4M0.phase4Hollow, 0.001f)
+    assertEquals(0f, p4M0.lateExcision, 0.001f)
+
+    val p0M5 = computeWallLayerAlphas(phase = 0, highestExcisionMilestone = 5, cycle = 5)
+    val p4M5 = computeWallLayerAlphas(phase = 4, highestExcisionMilestone = 5, cycle = 5)
+    val p4M6 = computeWallLayerAlphas(phase = 4, highestExcisionMilestone = 6, cycle = 6)
+    assertTrue("Fresh post-Excision P0 starts cleaner than P4", p0M5.lateExcision > 0f && p0M5.lateExcision < p4M5.lateExcision)
+    assertTrue("M6 deepens late-Excision scars beyond M5", p4M6.lateExcision > p4M5.lateExcision && p4M6.lateExcision <= 0.82f)
+
+    // 2. Robolectric Compose UI verification across Phase 2 -> Phase 3 -> Phase 4 Late Excision M5
+    val context = ApplicationProvider.getApplicationContext<Context>()
+    val catalog = AssetDialogueRepository(context).loadCatalog()
+    var state by
+      mutableStateOf(
+        OrganGameEngine.initialState(catalog).copy(
+          ichor = 2_400.0,
+          cycleLifetimeIchor = 2_400.0,
+          phase = 2,
+          phaseName = catalog.phaseName(2),
+          highestExcisionMilestone = 0,
+        )
+      )
+
+    composeTestRule.setContent {
+      BleakTheme(phase = state.phase) {
+        OrganScreen(
+          state = state,
+          onPressValve = {},
+          onBuyCreature = {},
+          onBottleJar = {},
+          onPerformGraft = {},
+          onInteractAnomaly = {},
+          onPerformExcision = {},
+        )
+      }
+    }
+    composeTestRule.waitForIdle()
+
+    // Phase 2 Cycle 0 shows tile + fleshy lichen wall, hides Phase 3/4/Late Excision
+    composeTestRule.onNodeWithTag("chamber_wall_art").assertIsDisplayed()
+    composeTestRule.onNodeWithTag("chamber_wall_fleshy_art").assertIsDisplayed()
+    composeTestRule.onNodeWithTag("chamber_wall_phase3_art").assertDoesNotExist()
+    composeTestRule.onNodeWithTag("chamber_wall_phase4_art").assertDoesNotExist()
+    composeTestRule.onNodeWithTag("chamber_wall_excision_late_art").assertDoesNotExist()
+
+    // Phase 3 Cycle 0 introduces muscular buckling wall layer
+    composeTestRule.runOnIdle {
+      state = state.copy(ichor = 25_000.0, cycleLifetimeIchor = 25_000.0, phase = 3, phaseName = catalog.phaseName(3))
+    }
+    composeTestRule.waitForIdle()
+    composeTestRule.onNodeWithTag("chamber_wall_phase3_art").assertIsDisplayed()
+    composeTestRule.onNodeWithTag("chamber_wall_phase4_art").assertDoesNotExist()
+
+    // Phase 4 + Excision V + Grafted Choir-Lungs + Grafted Tendrils + sealed Floor Sump + Echo routing
+    composeTestRule.runOnIdle {
+      state =
+        state.copy(
+          ichor = 1_500_000_000.0,
+          cycleLifetimeIchor = 1_500_000_000.0,
+          phase = 4,
+          phaseName = catalog.phaseName(4),
+          cycle = 6,
+          highestExcisionMilestone = 5,
+          scarTissue = 64L,
+          creatures =
+            mapOf(
+              CreatureType.SUTURE_HAND to 8,
+              CreatureType.LEECH_CLERK to 6,
+              CreatureType.WEEPING_LAMP to 5,
+              CreatureType.SUMP_SIPHON to 4,
+            ),
+          graftedTendrils = 4,
+          choirLungs = 3,
+          drainSealed = true,
+          drainPressure = 72.0,
+          echoDiversionPercent = 50,
+          isStillnessActive = true,
+        )
+    }
+    composeTestRule.waitForIdle()
+
+    composeTestRule.onNodeWithTag("chamber_wall_art").assertDoesNotExist()
+    composeTestRule.onNodeWithTag("chamber_wall_phase3_art").assertIsDisplayed()
+    composeTestRule.onNodeWithTag("chamber_wall_phase4_art").assertIsDisplayed()
+    composeTestRule.onNodeWithTag("chamber_wall_excision_late_art").assertIsDisplayed()
+    composeTestRule.onNodeWithTag("chamber_wall_phase_4").assertIsDisplayed()
+    composeTestRule.onNodeWithTag("valve_aperture_art").assertIsDisplayed()
+    composeTestRule.onNodeWithTag("suture_hands_overlay").assertIsDisplayed()
   }
 }

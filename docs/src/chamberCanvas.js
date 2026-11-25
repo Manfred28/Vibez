@@ -8,7 +8,7 @@
  * - Weeping Lamp specimen portrait & anatomical Wall Anomaly glyphs
  */
 
-import { CREATURE_TYPES, creatureCount } from './engine.js?v=3.5';
+import { CREATURE_TYPES, creatureCount } from './engine.js?v=3.6';
 
 const PALETTE = Object.freeze({
   voidAbyss: '#0A0B0B',
@@ -83,7 +83,32 @@ function syncCanvasSize(canvas) {
   return { ctx, width: w, height: h };
 }
 
-function drawCoverImage(ctx, img, width, height, alpha) {
+export function computeWallLayerAlphas(phase, highestExcisionMilestone, cycle = 0) {
+  const clampedPhase = Math.max(0, Math.min(4, Math.floor(phase || 0)));
+  const phase1Tile =
+    clampedPhase === 0
+      ? 0.34
+      : clampedPhase === 1
+        ? 0.76
+        : clampedPhase === 2
+          ? 0.34
+          : clampedPhase === 3
+            ? 0.14
+            : 0;
+  const phase2Fleshy = clampedPhase === 2 ? 0.8 : clampedPhase === 3 ? 0.28 : 0;
+  const phase3Muscle = clampedPhase === 3 ? 0.86 : clampedPhase >= 4 ? 0.26 : 0;
+  const phase4Hollow = clampedPhase >= 4 ? 0.9 : 0;
+
+  const ms = Math.max(0, Math.floor(highestExcisionMilestone || 0));
+  const baseExcision =
+    ms >= 6 ? 0.78 : ms === 5 ? 0.62 : ms === 4 ? 0.44 : ms === 3 ? 0.26 : ms === 2 && cycle >= 2 ? 0.12 : 0;
+  const phaseScale = clampedPhase === 0 ? 0.42 : clampedPhase === 1 ? 0.58 : clampedPhase === 2 ? 0.78 : 1.0;
+  const lateExcision = Math.max(0, Math.min(0.82, baseExcision * phaseScale));
+
+  return { phase1Tile, phase2Fleshy, phase3Muscle, phase4Hollow, lateExcision };
+}
+
+function drawCoverImage(ctx, img, width, height, alpha, scale = 1) {
   if (!img || !img.complete || img.naturalWidth <= 0 || alpha <= 0) return;
   ctx.save();
   ctx.globalAlpha = alpha;
@@ -91,23 +116,38 @@ function drawCoverImage(ctx, img, width, height, alpha) {
   const boxRatio = width / height;
   let drawW = width;
   let drawH = height;
-  let dx = 0;
-  let dy = 0;
   if (imgRatio > boxRatio) {
     drawW = height * imgRatio;
-    dx = (width - drawW) / 2;
   } else {
     drawH = width / imgRatio;
-    dy = (height - drawH) / 2;
   }
+  drawW *= scale;
+  drawH *= scale;
+  const dx = (width - drawW) / 2;
+  const dy = (height - drawH) / 2;
   ctx.drawImage(img, dx, dy, drawW, drawH);
   ctx.restore();
 }
 
+function drawRoundedRectPath(ctx, x, y, w, h, r) {
+  const rad = Math.min(r, w * 0.5, h * 0.5);
+  ctx.beginPath();
+  ctx.moveTo(x + rad, y);
+  ctx.lineTo(x + w - rad, y);
+  ctx.quadraticCurveTo(x + w, y, x + w, y + rad);
+  ctx.lineTo(x + w, y + h - rad);
+  ctx.quadraticCurveTo(x + w, y + h, x + w - rad, y + h);
+  ctx.lineTo(x + rad, y + h);
+  ctx.quadraticCurveTo(x, y + h, x, y + h - rad);
+  ctx.lineTo(x, y + rad);
+  ctx.quadraticCurveTo(x, y, x + rad, y);
+  ctx.closePath();
+}
+
 export function drawChamberBackdrop(
   canvas,
-  wallImage,
-  fleshyWallImage,
+  wallImagesOrPhase1,
+  fleshyWallImageLegacy,
   state,
   breath,
   dropPhase = breath,
@@ -118,89 +158,114 @@ export function drawChamberBackdrop(
   const { ctx, width, height } = syncCanvasSize(canvas);
   ctx.clearRect(0, 0, width, height);
 
+  const wallImages =
+    wallImagesOrPhase1 && typeof wallImagesOrPhase1 === 'object' && 'phase1' in wallImagesOrPhase1
+      ? wallImagesOrPhase1
+      : {
+          phase1: wallImagesOrPhase1,
+          phase2: fleshyWallImageLegacy,
+          phase3: fleshyWallImageLegacy,
+          phase4: fleshyWallImageLegacy,
+          excisionLate: null,
+        };
+
   const phase = state.phase;
-  const distortion = Math.min(1, phase * 0.25);
   const valveCenter = { x: width * 0.5, y: height * 0.65 };
+  const layers = computeWallLayerAlphas(phase, state.highestExcisionMilestone, state.cycle);
 
-  // 1. Damp cracked wall photo with phase-appropriate opacity
-  const tileAlphas = [0.24, 0.62, 0.58, 0.44, 0.34];
-  drawCoverImage(ctx, wallImage, width, height, tileAlphas[Math.min(phase, 4)]);
-
-  // 1b. Progressive veiny & fleshy sub-wall texture across Phases 2..4
-  if (phase >= 2) {
-    const fleshAlpha =
-      phase === 2
-        ? 0.2 + breath * 0.04
-        : phase === 3
-          ? 0.44 + breath * 0.06
-          : 0.6 + arterialPulse * 0.14;
-    drawCoverImage(ctx, fleshyWallImage, width, height, Math.min(0.84, fleshAlpha));
+  // 1. Five-stage progressive photographic biomechanical wall textures
+  if (layers.phase1Tile > 0) {
+    drawCoverImage(ctx, wallImages.phase1, width, height, layers.phase1Tile, 1);
+  }
+  if (layers.phase2Fleshy > 0) {
+    drawCoverImage(ctx, wallImages.phase2, width, height, layers.phase2Fleshy, 1);
+  }
+  if (layers.phase3Muscle > 0) {
+    drawCoverImage(ctx, wallImages.phase3, width, height, layers.phase3Muscle, 1.015 + breath * 0.018);
+  }
+  if (layers.phase4Hollow > 0) {
+    drawCoverImage(
+      ctx,
+      wallImages.phase4,
+      width,
+      height,
+      layers.phase4Hollow,
+      1.02 + breath * 0.018 + arterialPulse * 0.016,
+    );
+  }
+  if (layers.lateExcision > 0) {
+    drawCoverImage(
+      ctx,
+      wallImages.excisionLate,
+      width,
+      height,
+      layers.lateExcision,
+      1.01 + breath * 0.014,
+    );
   }
 
-  // 2. Phase atmospheric vertical gradient veil (subtler outer tint, focus stays on fleshy wall)
+  // 2. Atmospheric vertical vignette & central readability recess
   const midTints = [
-    rgba(PALETTE.voidAbyss, 0.46),
-    rgba(PALETTE.voidAbyss, 0.32),
-    rgba(PALETTE.bileShadow, 0.32),
-    rgba(PALETTE.clotShadow, 0.36),
-    rgba(PALETTE.clotShadow, 0.42),
+    rgba(PALETTE.voidAbyss, 0.42),
+    rgba(PALETTE.voidAbyss, 0.28),
+    rgba(PALETTE.bileShadow, 0.18),
+    rgba(PALETTE.clotShadow, 0.2),
+    rgba(PALETTE.clotShadow, 0.24 + arterialPulse * 0.08),
   ];
   const veil = ctx.createLinearGradient(0, 0, 0, height);
-  veil.addColorStop(0, rgba(PALETTE.voidAbyss, 0.76));
+  veil.addColorStop(0, rgba(PALETTE.voidAbyss, 0.72));
   veil.addColorStop(0.5, midTints[Math.min(phase, 4)]);
-  veil.addColorStop(1, rgba(PALETTE.voidAbyss, 0.72));
+  veil.addColorStop(1, rgba(PALETTE.voidAbyss, 0.66));
   ctx.fillStyle = veil;
   ctx.fillRect(0, 0, width, height);
 
+  // Subtle shadowed readability recess behind counter HUD
+  const hudShadow = ctx.createRadialGradient(
+    width * 0.5,
+    height * 0.28,
+    0,
+    width * 0.5,
+    height * 0.28,
+    Math.min(width, height) * 0.52,
+  );
+  hudShadow.addColorStop(0, rgba(PALETTE.voidAbyss, 0.44));
+  hudShadow.addColorStop(1, 'transparent');
+  ctx.fillStyle = hudShadow;
+  ctx.fillRect(0, 0, width, height);
+
+  // 3. Phase 0 only: sterile overhead fluorescent falloff & whisper-thin slate architectural grout
   if (phase === 0) {
-    const glow = ctx.createRadialGradient(width * 0.5, 0, 0, width * 0.5, 0, width * 0.65);
-    glow.addColorStop(0, rgba(PALETTE.bleachedBone, 0.06));
+    const glow = ctx.createRadialGradient(width * 0.5, 0, 0, width * 0.5, 0, width * 0.68);
+    glow.addColorStop(0, rgba(PALETTE.bleachedBone, 0.07));
     glow.addColorStop(1, 'transparent');
     ctx.fillStyle = glow;
     ctx.fillRect(0, 0, width, height);
-  }
 
-  // 3. Tile grout grid (warps inward + Phase 3 peristaltic creep)
-  const tileStep = 38;
-  ctx.strokeStyle =
-    phase >= 2
-      ? rgba(PALETTE.driedClot, 0.16 + phase * 0.045 + arterialPulse * 0.08)
-      : rgba(PALETTE.hairlineAsh, 0.26);
-  ctx.lineWidth = phase >= 3 ? 1.15 : 1;
-  const warpStrength =
-    phase >= 4 ? 17 + breath * 4 + arterialPulse * 6 : phase === 3 ? 10 + breath * 3.5 : 0;
-  const creepAngle = wallCreep * Math.PI * 2;
-
-  for (let x = tileStep; x < width; x += tileStep) {
-    ctx.beginPath();
-    ctx.moveTo(x, 0);
-    if (warpStrength > 0) {
-      const creepWave = phase >= 3 ? Math.sin(creepAngle + x * 0.045) * 4.2 : 0;
-      const pull = ((valveCenter.x - x) / width) * warpStrength * 2.2 + creepWave;
-      ctx.quadraticCurveTo(x + pull, valveCenter.y, x, height);
-    } else {
+    ctx.strokeStyle = rgba(PALETTE.hairlineAsh, 0.12);
+    ctx.lineWidth = 1;
+    const step = 42;
+    for (let x = step; x < width; x += step) {
+      ctx.beginPath();
+      ctx.moveTo(x, 0);
       ctx.lineTo(x, height);
+      ctx.stroke();
     }
-    ctx.stroke();
-  }
-  for (let y = tileStep; y < height; y += tileStep) {
-    ctx.beginPath();
-    ctx.moveTo(0, y);
-    if (warpStrength > 0) {
-      const creepWave = phase >= 3 ? Math.cos(creepAngle + y * 0.05) * 3.6 : 0;
-      const pull = ((valveCenter.y - y) / height) * warpStrength * 1.8 + creepWave;
-      ctx.quadraticCurveTo(valveCenter.x, y + pull, width, y);
-    } else {
+    for (let y = step; y < height; y += step) {
+      ctx.beginPath();
+      ctx.moveTo(0, y);
       ctx.lineTo(width, y);
+      ctx.stroke();
     }
-    ctx.stroke();
   }
 
-  // 4. Phase 1+ damp corner seepage stains
+  // 4. Phase 1+: Deep damp corner moisture seepage stains
   if (phase >= 1) {
-    const r = Math.min(width, height) * (0.28 + phase * 0.05);
-    const stain = phase >= 3 ? rgba(PALETTE.clotShadow, 0.44) : rgba(PALETTE.voidAbyss, 0.46);
-    for (const [sx, sy] of [[0, height], [width, height * 0.85]]) {
+    const r = Math.min(width, height) * (0.28 + phase * 0.045);
+    const stain = phase >= 3 ? rgba(PALETTE.clotShadow, 0.36) : rgba(PALETTE.voidAbyss, 0.44);
+    for (const [sx, sy] of [
+      [0, height],
+      [width, height * 0.88],
+    ]) {
       const g = ctx.createRadialGradient(sx, sy, 0, sx, sy, r);
       g.addColorStop(0, stain);
       g.addColorStop(1, 'transparent');
@@ -211,203 +276,202 @@ export function drawChamberBackdrop(
     }
   }
 
-  // 5. Phase 2+ vertical condensation streaks
+  // 5. Phase 2+: Fine damp condensation glints sliding quietly down wet masonry
   if (phase >= 2) {
+    const streakAlpha = phase >= 4 ? 0.1 : 0.15;
     ctx.lineCap = 'round';
-    for (let s = 1; s <= 5; s += 1) {
-      const sx = width * (s / 6);
-      const topY = height * (0.12 + (s % 3) * 0.14);
-      const len = height * (0.22 + breath * 0.08);
-      ctx.strokeStyle = rgba(PALETTE.paleLichen, 0.14);
-      ctx.lineWidth = 1.1;
+    for (let s = 1; s <= 4; s += 1) {
+      const sx = width * (0.12 + s * 0.19);
+      const topY = height * (0.1 + (s % 2) * 0.16);
+      const travel = phase >= 3 ? ((wallCreep + s * 0.27) % 1) * height * 0.24 : breath * height * 0.05;
+      const endY = Math.min(height * 0.88, topY + height * 0.14 + travel);
+      const grad = ctx.createLinearGradient(sx, topY, sx, endY);
+      grad.addColorStop(0, 'transparent');
+      grad.addColorStop(0.5, rgba(PALETTE.paleLichen, streakAlpha));
+      grad.addColorStop(1, rgba(PALETTE.paleLichen, streakAlpha * 1.4));
+      ctx.strokeStyle = grad;
+      ctx.lineWidth = 1.0;
       ctx.beginPath();
       ctx.moveTo(sx, topY);
-      ctx.lineTo(sx, topY + len);
+      ctx.lineTo(sx, endY);
       ctx.stroke();
-      ctx.fillStyle = rgba(PALETTE.paleLichen, 0.22);
+      ctx.fillStyle = rgba(PALETTE.paleLichen, streakAlpha * 1.6);
       ctx.beginPath();
-      ctx.arc(sx, topY + len, 1.7, 0, Math.PI * 2);
+      ctx.arc(sx, endY, 1.4, 0, Math.PI * 2);
       ctx.fill();
     }
   }
 
-  // 6. Phase 3+ living peristaltic tissue pockets & subcutaneous weeping seam pores
+  const creepAngle = wallCreep * Math.PI * 2;
+
+  // 6. Phase 3+: Soft volumetric peristaltic subsurface swells & wet pore glints along outer flanks
   if (phase >= 3) {
-    const leftBulge = 42 + Math.sin(creepAngle) * 9 + arterialPulse * 8;
-    const rightBulge = 42 + Math.sin(creepAngle + Math.PI * 0.85) * 9 + arterialPulse * 8;
-    ctx.fillStyle = rgba(PALETTE.driedClot, 0.26 + breath * 0.07 + arterialPulse * 0.12);
-    ctx.strokeStyle = rgba(PALETTE.fractureOutline, 0.65);
-    ctx.lineWidth = 1.2;
-
-    ctx.beginPath();
-    ctx.moveTo(0, height * 0.34);
-    ctx.quadraticCurveTo(leftBulge, height * 0.45, 0, height * 0.58);
-    ctx.closePath();
-    ctx.fill();
-    ctx.stroke();
-
-    ctx.beginPath();
-    ctx.moveTo(width, height * 0.40);
-    ctx.quadraticCurveTo(width - rightBulge, height * 0.51, width, height * 0.66);
-    ctx.closePath();
-    ctx.fill();
-    ctx.stroke();
-
-    // Subcutaneous weeping pores contracting along grout seams
-    const poreAnchors = [
-      [0.18, 0.32],
-      [0.82, 0.35],
-      [0.24, 0.72],
-      [0.77, 0.74],
-      [0.34, 0.24],
-    ];
-    for (let p = 0; p < poreAnchors.length; p += 1) {
-      const px = width * poreAnchors[p][0];
-      const py = height * poreAnchors[p][1];
-      const swell = (Math.sin(creepAngle * 2 + p * 1.4) + 1) * 0.5;
-      const pr = 2.6 + swell * 2.2 + arterialPulse * 1.6;
-      ctx.fillStyle = rgba(PALETTE.clotShadow, 0.82);
+    for (let p = 0; p < 4; p += 1) {
+      const phaseShift = (wallCreep + p * 0.25) % 1;
+      const swell = Math.sin(phaseShift * Math.PI);
+      const px = p % 2 === 0 ? width * (0.1 + swell * 0.04) : width * (0.9 - swell * 0.04);
+      const py = height * (0.22 + phaseShift * 0.56);
+      const haloR = 16 + swell * 12 + arterialPulse * 6;
+      const swellGrad = ctx.createRadialGradient(px, py, 0, px, py, haloR);
+      swellGrad.addColorStop(0, rgba(PALETTE.driedClot, (0.14 + arterialPulse * 0.1) * swell));
+      swellGrad.addColorStop(0.55, rgba(PALETTE.voidAbyss, 0.22 * swell));
+      swellGrad.addColorStop(1, 'transparent');
+      ctx.fillStyle = swellGrad;
       ctx.beginPath();
-      ctx.arc(px, py, pr + 2.2, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.fillStyle = rgba(PALETTE.driedClot, 0.5 + swell * 0.32);
-      ctx.beginPath();
-      ctx.arc(px, py, pr, 0, Math.PI * 2);
+      ctx.arc(px, py, haloR, 0, Math.PI * 2);
       ctx.fill();
 
-      // Slow seepage droplet sliding down from pore
-      const ooze = (wallCreep + p * 0.23) % 1;
-      const oozeLen = 4 + ooze * 16;
-      ctx.strokeStyle = rgba(PALETTE.driedClot, 0.34 * (1 - ooze));
-      ctx.lineWidth = 1.2;
+      const beadOff = Math.sin(creepAngle + p * 1.3) * 1.5;
+      ctx.fillStyle = rgba(PALETTE.bleachedBone, 0.16 * swell);
       ctx.beginPath();
-      ctx.moveTo(px, py + pr * 0.6);
-      ctx.lineTo(px, py + pr * 0.6 + oozeLen);
-      ctx.stroke();
+      ctx.arc(px + beadOff, py - 1.5, 1.4, 0, Math.PI * 2);
+      ctx.fill();
     }
   }
 
-  // 7. Phase 4 encroaching chitinous rib arches + rhythmic cardiac arterial pulse wave
-  if (phase >= 4) {
+  // 7. Phase 4: Soft subsurface cardiac arterial illumination (no harsh wireframe circle)
+  if (phase >= 4 && arterialPulse > 0.03) {
+    const waveR = Math.min(width, height) * (0.26 + (1 - arterialPulse) * 0.44);
+    const pulseGrad = ctx.createRadialGradient(
+      valveCenter.x,
+      valveCenter.y,
+      0,
+      valveCenter.x,
+      valveCenter.y,
+      waveR,
+    );
+    pulseGrad.addColorStop(0, rgba(PALETTE.driedClot, arterialPulse * 0.24));
+    pulseGrad.addColorStop(0.55, rgba(PALETTE.clotShadow, arterialPulse * 0.14));
+    pulseGrad.addColorStop(1, 'transparent');
+    ctx.fillStyle = pulseGrad;
+    ctx.fillRect(0, 0, width, height);
+  }
+
+  // 8. Volumetric muscular arterial root-cords anchoring the recessed valve into the living wall (Phases 2..4)
+  if (phase >= 2) {
+    const cordCount = Math.min(10, 4 + phase + Math.min(state.graftedTendrils, 3));
+    const rootStartR = 60;
+    const maxReach = Math.min(width, height) * (0.25 + (phase - 1) * 0.065 + arterialPulse * 0.025);
+    const bodyAlpha = Math.min(0.86, 0.48 + (phase - 2) * 0.16 + arterialPulse * 0.14);
     ctx.lineCap = 'round';
-    for (let r = 0; r <= 3; r += 1) {
-      const baseY = height * (0.22 + r * 0.20);
-      const reach =
-        width * (0.19 + (r === 1 || r === 2 ? 0.065 : 0) + breath * 0.018 + arterialPulse * 0.022);
-      for (const side of [-1, 1]) {
-        const edgeX = side === -1 ? 0 : width;
-        const ctrlX = side === -1 ? reach : width - reach;
-        ctx.beginPath();
-        ctx.moveTo(edgeX, baseY - 12);
-        ctx.quadraticCurveTo(ctrlX, baseY, edgeX, baseY + 12);
-        ctx.strokeStyle = rgba(PALETTE.voidAbyss, 0.78);
-        ctx.lineWidth = 6;
-        ctx.stroke();
-        ctx.strokeStyle = rgba(PALETTE.weatheredAsh, 0.32 + breath * 0.08 + arterialPulse * 0.14);
-        ctx.lineWidth = 2.6;
-        ctx.stroke();
-      }
-    }
+    ctx.lineJoin = 'round';
 
-    // Expanding cardiac systolic/diastolic pulse wave radiating from valve
-    if (arterialPulse > 0.02) {
-      const pulseR = Math.max(width, height) * (0.14 + (1 - arterialPulse) * 0.52);
-      const pulseGrad = ctx.createRadialGradient(
-        valveCenter.x,
-        valveCenter.y,
-        Math.max(1, pulseR - 28),
-        valveCenter.x,
-        valveCenter.y,
-        pulseR + 18,
-      );
-      pulseGrad.addColorStop(0, 'transparent');
-      pulseGrad.addColorStop(0.55, rgba(PALETTE.driedClot, arterialPulse * 0.28));
-      pulseGrad.addColorStop(1, 'transparent');
-      ctx.fillStyle = pulseGrad;
-      ctx.fillRect(0, 0, width, height);
+    for (let i = 0; i < cordCount; i += 1) {
+      const baseAng = i * ((2 * Math.PI) / cordCount) + 0.35;
+      const sway = Math.sin(creepAngle + i * 1.37) * 0.055 + (breath - 0.5) * 0.04;
+      const ang = baseAng + sway;
+      const dx = Math.cos(ang);
+      const dy = Math.sin(ang);
+      const px = -dy;
+      const py = dx;
+      const bendDir = i % 2 === 0 ? 1 : -1;
+      const cordReach = maxReach * (0.78 + (i % 3) * 0.14);
 
-      ctx.strokeStyle = rgba(PALETTE.driedClot, arterialPulse * 0.34);
-      ctx.lineWidth = 1.6 + arterialPulse * 2.0;
+      const sx = valveCenter.x + dx * rootStartR;
+      const sy = valveCenter.y + dy * rootStartR;
+      const c1x = valveCenter.x + dx * (rootStartR + cordReach * 0.38) + px * (11 * bendDir);
+      const c1y = valveCenter.y + dy * (rootStartR + cordReach * 0.38) + py * (11 * bendDir);
+      const c2x = valveCenter.x + dx * (rootStartR + cordReach * 0.72) - px * (7 * bendDir);
+      const c2y = valveCenter.y + dy * (rootStartR + cordReach * 0.72) - py * (7 * bendDir);
+      const ex = valveCenter.x + dx * (rootStartR + cordReach);
+      const ey = valveCenter.y + dy * (rootStartR + cordReach);
+
+      const thickness = 2.8 + (phase - 2) * 1.1 + arterialPulse * 0.9;
+
+      // Recessed cavity shadow
+      const shGrad = ctx.createLinearGradient(sx, sy, ex, ey);
+      shGrad.addColorStop(0, rgba(PALETTE.voidAbyss, 0.85));
+      shGrad.addColorStop(0.55, rgba(PALETTE.voidAbyss, 0.52));
+      shGrad.addColorStop(1, 'transparent');
       ctx.beginPath();
-      ctx.arc(valveCenter.x, valveCenter.y, pulseR, 0, Math.PI * 2);
+      ctx.moveTo(sx, sy);
+      ctx.bezierCurveTo(c1x, c1y, c2x, c2y, ex, ey);
+      ctx.strokeStyle = shGrad;
+      ctx.lineWidth = thickness * 2.2;
+      ctx.stroke();
+
+      // Bruised muscular oxblood body
+      const bodyGrad = ctx.createLinearGradient(sx, sy, ex, ey);
+      bodyGrad.addColorStop(0, rgba(PALETTE.clotShadow, bodyAlpha));
+      bodyGrad.addColorStop(0.5, rgba(PALETTE.driedClot, bodyAlpha * 0.78));
+      bodyGrad.addColorStop(1, 'transparent');
+      ctx.strokeStyle = bodyGrad;
+      ctx.lineWidth = thickness;
+      ctx.stroke();
+
+      // Glossy wet specular ridge
+      const hiGrad = ctx.createLinearGradient(sx, sy, ex, ey);
+      hiGrad.addColorStop(0, rgba(PALETTE.bleachedBone, 0.16 + arterialPulse * 0.1));
+      hiGrad.addColorStop(0.45, rgba(PALETTE.driedClot, 0.18));
+      hiGrad.addColorStop(1, 'transparent');
+      ctx.strokeStyle = hiGrad;
+      ctx.lineWidth = Math.max(1, thickness * 0.28);
       ctx.stroke();
     }
   }
 
-  // 8. Permanent Scar Tissue stitched seams across Cycles 1+
+  // 9. Permanent Scar Tissue: Recessed organic keloid suture clefts tucked along chamber flanks (Cycles 1+)
   if (state.scarTissue > 0) {
-    const seams = Math.min(state.scarTissue, 4);
-    ctx.strokeStyle = rgba(PALETTE.bleachedBone, 0.34);
-    for (let s = 0; s < seams; s += 1) {
-      const startY = height * (0.14 + s * 0.22);
-      const endY = startY + height * 0.16;
-      ctx.lineWidth = 1.5;
-      ctx.beginPath();
-      ctx.moveTo(0, startY);
-      ctx.lineTo(width, endY);
-      ctx.stroke();
-      ctx.lineWidth = 1.1;
-      for (let st = 1; st < 8; st += 1) {
-        const t = st / 8;
-        const sx = width * t;
-        const sy = startY + (endY - startY) * t;
-        ctx.beginPath();
-        ctx.moveTo(sx - 3, sy - 5);
-        ctx.lineTo(sx + 3, sy + 5);
-        ctx.stroke();
-      }
-    }
-  }
-
-  // 9. Radiating cracks & organic branching arterial veins from the recessed valve
-  if (phase >= 1) {
-    const count = phase * 2 + 2 + Math.min(state.graftedTendrils, 4);
-    const veinAlpha =
-      phase >= 2
-        ? Math.min(0.86, 0.26 + distortion * 0.32 + arterialPulse * 0.26)
-        : 0.54;
-    ctx.strokeStyle =
-      phase >= 2 ? rgba(PALETTE.driedClot, veinAlpha) : rgba(PALETTE.fractureOutline, veinAlpha);
-    ctx.lineWidth = 1.3 + phase * 0.45 + arterialPulse * 1.1;
+    const cleftCount = Math.min(state.scarTissue, 4);
+    const flankAnchors = [
+      [0.02, 0.24, 1],
+      [0.98, 0.3, -1],
+      [0.02, 0.74, 1],
+      [0.98, 0.7, -1],
+    ];
     ctx.lineCap = 'round';
-    for (let i = 0; i < count; i += 1) {
-      const creepOffset = phase >= 3 ? Math.sin(creepAngle + i * 1.1) * 0.045 : 0;
-      const angle = i * ((2 * Math.PI) / count) + (breath - 0.5) * 0.07 + creepOffset;
-      const reach =
-        Math.min(width, height) * (0.36 + phase * 0.11 + breath * 0.025 + arterialPulse * 0.03);
-      const midX = valveCenter.x + Math.cos(angle + 0.14) * reach * 0.52;
-      const midY = valveCenter.y + Math.sin(angle - 0.12) * reach * 0.52;
-      const endX = valveCenter.x + Math.cos(angle) * reach;
-      const endY = valveCenter.y + Math.sin(angle) * reach;
+    for (let s = 0; s < cleftCount; s += 1) {
+      const [fx, fy, inward] = flankAnchors[s];
+      const ax = width * fx;
+      const ay = height * fy;
+      const len = width * 0.17;
+      const endX = ax + inward * len;
+      const endY = ay + height * (s % 2 === 0 ? 0.065 : -0.055);
+      const midX = (ax + endX) * 0.5 + inward * 6;
+      const midY = (ay + endY) * 0.5 - 8;
+
+      const troughGrad = ctx.createLinearGradient(ax, ay, endX, endY);
+      troughGrad.addColorStop(0, rgba(PALETTE.voidAbyss, 0.85));
+      troughGrad.addColorStop(1, 'transparent');
       ctx.beginPath();
-      ctx.moveTo(valveCenter.x, valveCenter.y);
+      ctx.moveTo(ax, ay);
       ctx.quadraticCurveTo(midX, midY, endX, endY);
+      ctx.strokeStyle = troughGrad;
+      ctx.lineWidth = 7;
       ctx.stroke();
 
-      // Secondary capillary fork in Phase 2+
-      if (phase >= 2) {
-        const forkAngle = angle + (i % 2 === 0 ? 0.34 : -0.34);
-        const forkEndX = midX + Math.cos(forkAngle) * reach * 0.38;
-        const forkEndY = midY + Math.sin(forkAngle) * reach * 0.38;
-        ctx.save();
-        ctx.lineWidth = Math.max(0.9, (1.3 + phase * 0.45) * 0.52);
-        ctx.strokeStyle = rgba(PALETTE.driedClot, veinAlpha * 0.72);
+      const seamGrad = ctx.createLinearGradient(ax, ay, endX, endY);
+      seamGrad.addColorStop(0, rgba(PALETTE.driedClot, 0.62));
+      seamGrad.addColorStop(1, 'transparent');
+      ctx.strokeStyle = seamGrad;
+      ctx.lineWidth = 2.0;
+      ctx.stroke();
+
+      for (let st = 1; st <= 4; st += 1) {
+        const t = st / 5.2;
+        const omt = 1 - t;
+        const sx = omt * omt * ax + 2 * omt * t * midX + t * t * endX;
+        const sy = omt * omt * ay + 2 * omt * t * midY + t * t * endY;
+        const stapleAlpha = (1 - t * 0.75) * 0.58;
+        ctx.strokeStyle = rgba(PALETTE.voidAbyss, stapleAlpha);
+        ctx.lineWidth = 2.2;
         ctx.beginPath();
-        ctx.moveTo(midX, midY);
-        ctx.quadraticCurveTo(
-          (midX + forkEndX) * 0.5 + Math.sin(angle) * 6,
-          (midY + forkEndY) * 0.5 - Math.cos(angle) * 6,
-          forkEndX,
-          forkEndY,
-        );
+        ctx.moveTo(sx - 2, sy - 4.5);
+        ctx.lineTo(sx + 2, sy + 4.5);
         ctx.stroke();
-        ctx.restore();
+
+        ctx.strokeStyle = rgba(PALETTE.bleachedBone, stapleAlpha * 0.85);
+        ctx.lineWidth = 1.0;
+        ctx.beginPath();
+        ctx.moveTo(sx - 1.8, sy - 4);
+        ctx.lineTo(sx + 1.8, sy + 4);
+        ctx.stroke();
       }
     }
   }
 
   // 10. Excision II-V Chamber Mutations & Flanking Weeping Lamps (behind foreground HUD so income stays unobstructed)
-  drawExcisionChamberMutations(ctx, width, height, state, breath, echoRipple);
+  drawExcisionChamberMutations(ctx, width, height, state, breath, wallCreep, echoRipple);
 
   const lampCount = creatureCount(state, CREATURE_TYPES.WEEPING_LAMP.id);
   if (lampCount > 0) {
@@ -415,68 +479,188 @@ export function drawChamberBackdrop(
   }
 }
 
-function drawExcisionChamberMutations(ctx, width, height, state, breath, echoRipple = 0) {
-  // Excision II: Floor Drain Grate & pooled sump runoff at bottom center
+function drawExcisionChamberMutations(ctx, width, height, state, breath, wallCreep = 0, echoRipple = 0) {
+  // Excision II+: Heavy recessed cast-iron & mortared floor sump basin along bottom threshold
   if (state.highestExcisionMilestone >= 2) {
-    const grateW = width * 0.42;
-    const grateH = 14;
-    const left = (width - grateW) * 0.5;
-    const top = height - grateH - 6;
+    const pressureFrac = Math.max(0, Math.min(1, (state.drainPressure || 0) / 100));
+    const basinW = Math.min(230, width * 0.5);
+    const basinH = 22;
+    const basinLeft = (width - basinW) * 0.5;
+    const basinTop = height - basinH - 4;
 
-    const poolAlpha = 0.25 + (state.drainPressure / 100) * 0.45;
-    const poolGrad = ctx.createRadialGradient(
-      width * 0.5,
-      height,
-      0,
-      width * 0.5,
-      height,
-      grateW * 0.72,
-    );
+    // Dark wet runoff pool seeping outward across the chamber floor
+    const poolR = basinW * (0.64 + pressureFrac * 0.22);
+    const poolGrad = ctx.createRadialGradient(width * 0.5, height, 0, width * 0.5, height, poolR);
     poolGrad.addColorStop(
       0,
-      state.drainSealed ? rgba(PALETTE.driedClot, poolAlpha) : rgba(PALETTE.voidAbyss, poolAlpha),
+      state.drainSealed
+        ? rgba(PALETTE.driedClot, 0.28 + pressureFrac * 0.34)
+        : rgba(PALETTE.voidAbyss, 0.86),
     );
+    poolGrad.addColorStop(0.55, rgba(PALETTE.voidAbyss, 0.62));
     poolGrad.addColorStop(1, 'transparent');
     ctx.fillStyle = poolGrad;
-    ctx.fillRect(left - grateW * 0.3, top - 28, grateW * 1.6, 56);
+    ctx.beginPath();
+    ctx.arc(width * 0.5, height, poolR, 0, Math.PI * 2);
+    ctx.fill();
 
-    ctx.fillStyle = rgba(PALETTE.voidAbyss, 0.92);
-    ctx.fillRect(left, top, grateW, grateH);
-    ctx.strokeStyle = state.drainSealed
-      ? rgba(PALETTE.driedClot, 0.9)
-      : rgba(PALETTE.fractureOutline, 0.85);
+    // Mortared stone outer bezel frame with recessed shadow lip
+    const pad = 4;
+    drawRoundedRectPath(ctx, basinLeft - pad, basinTop - pad, basinW + pad * 2, basinH + pad * 2, 7);
+    ctx.fillStyle = rgba(PALETTE.voidAbyss, 0.94);
+    ctx.fill();
+    ctx.strokeStyle = rgba(PALETTE.fractureOutline, 0.52);
     ctx.lineWidth = 1.2;
-    ctx.strokeRect(left, top, grateW, grateH);
+    ctx.stroke();
 
-    for (let i = 1; i <= 7; i += 1) {
-      const bx = left + grateW * (i / 8);
+    // Deep abyssal sump pit interior
+    drawRoundedRectPath(ctx, basinLeft, basinTop, basinW, basinH, 5);
+    const pitGrad = ctx.createLinearGradient(0, basinTop, 0, basinTop + basinH);
+    pitGrad.addColorStop(0, PALETTE.voidAbyss);
+    pitGrad.addColorStop(
+      1,
+      state.drainSealed
+        ? rgba(PALETTE.driedClot, 0.22 + pressureFrac * 0.42)
+        : rgba(PALETTE.voidAbyss, 0.96),
+    );
+    ctx.fillStyle = pitGrad;
+    ctx.fill();
+
+    // Animated viscous sump bubbles / hydraulic meniscus surging underneath the iron grate
+    const bubblePhase = wallCreep * Math.PI * 2;
+    for (let b = 0; b < 5; b += 1) {
+      const bx = basinLeft + basinW * (0.14 + b * 0.18);
+      const pulse = (Math.sin(bubblePhase + b * 1.45) + 1) * 0.5;
+      const by = basinTop + basinH * (0.68 - pulse * 0.28 * (0.4 + pressureFrac));
+      const br = 1.6 + pulse * (1.8 + pressureFrac * 2.2);
+      ctx.fillStyle = state.drainSealed
+        ? rgba(PALETTE.driedClot, 0.4 + pressureFrac * 0.45)
+        : rgba(PALETTE.paleLichen, 0.16 + pulse * 0.16);
       ctx.beginPath();
-      ctx.moveTo(bx, top + 1);
-      ctx.lineTo(bx, top + grateH - 1);
-      ctx.strokeStyle = rgba(PALETTE.hairlineAsh, 0.9);
-      ctx.lineWidth = 1.5;
+      ctx.arc(bx, by, br, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = rgba(PALETTE.bleachedBone, 0.18 * pulse);
+      ctx.beginPath();
+      ctx.arc(bx - br * 0.25, by - br * 0.25, br * 0.35, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // Heavy forged cast-iron bars with metallic bevel highlight & center cross-beam
+    const barCount = 7;
+    ctx.lineCap = 'butt';
+    for (let i = 1; i <= barCount; i += 1) {
+      const bx = basinLeft + basinW * (i / (barCount + 1));
+      ctx.strokeStyle = rgba(PALETTE.voidAbyss, 0.95);
+      ctx.lineWidth = 4.2;
+      ctx.beginPath();
+      ctx.moveTo(bx, basinTop + 1);
+      ctx.lineTo(bx, basinTop + basinH - 1);
       ctx.stroke();
+
+      ctx.strokeStyle = rgba(PALETTE.fractureOutline, state.drainSealed ? 0.82 : 0.62);
+      ctx.lineWidth = 2.0;
+      ctx.beginPath();
+      ctx.moveTo(bx - 0.6, basinTop + 1);
+      ctx.lineTo(bx - 0.6, basinTop + basinH - 1);
+      ctx.stroke();
+
+      ctx.strokeStyle = rgba(PALETTE.bleachedBone, 0.18);
+      ctx.lineWidth = 0.7;
+      ctx.beginPath();
+      ctx.moveTo(bx - 1.2, basinTop + 2);
+      ctx.lineTo(bx - 1.2, basinTop + basinH - 2);
+      ctx.stroke();
+    }
+
+    const midBarY = basinTop + basinH * 0.5;
+    ctx.strokeStyle = rgba(PALETTE.voidAbyss, 0.92);
+    ctx.lineWidth = 3.2;
+    ctx.beginPath();
+    ctx.moveTo(basinLeft + 2, midBarY);
+    ctx.lineTo(basinLeft + basinW - 2, midBarY);
+    ctx.stroke();
+    ctx.strokeStyle = rgba(PALETTE.fractureOutline, 0.65);
+    ctx.lineWidth = 1.1;
+    ctx.beginPath();
+    ctx.moveTo(basinLeft + 2, midBarY - 0.5);
+    ctx.lineTo(basinLeft + basinW - 2, midBarY - 0.5);
+    ctx.stroke();
+
+    // Outer cast-iron flange rim + 4 forged hex rivets
+    drawRoundedRectPath(ctx, basinLeft, basinTop, basinW, basinH, 5);
+    ctx.strokeStyle = state.drainSealed
+      ? rgba(PALETTE.driedClot, 0.72 + pressureFrac * 0.24)
+      : rgba(PALETTE.fractureOutline, 0.78);
+    ctx.lineWidth = 1.8;
+    ctx.stroke();
+
+    const rivets = [
+      [basinLeft + 6, basinTop + 5],
+      [basinLeft + basinW - 6, basinTop + 5],
+      [basinLeft + 6, basinTop + basinH - 5],
+      [basinLeft + basinW - 6, basinTop + basinH - 5],
+    ];
+    for (const [rx, ry] of rivets) {
+      ctx.fillStyle = PALETTE.voidAbyss;
+      ctx.beginPath();
+      ctx.arc(rx, ry, 2.4, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = rgba(PALETTE.fractureOutline, 0.85);
+      ctx.beginPath();
+      ctx.arc(rx, ry, 1.5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = rgba(PALETTE.bleachedBone, 0.28);
+      ctx.beginPath();
+      ctx.arc(rx - 0.4, ry - 0.4, 0.6, 0, Math.PI * 2);
+      ctx.fill();
     }
   }
 
-  // Excision III: Unbricked Neighbor Aperture slit in upper-right masonry + Echo answer ripples
+  // Excision III+: Chiseled jagged Neighbor Aperture masonry breach in upper-right wall + Echo ripples
   if (state.highestExcisionMilestone >= 3) {
-    const sx = width * 0.85;
-    const sy = height * 0.16;
+    const sx = width * 0.86;
+    const sy = height * 0.22;
     const activeEcho = state.echoDiversionPercent > 0;
-    ctx.fillStyle = rgba(PALETTE.voidAbyss, 0.96);
-    ctx.fillRect(sx - 5, sy - 16, 10, 32);
-    ctx.strokeStyle = activeEcho
-      ? rgba(PALETTE.paleLichen, 0.6 + breath * 0.3)
-      : rgba(PALETTE.fractureOutline, 0.8);
-    ctx.lineWidth = 1.2;
-    ctx.strokeRect(sx - 5, sy - 16, 10, 32);
 
-    ctx.fillStyle = activeEcho
-      ? rgba(PALETTE.paleLichen, 0.48 + breath * 0.3)
-      : rgba(PALETTE.weatheredAsh, 0.28);
+    const breachGlow = ctx.createRadialGradient(sx, sy, 0, sx, sy, 24);
+    breachGlow.addColorStop(
+      0,
+      activeEcho ? rgba(PALETTE.paleLichen, 0.24 + breath * 0.16) : rgba(PALETTE.voidAbyss, 0.78),
+    );
+    breachGlow.addColorStop(1, 'transparent');
+    ctx.fillStyle = breachGlow;
     ctx.beginPath();
-    ctx.arc(sx, sy, 2.6, 0, Math.PI * 2);
+    ctx.arc(sx, sy, 24, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.beginPath();
+    ctx.moveTo(sx - 5, sy - 20);
+    ctx.lineTo(sx + 4, sy - 16);
+    ctx.lineTo(sx + 6.5, sy - 4);
+    ctx.lineTo(sx + 3.5, sy + 10);
+    ctx.lineTo(sx + 5, sy + 20);
+    ctx.lineTo(sx - 4, sy + 17);
+    ctx.lineTo(sx - 6, sy + 3);
+    ctx.lineTo(sx - 3, sy - 9);
+    ctx.closePath();
+    ctx.fillStyle = rgba(PALETTE.voidAbyss, 0.96);
+    ctx.fill();
+    ctx.strokeStyle = activeEcho
+      ? rgba(PALETTE.paleLichen, 0.48 + breath * 0.28)
+      : rgba(PALETTE.fractureOutline, 0.65);
+    ctx.lineWidth = 1.4;
+    ctx.stroke();
+
+    const slitCore = ctx.createRadialGradient(sx, sy, 0, sx, sy, 6);
+    slitCore.addColorStop(
+      0,
+      activeEcho ? rgba(PALETTE.paleLichen, 0.72 + breath * 0.22) : rgba(PALETTE.bleachedBone, 0.16),
+    );
+    slitCore.addColorStop(1, 'transparent');
+    ctx.fillStyle = slitCore;
+    ctx.beginPath();
+    ctx.arc(sx, sy, 6, 0, Math.PI * 2);
     ctx.fill();
 
     if (echoRipple > 0 && echoRipple < 1) {
@@ -484,9 +668,9 @@ function drawExcisionChamberMutations(ctx, width, height, state, breath, echoRip
       for (let ring = 0; ring < 2; ring += 1) {
         const ringT = Math.max(0, echoRipple - ring * 0.16);
         if (ringT <= 0) continue;
-        const r = 8 + ringT * 68;
-        ctx.strokeStyle = rgba(PALETTE.paleLichen, fade * (ring === 0 ? 0.72 : 0.42));
-        ctx.lineWidth = ring === 0 ? 1.8 : 1.1;
+        const r = 10 + ringT * (ring === 0 ? width * 0.32 : width * 0.2);
+        ctx.strokeStyle = rgba(PALETTE.paleLichen, fade * (ring === 0 ? 0.62 : 0.36));
+        ctx.lineWidth = ring === 0 ? 1.6 : 1.0;
         ctx.beginPath();
         ctx.arc(sx, sy, r, 0, Math.PI * 2);
         ctx.stroke();
@@ -494,44 +678,70 @@ function drawExcisionChamberMutations(ctx, width, height, state, breath, echoRip
     }
   }
 
-  // Excision IV: Clamped Valve / Marrow Bloom crimson pressure pulse
+  // Excision IV+: Clamped Valve / Marrow Bloom crimson arterial tension pulse
   if (state.clampRemainingSeconds > 0 || state.marrowBloomRemainingSeconds > 0) {
-    const pulseAlpha = state.marrowBloomRemainingSeconds > 0 ? 0.24 : 0.18;
+    const pulseAlpha = state.marrowBloomRemainingSeconds > 0 ? 0.2 : 0.24;
     const grad = ctx.createRadialGradient(
       width * 0.5,
-      height * 0.65,
+      height * 0.62,
       width * 0.12,
       width * 0.5,
-      height * 0.65,
-      Math.max(width, height) * 0.62,
+      height * 0.62,
+      Math.max(width, height) * 0.65,
     );
     grad.addColorStop(0, 'transparent');
-    grad.addColorStop(1, rgba(PALETTE.driedClot, pulseAlpha + breath * 0.08));
+    grad.addColorStop(1, rgba(PALETTE.driedClot, pulseAlpha + breath * 0.1));
     ctx.fillStyle = grad;
     ctx.fillRect(0, 0, width, height);
   }
 
-  // Excision V: Pale creeping Ossified Throat membrane along top corners
+  // Excision V+: Organic stretched calcified cartilage & translucent pale sinew webs in upper corners
   if (state.highestExcisionMilestone >= 5) {
-    ctx.fillStyle = rgba(PALETTE.bleachedBone, 0.09 + breath * 0.04);
-    ctx.strokeStyle = rgba(PALETTE.driedClot, 0.45);
-    ctx.lineWidth = 1.2;
+    ctx.lineCap = 'round';
+    for (const side of [-1, 1]) {
+      const cornerX = side < 0 ? 0 : width;
+      const spanX = width * 0.24 * -side;
+      const spanY = height * 0.2;
+      const stretch = breath * 4;
 
-    ctx.beginPath();
-    ctx.moveTo(0, 0);
-    ctx.lineTo(width * 0.24, 0);
-    ctx.quadraticCurveTo(width * 0.11, height * 0.12, 0, height * 0.19);
-    ctx.closePath();
-    ctx.fill();
-    ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(cornerX, 0);
+      ctx.lineTo(cornerX + spanX, 0);
+      ctx.bezierCurveTo(
+        cornerX + spanX * 0.55,
+        spanY * 0.35 + stretch,
+        cornerX + spanX * 0.28,
+        spanY * 0.68 + stretch,
+        cornerX,
+        spanY,
+      );
+      ctx.closePath();
+      const webGrad = ctx.createRadialGradient(cornerX, 0, 0, cornerX, 0, spanY * 1.15);
+      webGrad.addColorStop(0, rgba(PALETTE.bleachedBone, 0.14 + breath * 0.04));
+      webGrad.addColorStop(0.55, rgba(PALETTE.driedClot, 0.16));
+      webGrad.addColorStop(1, 'transparent');
+      ctx.fillStyle = webGrad;
+      ctx.fill();
 
-    ctx.beginPath();
-    ctx.moveTo(width, 0);
-    ctx.lineTo(width * 0.76, 0);
-    ctx.quadraticCurveTo(width * 0.89, height * 0.12, width, height * 0.19);
-    ctx.closePath();
-    ctx.fill();
-    ctx.stroke();
+      for (let strand = 0; strand <= 2; strand += 1) {
+        const sx = cornerX + spanX * (0.38 + strand * 0.26);
+        const ey = spanY * (0.42 + strand * 0.25);
+        const ctrlX = cornerX + spanX * (0.18 + strand * 0.1);
+        const ctrlY = ey * 0.52 + stretch;
+        ctx.beginPath();
+        ctx.moveTo(sx, 0);
+        ctx.quadraticCurveTo(ctrlX, ctrlY, cornerX, ey);
+        ctx.strokeStyle = rgba(PALETTE.voidAbyss, 0.72);
+        ctx.lineWidth = 3.4 - strand * 0.6;
+        ctx.stroke();
+        ctx.strokeStyle =
+          strand === 1
+            ? rgba(PALETTE.bleachedBone, 0.32 + breath * 0.08)
+            : rgba(PALETTE.driedClot, 0.38 + breath * 0.08);
+        ctx.lineWidth = 1.6 - strand * 0.25;
+        ctx.stroke();
+      }
+    }
   }
 }
 
@@ -803,73 +1013,283 @@ export function drawValveAndHands(canvas, state, breath, handCyclePhase = breath
   const minDim = Math.min(width, height);
   const distortion = Math.min(1, state.phase * 0.25);
 
-  // Dashed outer calibration ring
-  ctx.save();
-  ctx.strokeStyle = rgba(PALETTE.hairlineAsh, 0.85);
-  ctx.lineWidth = 1.1;
-  ctx.setLineDash([9, 10]);
+  // 1. Recessed cast-iron mounting flange, 8 perimeter bolts, and bruised tissue collar (no CAD dashed circle)
+  const socketRadius = minDim * 0.365;
+  const flangeRadius = minDim * 0.415;
+  const bruiseR = flangeRadius + 8 + distortion * 12 + breath * 4;
+  const bruiseGrad = ctx.createRadialGradient(cx, cy, socketRadius * 0.6, cx, cy, bruiseR);
+  bruiseGrad.addColorStop(0, rgba(PALETTE.voidAbyss, 0.9));
+  bruiseGrad.addColorStop(0.58, rgba(PALETTE.clotShadow, 0.22 + distortion * 0.34));
+  bruiseGrad.addColorStop(1, 'transparent');
+  ctx.fillStyle = bruiseGrad;
   ctx.beginPath();
-  ctx.arc(cx, cy, minDim * (0.43 + breath * 0.015), 0, Math.PI * 2);
-  ctx.stroke();
-  ctx.restore();
+  ctx.arc(cx, cy, bruiseR, 0, Math.PI * 2);
+  ctx.fill();
 
-  // Inner organic drifting vein halo
-  const drift = (2 + 6 * distortion) * (breath - 0.5);
-  ctx.strokeStyle = rgba(PALETTE.driedClot, 0.20 + distortion * 0.34);
-  ctx.lineWidth = 1.3;
+  ctx.strokeStyle = rgba(PALETTE.voidAbyss, 0.82);
+  ctx.lineWidth = 7;
   ctx.beginPath();
-  ctx.arc(cx + drift, cy - drift * 0.7, minDim * 0.35, 0, Math.PI * 2);
+  ctx.arc(cx, cy, flangeRadius, 0, Math.PI * 2);
+  ctx.stroke();
+
+  ctx.strokeStyle = rgba(PALETTE.hairlineAsh, 0.58);
+  ctx.lineWidth = 1.2;
+  ctx.beginPath();
+  ctx.arc(cx, cy, flangeRadius + 2.5, 0, Math.PI * 2);
+  ctx.stroke();
+
+  ctx.strokeStyle = rgba(PALETTE.bleachedBone, 0.14);
+  ctx.lineWidth = 1.0;
+  ctx.beginPath();
+  ctx.arc(cx, cy, flangeRadius - 2.5, 0, Math.PI * 2);
+  ctx.stroke();
+
+  for (let b = 0; b < 8; b += 1) {
+    const ang = b * (Math.PI / 4) + Math.PI / 8;
+    const bx = cx + Math.cos(ang) * flangeRadius;
+    const by = cy + Math.sin(ang) * flangeRadius;
+    ctx.fillStyle = rgba(PALETTE.voidAbyss, 0.94);
+    ctx.beginPath();
+    ctx.arc(bx, by, 3.2, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = rgba(PALETTE.fractureOutline, 0.72);
+    ctx.beginPath();
+    ctx.arc(bx, by, 2.0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = rgba(PALETTE.bleachedBone, 0.22);
+    ctx.beginPath();
+    ctx.arc(bx - 0.6, by - 0.6, 0.8, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  ctx.strokeStyle = rgba(PALETTE.driedClot, 0.24 + distortion * 0.36 + breath * 0.08);
+  ctx.lineWidth = 2.2 + distortion * 2.8 + breath * 1.2;
+  ctx.beginPath();
+  ctx.arc(cx, cy, socketRadius, 0, Math.PI * 2);
   ctx.stroke();
 
   const sutureCount = creatureCount(state, CREATURE_TYPES.SUTURE_HAND.id);
-  const graftCount = state.graftedTendrils;
-  if (sutureCount <= 0 && graftCount <= 0) return;
+  const graftCount = state.graftedTendrils || 0;
+  const choirLungCount = state.choirLungs || 0;
+  if (sutureCount <= 0 && graftCount <= 0 && choirLungCount <= 0) return;
 
   const valveRimRadius = 64;
   const armStartRadius = minDim * 0.495;
-
-  // Braided Grafted Choir-Tendrils
-  const visibleGrafts = Math.min(graftCount, 4);
   ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+
+  // 2. Grafted Choir-Lungs (M4+): visibly breathing translucent ribbed pleural sacs on outer diagonals
+  const visibleLungs = Math.min(choirLungCount, 4);
+  const lungAngles = [-Math.PI * 0.78, -Math.PI * 0.22, Math.PI * 0.78, Math.PI * 0.22];
+  for (let l = 0; l < visibleLungs; l += 1) {
+    const ang = lungAngles[l];
+    const dx = Math.cos(ang);
+    const dy = Math.sin(ang);
+    const px = -dy;
+    const py = dx;
+    const inhaleWave = (Math.sin(breath * 2 * Math.PI + l * 1.15) + 1) * 0.5;
+    const inflate = 1 + inhaleWave * (state.isStillnessActive ? 0.22 : 0.12);
+    const sacR = valveRimRadius + 30;
+    const sacX = cx + dx * sacR;
+    const sacY = cy + dy * sacR;
+    const rootX = cx + dx * (armStartRadius + 4);
+    const rootY = cy + dy * (armStartRadius + 4);
+    const linkX = cx + dx * (valveRimRadius - 2);
+    const linkY = cy + dy * (valveRimRadius - 2);
+
+    ctx.beginPath();
+    ctx.moveTo(rootX, rootY);
+    ctx.lineTo(linkX, linkY);
+    ctx.strokeStyle = rgba(PALETTE.voidAbyss, 0.9);
+    ctx.lineWidth = 5.2;
+    ctx.stroke();
+    ctx.strokeStyle = rgba(PALETTE.clotShadow, 0.88);
+    ctx.lineWidth = 2.8;
+    ctx.stroke();
+    ctx.strokeStyle = rgba(PALETTE.driedClot, 0.52);
+    ctx.lineWidth = 1.1;
+    ctx.stroke();
+
+    if (state.isStillnessActive) {
+      const glowR = 20 * inflate;
+      const gGrad = ctx.createRadialGradient(sacX, sacY, 0, sacX, sacY, glowR);
+      gGrad.addColorStop(0, rgba(PALETTE.paleLichen, 0.24 + inhaleWave * 0.14));
+      gGrad.addColorStop(1, 'transparent');
+      ctx.fillStyle = gGrad;
+      ctx.beginPath();
+      ctx.arc(sacX, sacY, glowR, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    const lenHalf = 11.5 * inflate;
+    const widHalf = 8.2 * inflate;
+    ctx.beginPath();
+    ctx.moveTo(sacX - dx * lenHalf, sacY - dy * lenHalf);
+    ctx.bezierCurveTo(
+      sacX - dx * (lenHalf * 0.4) + px * widHalf,
+      sacY - dy * (lenHalf * 0.4) + py * widHalf,
+      sacX + dx * (lenHalf * 0.55) + px * (widHalf * 1.15),
+      sacY + dy * (lenHalf * 0.55) + py * (widHalf * 1.15),
+      sacX + dx * lenHalf,
+      sacY + dy * lenHalf,
+    );
+    ctx.bezierCurveTo(
+      sacX + dx * (lenHalf * 0.55) - px * (widHalf * 1.15),
+      sacY + dy * (lenHalf * 0.55) - py * (widHalf * 1.15),
+      sacX - dx * (lenHalf * 0.4) - px * widHalf,
+      sacY - dy * (lenHalf * 0.4) - py * widHalf,
+      sacX - dx * lenHalf,
+      sacY - dy * lenHalf,
+    );
+    ctx.closePath();
+
+    ctx.strokeStyle = rgba(PALETTE.voidAbyss, 0.94);
+    ctx.lineWidth = 3.6;
+    ctx.stroke();
+
+    const sacGrad = ctx.createRadialGradient(
+      sacX - px * 2,
+      sacY - py * 2,
+      1,
+      sacX,
+      sacY,
+      lenHalf * 1.2,
+    );
+    sacGrad.addColorStop(
+      0,
+      state.isStillnessActive ? rgba(PALETTE.paleLichen, 0.58) : rgba(PALETTE.bleachedBone, 0.42),
+    );
+    sacGrad.addColorStop(0.58, rgba(PALETTE.clotShadow, 0.86));
+    sacGrad.addColorStop(1, rgba(PALETTE.voidAbyss, 0.92));
+    ctx.fillStyle = sacGrad;
+    ctx.fill();
+
+    for (let rib = -1; rib <= 1; rib += 1) {
+      const along = rib * (lenHalf * 0.44);
+      const bandW = widHalf * (rib === 0 ? 0.92 : 0.7);
+      const p1x = sacX + dx * along - px * bandW;
+      const p1y = sacY + dy * along - py * bandW;
+      const p2x = sacX + dx * along + px * bandW;
+      const p2y = sacY + dy * along + py * bandW;
+      ctx.beginPath();
+      ctx.moveTo(p1x, p1y);
+      ctx.lineTo(p2x, p2y);
+      ctx.strokeStyle = rgba(PALETTE.voidAbyss, 0.72);
+      ctx.lineWidth = 2.0;
+      ctx.stroke();
+      ctx.strokeStyle = rgba(PALETTE.bleachedBone, 0.52 + inhaleWave * 0.2);
+      ctx.lineWidth = 0.95;
+      ctx.stroke();
+    }
+  }
+
+  // 3. Sculpted organic Grafted Choir-Tendrils: segmented bruised muscular stalks + helical bone-sinew + bony clasps
+  const visibleGrafts = Math.min(graftCount, 4);
   for (let g = 0; g < visibleGrafts; g += 1) {
-    const angle = g * (Math.PI / 2) + Math.PI / 4 + (breath - 0.5) * 0.1;
+    const writhe = Math.sin(breath * 2 * Math.PI + g * 1.55);
+    const angle = g * (Math.PI / 2) + Math.PI / 4 + writhe * 0.075;
     const dx = Math.cos(angle);
     const dy = Math.sin(angle);
     const px = -dy;
     const py = dx;
     const startX = cx + dx * armStartRadius;
     const startY = cy + dy * armStartRadius;
-    const midR = (armStartRadius + valveRimRadius) * 0.52;
-    const endX = cx + dx * (valveRimRadius - 4);
-    const endY = cy + dy * (valveRimRadius - 4);
 
+    // Raw bruised socket cavity at wall anchor
+    const rootGrad = ctx.createRadialGradient(startX, startY, 0, startX, startY, 12);
+    rootGrad.addColorStop(0, rgba(PALETTE.voidAbyss, 0.96));
+    rootGrad.addColorStop(0.55, rgba(PALETTE.clotShadow, 0.74));
+    rootGrad.addColorStop(1, 'transparent');
+    ctx.fillStyle = rootGrad;
     ctx.beginPath();
-    ctx.moveTo(startX, startY);
-    ctx.quadraticCurveTo(cx + dx * midR + px * 8.5, cy + dy * midR + py * 8.5, endX, endY);
-    ctx.strokeStyle = rgba(PALETTE.voidAbyss, 0.88);
-    ctx.lineWidth = 8;
-    ctx.stroke();
-    ctx.strokeStyle = rgba(PALETTE.driedClot, 0.92);
-    ctx.lineWidth = 4.2;
-    ctx.stroke();
-
-    ctx.beginPath();
-    ctx.moveTo(startX - px * 2, startY - py * 2);
-    ctx.quadraticCurveTo(cx + dx * midR - px * 6.5, cy + dy * midR - py * 6.5, endX, endY);
-    ctx.strokeStyle = rgba(PALETTE.voidAbyss, 0.8);
-    ctx.lineWidth = 5.5;
-    ctx.stroke();
-    ctx.strokeStyle = rgba(PALETTE.weatheredAsh, 0.72);
-    ctx.lineWidth = 2.2;
-    ctx.stroke();
-
-    ctx.fillStyle = PALETTE.voidAbyss;
-    ctx.beginPath();
-    ctx.arc(endX, endY, 4.6, 0, Math.PI * 2);
+    ctx.arc(startX, startY, 12, 0, Math.PI * 2);
     ctx.fill();
-    ctx.fillStyle = rgba(PALETTE.bleachedBone, 0.84);
+
+    const segments = 9;
+    const spinePts = [];
+    const helixPts = [];
+    let prevX = startX;
+    let prevY = startY;
+    for (let s = 0; s <= segments; s += 1) {
+      const t = s / segments;
+      const r = armStartRadius + (valveRimRadius - 4 - armStartRadius) * t;
+      const wave = Math.sin(t * Math.PI * 1.45 + breath * 2 * Math.PI + g * 1.2) * (1 - t * 0.45) * 6.5;
+      const ptX = cx + dx * r + px * wave;
+      const ptY = cy + dy * r + py * wave;
+      const helixOff = Math.sin(t * Math.PI * 3.0 + g * 1.4) * (4.4 - t * 1.6);
+      spinePts.push([ptX, ptY]);
+      helixPts.push([ptX + px * helixOff, ptY + py * helixOff]);
+
+      if (s > 0) {
+        const segRadius = 5.4 - t * 2.1 + (s % 2 === 0 ? 0.7 : 0);
+        const mx = (prevX + ptX) * 0.5;
+        const my = (prevY + ptY) * 0.5;
+        ctx.fillStyle = rgba(PALETTE.voidAbyss, 0.92);
+        ctx.beginPath();
+        ctx.arc(mx, my, segRadius + 1.4, 0, Math.PI * 2);
+        ctx.fill();
+
+        const segGrad = ctx.createRadialGradient(
+          mx - px * 1.2,
+          my - py * 1.2,
+          0.5,
+          mx,
+          my,
+          segRadius * 1.2,
+        );
+        segGrad.addColorStop(
+          0,
+          s % 2 === 0 ? rgba(PALETTE.driedClot, 0.9) : rgba(PALETTE.bileOlive, 0.76),
+        );
+        segGrad.addColorStop(0.55, rgba(PALETTE.clotShadow, 0.94));
+        segGrad.addColorStop(1, rgba(PALETTE.voidAbyss, 0.96));
+        ctx.fillStyle = segGrad;
+        ctx.beginPath();
+        ctx.arc(mx, my, segRadius, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      prevX = ptX;
+      prevY = ptY;
+    }
+
+    // Glossy dorsal vascular ridge
     ctx.beginPath();
-    ctx.arc(endX, endY, 3.1, 0, Math.PI * 2);
+    spinePts.forEach(([sx, sy], idx) => (idx === 0 ? ctx.moveTo(sx, sy) : ctx.lineTo(sx, sy)));
+    ctx.strokeStyle = rgba(PALETTE.driedClot, 0.52);
+    ctx.lineWidth = 2.0;
+    ctx.stroke();
+
+    // Braided pale bone-sinew helix wrapping the stalk
+    ctx.beginPath();
+    helixPts.forEach(([hx, hy], idx) => (idx === 0 ? ctx.moveTo(hx, hy) : ctx.lineTo(hx, hy)));
+    ctx.strokeStyle = rgba(PALETTE.voidAbyss, 0.85);
+    ctx.lineWidth = 2.6;
+    ctx.stroke();
+    ctx.strokeStyle = rgba(PALETTE.bleachedBone, 0.68);
+    ctx.lineWidth = 1.15;
+    ctx.stroke();
+
+    // Hooked calcified clasp gripping the iron valve rim
+    for (const clawSide of [-1, 1]) {
+      const jawX = prevX - dx * 4.5 + px * (4.8 * clawSide);
+      const jawY = prevY - dy * 4.5 + py * (4.8 * clawSide);
+      ctx.beginPath();
+      ctx.moveTo(prevX, prevY);
+      ctx.lineTo(jawX, jawY);
+      ctx.strokeStyle = rgba(PALETTE.voidAbyss, 0.96);
+      ctx.lineWidth = 3.2;
+      ctx.stroke();
+      ctx.strokeStyle = rgba(PALETTE.bleachedBone, 0.88);
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+    }
+    ctx.fillStyle = rgba(PALETTE.voidAbyss, 0.96);
+    ctx.beginPath();
+    ctx.arc(prevX, prevY, 3.8, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = rgba(PALETTE.driedClot, 0.88);
+    ctx.beginPath();
+    ctx.arc(prevX, prevY, 2.2, 0, Math.PI * 2);
     ctx.fill();
   }
 

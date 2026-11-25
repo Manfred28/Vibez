@@ -445,6 +445,8 @@ fun ChamberCanvas(
             },
             sutureCount = sutureCount,
             graftCount = state.graftedTendrils,
+            choirLungCount = state.choirLungs,
+            isStillnessActive = state.isStillnessActive,
             boneColor = colorScheme.onBackground,
             stitchColor = colorScheme.tertiary,
             shadowColor = colorScheme.background,

@@ -44,18 +44,22 @@ internal fun SutureHandsValveOverlay(
   boneColor: Color,
   stitchColor: Color,
   shadowColor: Color,
+  choirLungCount: Int = 0,
+  isStillnessActive: Boolean = false,
   modifier: Modifier = Modifier,
 ) {
-  if (sutureCount <= 0 && graftCount <= 0) return
+  if (sutureCount <= 0 && graftCount <= 0 && choirLungCount <= 0) return
 
   val knuckleTone = MaterialTheme.colorScheme.onSurfaceVariant
   val bruiseTone = MaterialTheme.colorScheme.tertiaryContainer
   val bileTone = MaterialTheme.colorScheme.secondary
+  val lichenTone = MaterialTheme.colorScheme.primary
   val nailHighlight = MaterialTheme.colorScheme.onBackground
 
-  // Reusable scratch paths avoid ~50+ Path allocations per 60fps animation frame.
+  // Reusable scratch paths avoid Path allocations per 60fps animation frame.
   val primaryStrand = remember { Path() }
   val secondaryStrand = remember { Path() }
+  val lungSacPath = remember { Path() }
   val palmPath = remember { Path() }
   val incisionPath = remember { Path() }
   val thumbPath = remember { Path() }
@@ -68,66 +72,198 @@ internal fun SutureHandsValveOverlay(
     val valveRimRadius = 64.dp.toPx()
     val armStartRadius = size.minDimension * 0.495f
 
-    // Thick intertwined double-strand Grafted Choir-Tendrils arching onto the valve collar
+    // 1. Grafted Choir-Lungs (M4+): translucent ribbed pleural sacs breathing deeply on outer diagonals
+    val visibleLungs = min(choirLungCount, 4)
+    val lungAngles = doubleArrayOf(-PI * 0.78, -PI * 0.22, PI * 0.78, PI * 0.22)
+    for (l in 0 until visibleLungs) {
+      val ang = lungAngles[l]
+      val dx = cos(ang).toFloat()
+      val dy = sin(ang).toFloat()
+      val px = -dy
+      val py = dx
+      val inhaleWave = ((sin(breath * 2.0 * PI + l * 1.15) + 1.0) * 0.5).toFloat()
+      val inflate = 1f + inhaleWave * (if (isStillnessActive) 0.22f else 0.12f)
+      val sacR = valveRimRadius + 30.dp.toPx()
+      val sacCenter = Offset(center.x + dx * sacR, center.y + dy * sacR)
+      val rootAnchor = Offset(center.x + dx * (armStartRadius + 4.dp.toPx()), center.y + dy * (armStartRadius + 4.dp.toPx()))
+      val valveLink = Offset(center.x + dx * (valveRimRadius - 2.dp.toPx()), center.y + dy * (valveRimRadius - 2.dp.toPx()))
+
+      // Bronchial anchoring cord connecting lung sac from wall into valve collar
+      drawLine(shadowColor.copy(alpha = 0.90f), rootAnchor, valveLink, strokeWidth = 5.2.dp.toPx(), cap = StrokeCap.Round)
+      drawLine(bruiseTone.copy(alpha = 0.88f), rootAnchor, valveLink, strokeWidth = 2.8.dp.toPx(), cap = StrokeCap.Round)
+      drawLine(stitchColor.copy(alpha = 0.52f), rootAnchor, valveLink, strokeWidth = 1.1.dp.toPx(), cap = StrokeCap.Round)
+
+      // Faint damp Stillness glow halo when breathing deeply in quiet
+      if (isStillnessActive) {
+        val glowR = 20.dp.toPx() * inflate
+        drawCircle(
+          brush =
+            Brush.radialGradient(
+              colors = listOf(lichenTone.copy(alpha = 0.24f + inhaleWave * 0.14f), Color.Transparent),
+              center = sacCenter,
+              radius = glowR,
+            ),
+          radius = glowR,
+          center = sacCenter,
+        )
+      }
+
+      // Organic tapered pleural lung sac silhouette
+      val lenHalf = 11.5.dp.toPx() * inflate
+      val widHalf = 8.2.dp.toPx() * inflate
+      lungSacPath.rewind()
+      lungSacPath.moveTo(sacCenter.x - dx * lenHalf, sacCenter.y - dy * lenHalf)
+      lungSacPath.cubicTo(
+        sacCenter.x - dx * (lenHalf * 0.4f) + px * widHalf,
+        sacCenter.y - dy * (lenHalf * 0.4f) + py * widHalf,
+        sacCenter.x + dx * (lenHalf * 0.55f) + px * (widHalf * 1.15f),
+        sacCenter.y + dy * (lenHalf * 0.55f) + py * (widHalf * 1.15f),
+        sacCenter.x + dx * lenHalf,
+        sacCenter.y + dy * lenHalf,
+      )
+      lungSacPath.cubicTo(
+        sacCenter.x + dx * (lenHalf * 0.55f) - px * (widHalf * 1.15f),
+        sacCenter.y + dy * (lenHalf * 0.55f) - py * (widHalf * 1.15f),
+        sacCenter.x - dx * (lenHalf * 0.4f) - px * widHalf,
+        sacCenter.y - dy * (lenHalf * 0.4f) - py * widHalf,
+        sacCenter.x - dx * lenHalf,
+        sacCenter.y - dy * lenHalf,
+      )
+      lungSacPath.close()
+
+      drawPath(lungSacPath, shadowColor.copy(alpha = 0.94f), style = Stroke(3.6.dp.toPx(), join = StrokeJoin.Round))
+      drawPath(
+        path = lungSacPath,
+        brush =
+          Brush.radialGradient(
+            colors =
+              listOf(
+                if (isStillnessActive) lichenTone.copy(alpha = 0.58f) else boneColor.copy(alpha = 0.42f),
+                bruiseTone.copy(alpha = 0.86f),
+                shadowColor.copy(alpha = 0.92f),
+              ),
+            center = Offset(sacCenter.x - px * 2.dp.toPx(), sacCenter.y - py * 2.dp.toPx()),
+            radius = lenHalf * 1.2f,
+          ),
+      )
+
+      // 3 pale cartilaginous rib rings banding across the inflating pleural sac
+      for (rib in -1..1) {
+        val along = rib * (lenHalf * 0.44f)
+        val bandW = widHalf * (if (rib == 0) 0.92f else 0.70f)
+        val p1 = Offset(sacCenter.x + dx * along - px * bandW, sacCenter.y + dy * along - py * bandW)
+        val p2 = Offset(sacCenter.x + dx * along + px * bandW, sacCenter.y + dy * along + py * bandW)
+        drawLine(shadowColor.copy(alpha = 0.72f), p1, p2, strokeWidth = 2.0.dp.toPx(), cap = StrokeCap.Round)
+        drawLine(
+          color = boneColor.copy(alpha = 0.52f + inhaleWave * 0.20f),
+          start = p1,
+          end = p2,
+          strokeWidth = 0.95.dp.toPx(),
+          cap = StrokeCap.Round,
+        )
+      }
+    }
+
+    // 2. Sculpted organic Grafted Choir-Tendrils: segmented bruised muscular stalks + helical bone-sinew + bony clasps
     val visibleGrafts = min(graftCount, 4)
     for (g in 0 until visibleGrafts) {
-      val angle = (g * (PI / 2.0)) + PI / 4.0 + (breath - 0.5) * 0.10
+      val writhe = sin(breath * 2.0 * PI + g * 1.55)
+      val angle = (g * (PI / 2.0)) + PI / 4.0 + writhe * 0.075
       val dirX = cos(angle).toFloat()
       val dirY = sin(angle).toFloat()
       val perpX = -dirY
       val perpY = dirX
 
       val start = Offset(center.x + dirX * armStartRadius, center.y + dirY * armStartRadius)
-      val midR = (armStartRadius + valveRimRadius) * 0.52f
-      val midA =
-        Offset(
-          center.x + dirX * midR + perpX * 8.5.dp.toPx(),
-          center.y + dirY * midR + perpY * 8.5.dp.toPx(),
-        )
-      val midB =
-        Offset(
-          center.x + dirX * midR - perpX * 6.5.dp.toPx(),
-          center.y + dirY * midR - perpY * 6.5.dp.toPx(),
-        )
-      val end =
-        Offset(
-          center.x + dirX * (valveRimRadius - 4.dp.toPx()),
-          center.y + dirY * (valveRimRadius - 4.dp.toPx()),
-        )
 
+      // Raw bruised socket cavity at wall anchor
+      drawCircle(
+        brush =
+          Brush.radialGradient(
+            colors = listOf(shadowColor.copy(alpha = 0.96f), bruiseTone.copy(alpha = 0.74f), Color.Transparent),
+            center = start,
+            radius = 12.dp.toPx(),
+          ),
+        radius = 12.dp.toPx(),
+        center = start,
+      )
+
+      // Multi-segment tapered fleshy annular stalk (fused Leech-Clerk + Suture-Hand sinew)
+      val segments = 9
+      var prevPt = start
       primaryStrand.rewind()
-      primaryStrand.moveTo(start.x, start.y)
-      primaryStrand.quadraticTo(midA.x, midA.y, end.x, end.y)
-
       secondaryStrand.rewind()
-      secondaryStrand.moveTo(start.x - perpX * 2.dp.toPx(), start.y - perpY * 2.dp.toPx())
-      secondaryStrand.quadraticTo(midB.x, midB.y, end.x, end.y)
+      for (s in 0..segments) {
+        val t = s / segments.toFloat()
+        val r = armStartRadius + ((valveRimRadius - 4.dp.toPx()) - armStartRadius) * t
+        val wave = sin(t * PI * 1.45 + breath * 2.0 * PI + g * 1.2).toFloat() * (1f - t * 0.45f) * 6.5.dp.toPx()
+        val pt = Offset(center.x + dirX * r + perpX * wave, center.y + dirY * r + perpY * wave)
 
+        // Helical bone-tendon filament twisting around the fleshy stalk
+        val helixOff = sin(t * PI * 3.0 + g * 1.4).toFloat() * (4.4f - t * 1.6f).dp.toPx()
+        val hPt = Offset(pt.x + perpX * helixOff, pt.y + perpY * helixOff)
+        if (s == 0) {
+          primaryStrand.moveTo(pt.x, pt.y)
+          secondaryStrand.moveTo(hPt.x, hPt.y)
+        } else {
+          primaryStrand.lineTo(pt.x, pt.y)
+          secondaryStrand.lineTo(hPt.x, hPt.y)
+          // Segmented fleshy muscular rings (peristaltic nodes)
+          val segRadius = (5.4f - t * 2.1f + (if (s % 2 == 0) 0.7f else 0f)).dp.toPx()
+          val mid = Offset((prevPt.x + pt.x) * 0.5f, (prevPt.y + pt.y) * 0.5f)
+          drawCircle(shadowColor.copy(alpha = 0.92f), radius = segRadius + 1.4.dp.toPx(), center = mid)
+          drawCircle(
+            brush =
+              Brush.radialGradient(
+                colors =
+                  listOf(
+                    if (s % 2 == 0) stitchColor.copy(alpha = 0.90f) else bileTone.copy(alpha = 0.76f),
+                    bruiseTone.copy(alpha = 0.94f),
+                    shadowColor.copy(alpha = 0.96f),
+                  ),
+                center = Offset(mid.x - perpX * 1.2.dp.toPx(), mid.y - perpY * 1.2.dp.toPx()),
+                radius = segRadius * 1.2f,
+              ),
+            radius = segRadius,
+            center = mid,
+          )
+        }
+        prevPt = pt
+      }
+
+      // Glossy dorsal vascular ridge + braided pale bone-sinew helix
       drawPath(
         primaryStrand,
-        shadowColor.copy(alpha = 0.90f),
-        style = Stroke(8.2.dp.toPx(), cap = StrokeCap.Round),
+        stitchColor.copy(alpha = 0.52f),
+        style = Stroke(width = 2.0.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round),
       )
       drawPath(
         secondaryStrand,
-        shadowColor.copy(alpha = 0.82f),
-        style = Stroke(5.6.dp.toPx(), cap = StrokeCap.Round),
-      )
-      drawPath(
-        primaryStrand,
-        stitchColor.copy(alpha = 0.92f),
-        style = Stroke(4.2.dp.toPx(), cap = StrokeCap.Round),
+        shadowColor.copy(alpha = 0.85f),
+        style = Stroke(width = 2.6.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round),
       )
       drawPath(
         secondaryStrand,
-        knuckleTone.copy(alpha = 0.72f),
-        style = Stroke(2.2.dp.toPx(), cap = StrokeCap.Round),
+        boneColor.copy(alpha = 0.68f),
+        style = Stroke(width = 1.15.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round),
       )
-      drawCircle(color = shadowColor, radius = 4.6.dp.toPx(), center = end)
-      drawCircle(color = boneColor.copy(alpha = 0.84f), radius = 3.1.dp.toPx(), center = end)
+
+      // Hooked calcified clasp gripping the iron valve rim
+      val claspBase = prevPt
+      for (clawSide in listOf(-1f, 1f)) {
+        val jawEnd =
+          Offset(
+            claspBase.x - dirX * 4.5.dp.toPx() + perpX * (4.8.dp.toPx() * clawSide),
+            claspBase.y - dirY * 4.5.dp.toPx() + perpY * (4.8.dp.toPx() * clawSide),
+          )
+        drawLine(shadowColor.copy(alpha = 0.96f), claspBase, jawEnd, strokeWidth = 3.2.dp.toPx(), cap = StrokeCap.Round)
+        drawLine(boneColor.copy(alpha = 0.88f), claspBase, jawEnd, strokeWidth = 1.5.dp.toPx(), cap = StrokeCap.Round)
+      }
+      drawCircle(color = shadowColor.copy(alpha = 0.96f), radius = 3.8.dp.toPx(), center = claspBase)
+      drawCircle(color = stitchColor.copy(alpha = 0.88f), radius = 2.2.dp.toPx(), center = claspBase)
     }
 
-    // Grotesque, emaciated 5-fingered stitched Suture-Hands clawing and turning the valve clockwise
+    // 3. Grotesque, emaciated 5-fingered stitched Suture-Hands clawing and turning the valve clockwise
     val visibleHands = min(sutureCount, 8)
     for (i in 0 until visibleHands) {
       // Subtle clockwise tug sweep synchronized with handCycle so hands visibly crank the valve

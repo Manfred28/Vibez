@@ -26,6 +26,9 @@
     <!-- Graphic asset content descriptions -->
     <string name="art_wall_phase1_cd">Damp cracked tiled chamber wall</string>
     <string name="art_wall_fleshy_cd">Veined damp fleshy chamber wall beneath cracked tiles</string>
+    <string name="art_wall_phase3_cd">Buckling tiles splitting open with dark muscular tissue and sinew</string>
+    <string name="art_wall_phase4_cd">Biomechanical chamber wall of encroaching calcified rib arches and arterial hollows</string>
+    <string name="art_wall_excision_late_cd">Deeply scarred chamber wall stitched with surgical bone-thread sutures and ossified ridges</string>
     <string name="art_recessed_valve_cd">Tarnished iron and bone recessed wall valve</string>
     <string name="art_suture_hand_cd">Stitched pale anatomical Suture-Hand specimen</string>
     <string name="art_leech_clerk_cd">Blind segmented Leech-Clerk specimen</string>

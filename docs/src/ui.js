@@ -86,14 +86,14 @@ import {
   stillnessIdleDelaySec,
   totalCreatureIchorPerSec,
   valveClampDurationSec,
-} from './engine.js?v=3.5';
+} from './engine.js?v=3.6';
 import {
   drawActionArtwork,
   drawAnomalyGlyph,
   drawDeskAnomalyGlyph,
   drawSumpSiphonPortrait,
   drawWeepingLampPortrait,
-} from './chamberCanvas.js?v=3.5';
+} from './chamberCanvas.js?v=3.6';
 
 function randomBetween(min, max, rng) {
   const raw = typeof rng === 'function' ? Number(rng()) : Math.random();

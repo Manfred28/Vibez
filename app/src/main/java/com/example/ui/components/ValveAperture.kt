@@ -39,7 +39,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
@@ -66,29 +65,75 @@ internal fun ValveApertureArt(
   veinColor: Color,
   modifier: Modifier = Modifier,
 ) {
+  val shadowColor = MaterialTheme.colorScheme.background
+  val boneColor = MaterialTheme.colorScheme.onBackground
+  val clotContainer = MaterialTheme.colorScheme.tertiaryContainer
   Canvas(modifier = modifier.size(228.dp).testTag("valve_aperture_art")) {
     val breath = breathPhaseProvider()
     val center = Offset(size.width / 2f, size.height / 2f)
-    val outerRadius = size.minDimension * (0.43f + breath * 0.015f)
-    val innerRadius = size.minDimension * 0.35f
+    val socketRadius = size.minDimension * 0.365f
+    val flangeRadius = size.minDimension * 0.415f
 
+    // 1. Deep sunken masonry recess shadow & damp bruised seepage halo around valve socket
+    val bruiseR = flangeRadius + (8f + distortion * 12f + breath * 4f).dp.toPx()
     drawCircle(
-      color = ringColor.copy(alpha = 0.85f),
-      radius = outerRadius,
-      center = center,
-      style =
-        Stroke(
-          width = 1.1.dp.toPx(),
-          pathEffect = PathEffect.dashPathEffect(floatArrayOf(9f, 10f)),
+      brush =
+        Brush.radialGradient(
+          colors =
+            listOf(
+              shadowColor.copy(alpha = 0.90f),
+              clotContainer.copy(alpha = 0.22f + distortion * 0.34f),
+              Color.Transparent,
+            ),
+          center = center,
+          radius = bruiseR,
         ),
+      radius = bruiseR,
+      center = center,
     )
 
-    val drift = (2.dp.toPx() + 6.dp.toPx() * distortion) * (breath - 0.5f)
+    // 2. Heavy recessed cast-iron mounting flange ring seated in the tile/flesh wall
     drawCircle(
-      color = veinColor.copy(alpha = 0.20f + distortion * 0.34f),
-      radius = innerRadius,
-      center = Offset(center.x + drift, center.y - drift * 0.7f),
-      style = Stroke(width = 1.3.dp.toPx()),
+      color = shadowColor.copy(alpha = 0.82f),
+      radius = flangeRadius,
+      center = center,
+      style = Stroke(width = 7.dp.toPx()),
+    )
+    drawCircle(
+      color = ringColor.copy(alpha = 0.55f),
+      radius = flangeRadius + 2.5.dp.toPx(),
+      center = center,
+      style = Stroke(width = 1.2.dp.toPx()),
+    )
+    drawCircle(
+      color = boneColor.copy(alpha = 0.14f),
+      radius = flangeRadius - 2.5.dp.toPx(),
+      center = center,
+      style = Stroke(width = 1.0.dp.toPx()),
+    )
+
+    // 8 recessed tarnished iron flange bolts
+    val boltR = flangeRadius
+    for (b in 0 until 8) {
+      val ang = b * (Math.PI / 4.0) + Math.PI / 8.0
+      val bx = center.x + kotlin.math.cos(ang).toFloat() * boltR
+      val by = center.y + kotlin.math.sin(ang).toFloat() * boltR
+      drawCircle(color = shadowColor.copy(alpha = 0.94f), radius = 3.2.dp.toPx(), center = Offset(bx, by))
+      drawCircle(color = ringColor.copy(alpha = 0.72f), radius = 2.0.dp.toPx(), center = Offset(bx, by))
+      drawCircle(
+        color = boneColor.copy(alpha = 0.22f),
+        radius = 0.8.dp.toPx(),
+        center = Offset(bx - 0.6.dp.toPx(), by - 0.6.dp.toPx()),
+      )
+    }
+
+    // 3. Living bruised subcutaneous tissue lip pulsing just inside the mounting socket
+    val swellWidth = (2.2f + distortion * 2.8f + breath * 1.2f).dp.toPx()
+    drawCircle(
+      color = veinColor.copy(alpha = 0.24f + distortion * 0.36f + breath * 0.08f),
+      radius = socketRadius,
+      center = center,
+      style = Stroke(width = swellWidth),
     )
   }
 }

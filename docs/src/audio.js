@@ -7,7 +7,7 @@
  * shrill pings, or tab-switch clicks.
  */
 
-import { CREATURE_TYPES, DESK_ANOMALY_TYPES, GAME_ARCS, WALL_ANOMALY_TYPES } from './engine.js?v=3.5';
+import { CREATURE_TYPES, DESK_ANOMALY_TYPES, GAME_ARCS, WALL_ANOMALY_TYPES } from './engine.js?v=3.6';
 
 export const AUDIO_MUTE_STORAGE_KEY = 'unnamed_organ_audio_muted_v1';
 
