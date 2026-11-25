@@ -1,19 +1,32 @@
 package com.example.audio
 
 import kotlin.math.PI
+import kotlin.math.cos
 import kotlin.math.exp
 import kotlin.math.sin
 import kotlin.math.tanh
 
 /**
  * Pure Kotlin DSP procedural foley and room-ambience synthesizer generating 16-bit PCM audio
- * with zero external audio assets. Tuned strictly around deep, heavy closed-room acoustics:
- * cast-iron valve weight, thick wet seepage, long fleshy grafting, distinct organism signatures,
- * and dark subterranean ambience — never bright arcade tones or shrill pings.
+ * with zero external audio assets.
+ *
+ * Acoustic architecture:
+ * - True cast-iron inharmonic modal bank (6 detuned iron ring modes + gritty pawl ratchet + heavy
+ *   wall-mounted housing thud) for the valve, floor sump grate, iron clamp, and surgical shears.
+ * - Visceral organic flesh/tendon synthesis: stochastic fibrous tearing trains through dual
+ *   sweeping formant resonators, LFO-modulated wet mucosa squelches, and irregular cavity bubble
+ *   clusters — eliminating generic percussive synth clicks.
+ * - Subtle closed-tile-chamber early reflection tail (`19ms` / `35ms`) grounding every cue in a
+ *   damp subterranean room.
  */
 object ProceduralFoleySynth {
   const val SAMPLE_RATE: Int = 22050
   private const val TWO_PI = 2.0 * PI
+
+  // Inharmonic cast-iron wheel ring modal ratios (authentic cast-iron clank/clang spectrum)
+  private val IRON_MODE_RATIOS = doubleArrayOf(1.00, 1.53, 2.24, 2.89, 3.71, 4.68)
+  private val IRON_MODE_AMPS = doubleArrayOf(0.50, 0.48, 0.44, 0.36, 0.28, 0.20)
+  private val IRON_MODE_DECAYS = doubleArrayOf(10.5, 13.0, 16.5, 21.0, 27.0, 34.0)
 
   private class NoiseGen(seed: Int) {
     private var state: Int = if (seed == 0) 0x6D2B79F5 else seed
@@ -26,21 +39,259 @@ object ProceduralFoleySynth {
       state = x
       return ((x and 0x7FFFFFFF).toFloat() / 0x3FFFFFFF.toFloat()) - 1f
     }
+
+    fun nextUnit(): Double = (nextFloat().toDouble() + 1.0) * 0.5
   }
 
-  private fun toPcm16(samples: FloatArray, masterGain: Float): ShortArray {
-    val out = ShortArray(samples.size)
+  /** Lightweight 2-pole state-variable resonant filter for sweeping wet formants & iron grit. */
+  private class SvFilter {
+    private var low = 0.0
+    private var band = 0.0
+
+    fun processBandpass(input: Double, freqHz: Double, q: Double): Double {
+      val clampedFreq = freqHz.coerceIn(45.0, SAMPLE_RATE * 0.36)
+      val f = (2.0 * sin(PI * clampedFreq / SAMPLE_RATE)).coerceIn(0.01, 1.15)
+      val damp = (1.0 / q.coerceIn(0.6, 14.0)).coerceIn(0.07, 1.6)
+      low += f * band
+      val high = input - low - damp * band
+      band += f * high
+      return band
+    }
+
+    fun processLowpass(input: Double, freqHz: Double, q: Double): Double {
+      processBandpass(input, freqHz, q)
+      return low
+    }
+  }
+
+  /** Adds subtle damp tiled-chamber early slapback reflections (19ms & 35ms) without washing transients. */
+  private fun applyChamberSlapback(samples: FloatArray, wetAmount: Float = 0.14f): FloatArray {
+    val d1 = (SAMPLE_RATE * 0.019).toInt()
+    val d2 = (SAMPLE_RATE * 0.035).toInt()
+    val out = FloatArray(samples.size)
+    var lp = 0f
     for (i in samples.indices) {
-      val shaped = tanh((samples[i] * masterGain).toDouble()).toFloat()
+      val dry = samples[i]
+      val r1 = if (i >= d1) samples[i - d1] * 0.68f else 0f
+      val r2 = if (i >= d2) samples[i - d2] * 0.42f else 0f
+      lp += 0.24f * ((r1 + r2) - lp)
+      out[i] = dry + lp * wetAmount
+    }
+    return out
+  }
+
+  private fun toPcm16(samples: FloatArray, masterGain: Float, roomWet: Float = 0.14f): ShortArray {
+    val spatial = if (roomWet > 0f) applyChamberSlapback(samples, roomWet) else samples
+    val out = ShortArray(spatial.size)
+    for (i in spatial.indices) {
+      val shaped = tanh((spatial[i] * masterGain).toDouble()).toFloat()
       val clamped = shaped.coerceIn(-0.95f, 0.95f)
       out[i] = (clamped * Short.MAX_VALUE).toInt().toShort()
     }
     return out
   }
 
+  // ==================== SHARED PHYSICAL ACOUSTIC PRIMITIVES ====================
+
+  /**
+   * Adds authentic struck/ratcheted cast-iron resonance: 6 inharmonic metallic modes + gritty
+   * metal-on-metal pawl friction + heavy wall-housing impact weight.
+   */
+  private fun addIronModalRing(
+    buf: FloatArray,
+    startSec: Double,
+    durationSec: Double,
+    baseFreqHz: Double,
+    gain: Double,
+    decayScale: Double = 1.0,
+    seed: Int = 71,
+    includeRatchetGrit: Boolean = true,
+  ) {
+    val startIdx = (startSec * SAMPLE_RATE).toInt().coerceAtLeast(0)
+    val count = (durationSec * SAMPLE_RATE).toInt().coerceAtLeast(1)
+    val endIdx = (startIdx + count).coerceAtMost(buf.size)
+    val noise = NoiseGen(seed)
+    val gritFilter = SvFilter()
+    val clangFilter = SvFilter()
+
+    for (i in startIdx until endIdx) {
+      val t = (i - startIdx).toDouble() / SAMPLE_RATE
+      val attack = 1.0 - exp(-t * 420.0)
+      var modes = 0.0
+      for (m in IRON_MODE_RATIOS.indices) {
+        val f = baseFreqHz * IRON_MODE_RATIOS[m]
+        // Subtle pitch sag on initial iron impact gives massive physical weight
+        val sag = 1.0 + 0.025 * exp(-t * 48.0)
+        modes += sin(TWO_PI * f * sag * t) * exp(-t * IRON_MODE_DECAYS[m] * decayScale) * IRON_MODE_AMPS[m]
+      }
+      val n = noise.nextFloat().toDouble()
+      val clangBurst = clangFilter.processBandpass(n, (baseFreqHz * 4.2).coerceIn(500.0, 2900.0), 3.4) *
+        exp(-t * 58.0) * 0.64
+      val ratchet =
+        if (includeRatchetGrit && t < 0.085) {
+          val teeth = 0.55 + 0.45 * sin(TWO_PI * 46.0 * t)
+          val sweep = (baseFreqHz * 4.8 * exp(-t * 9.0)).coerceIn(360.0, 2600.0)
+          gritFilter.processBandpass(n, sweep, 4.2) * exp(-t * 26.0) * teeth * 0.46
+        } else 0.0
+
+      buf[i] += ((modes * attack * 0.78 + clangBurst + ratchet) * gain).toFloat()
+    }
+  }
+
+  /**
+   * Adds fibrous sinew / tendon tearing: a bursty stochastic train of irregular micro-fibers
+   * snapping asynchronously across two sweeping formant bands (wet cavity + taut fibrous rasp),
+   * layered over a stretched low-mid ligament tension groan.
+   */
+  private fun addTendonTear(
+    buf: FloatArray,
+    startSec: Double,
+    durationSec: Double,
+    pitch: Double,
+    gain: Double,
+    fiberCount: Int = 18,
+    seed: Int = 311,
+  ) {
+    val startIdx = (startSec * SAMPLE_RATE).toInt().coerceAtLeast(0)
+    val count = (durationSec * SAMPLE_RATE).toInt().coerceAtLeast(1)
+    val endIdx = (startIdx + count).coerceAtMost(buf.size)
+    val rng = NoiseGen(seed)
+
+    // Pre-schedule irregular snapping fiber transients clustered along a tension-and-rip arc
+    val snapTimes = DoubleArray(fiberCount)
+    val snapAmps = DoubleArray(fiberCount)
+    val snapFreqs = DoubleArray(fiberCount)
+    for (k in 0 until fiberCount) {
+      val progress = k.toDouble() / fiberCount.coerceAtLeast(1)
+      // Slightly denser ripping toward the middle/climax of the tear
+      val jitter = (rng.nextUnit() - 0.5) * (durationSec / fiberCount) * 1.45
+      snapTimes[k] = (progress * durationSec * 0.88 + jitter).coerceIn(0.0, durationSec - 0.015)
+      snapAmps[k] = 0.45 + 0.55 * sin(PI * progress) + rng.nextUnit() * 0.35
+      snapFreqs[k] = (760.0 + rng.nextUnit() * 1350.0) * pitch
+    }
+
+    val cavityFilter = SvFilter()
+    val fiberFilter = SvFilter()
+    val groanNoise = NoiseGen(seed + 97)
+
+    for (i in startIdx until endIdx) {
+      val t = (i - startIdx).toDouble() / SAMPLE_RATE
+      val frac = (t / durationSec).coerceIn(0.0, 1.0)
+      val env = sin(PI * frac).coerceAtLeast(0.0)
+
+      // Continuous taut wet-fiber friction excitation with irregular micro-tears
+      var rawRip = groanNoise.nextFloat().toDouble() * 0.32
+      for (k in 0 until fiberCount) {
+        val dt = t - snapTimes[k]
+        if (dt >= 0.0 && dt < 0.022) {
+          // Sharp asymmetric fibrous snap impulse
+          val fiber = sin(TWO_PI * snapFreqs[k] * dt) * exp(-dt * 210.0)
+          val pop = exp(-dt * 145.0) * (1.0 - dt * 32.0).coerceAtLeast(0.0)
+          rawRip += (fiber * 0.72 + pop * 0.55) * snapAmps[k]
+        }
+      }
+
+      // Dual moving resonant formants: wet tissue pocket (310..760Hz) + ripping fascia (1150..2300Hz)
+      val wobble = sin(TWO_PI * 11.5 * t) * 95.0
+      val cavityFreq = (320.0 + frac * 390.0 + wobble).coerceIn(180.0, 950.0) * pitch
+      val fiberFreq = (1220.0 + (1.0 - frac * 0.45) * 920.0 + wobble * 1.6).coerceIn(620.0, 2900.0) * pitch
+      val wetBody = cavityFilter.processBandpass(rawRip, cavityFreq, 4.6) * 0.82
+      val tautRasp = fiberFilter.processBandpass(rawRip, fiberFreq, 3.8) * 0.62
+
+      // Stretched elastic ligament groan pitching down under tension with gritty flutter
+      val flutter = 0.72 + 0.28 * sin(TWO_PI * 29.0 * t)
+      val groanFreq = (148.0 * exp(-frac * 1.45) + 54.0) * pitch
+      val groan = sin(TWO_PI * groanFreq * t) * env * flutter * 0.34
+
+      buf[i] += ((wetBody + tautRasp + groan) * gain).toFloat()
+    }
+  }
+
+  /**
+   * Adds thick, wet, organic mucosa squelch using crackle-injected wet noise routed through two
+   * LFO-swept resonant vocal/cavity formant filters + slow fleshy pressure swell.
+   */
+  private fun addWetSquelch(
+    buf: FloatArray,
+    startSec: Double,
+    durationSec: Double,
+    pitch: Double,
+    gain: Double,
+    formantStartHz: Double = 240.0,
+    formantEndHz: Double = 640.0,
+    wobbleHz: Double = 7.5,
+    seed: Int = 521,
+  ) {
+    val startIdx = (startSec * SAMPLE_RATE).toInt().coerceAtLeast(0)
+    val count = (durationSec * SAMPLE_RATE).toInt().coerceAtLeast(1)
+    val endIdx = (startIdx + count).coerceAtMost(buf.size)
+    val noise = NoiseGen(seed)
+    val f1 = SvFilter()
+    val f2 = SvFilter()
+    var crackleEnv = 0.0
+
+    for (i in startIdx until endIdx) {
+      val t = (i - startIdx).toDouble() / SAMPLE_RATE
+      val frac = (t / durationSec).coerceIn(0.0, 1.0)
+      val env = sin(PI * frac).coerceAtLeast(0.0) * (1.0 - exp(-t * 28.0))
+      val n = noise.nextFloat().toDouble()
+
+      // Inject irregular wet sticky micro-pops so the noise sounds viscous rather than static hiss
+      if (noise.nextUnit() > 0.986) {
+        crackleEnv = 0.9 + noise.nextUnit() * 0.8
+      }
+      crackleEnv *= 0.91
+      val wetSource = n * (0.45 + crackleEnv * 1.35)
+
+      val lfo = 0.5 + 0.5 * sin(TWO_PI * wobbleHz * t + 0.4)
+      val sweep = formantStartHz + (formantEndHz - formantStartHz) * frac
+      val freq1 = (sweep * (0.76 + 0.46 * lfo)).coerceIn(110.0, 1100.0) * pitch
+      val freq2 = (freq1 * 2.15 + 140.0 * cos(TWO_PI * (wobbleHz * 1.35) * t)).coerceIn(320.0, 2600.0)
+
+      val cavity1 = f1.processBandpass(wetSource, freq1, 5.8) * 0.85
+      val cavity2 = f2.processBandpass(wetSource, freq2, 6.4) * 0.52
+      val fleshSub = sin(TWO_PI * ((78.0 - 24.0 * frac) * pitch) * t) * env * (0.7 + 0.3 * lfo) * 0.38
+
+      buf[i] += (((cavity1 + cavity2) * env + fleshSub) * gain).toFloat()
+    }
+  }
+
+  /**
+   * Adds a staggered cluster of wet cavity bubble pops (soft attack, organic upward pitch chirp)
+   * that instantly sells thick liquid mucosa, blister rupture, and submerged suction.
+   */
+  private fun addBubbleCluster(
+    buf: FloatArray,
+    startSec: Double,
+    spanSec: Double,
+    count: Int,
+    baseFreqHz: Double,
+    gain: Double,
+    seed: Int = 823,
+  ) {
+    val rng = NoiseGen(seed)
+    for (b in 0 until count) {
+      val bStart = startSec + rng.nextUnit() * spanSec
+      val bDur = 0.026 + rng.nextUnit() * 0.032
+      val f0 = baseFreqHz * (0.68 + rng.nextUnit() * 0.78)
+      val bGain = gain * (0.55 + rng.nextUnit() * 0.55)
+      val sIdx = (bStart * SAMPLE_RATE).toInt().coerceAtLeast(0)
+      val eIdx = ((bStart + bDur) * SAMPLE_RATE).toInt().coerceAtMost(buf.size)
+      var phaseAcc = 0.0
+      for (i in sIdx until eIdx) {
+        val dt = (i - sIdx).toDouble() / SAMPLE_RATE
+        val u = (dt / bDur).coerceIn(0.0, 1.0)
+        val env = sin(PI * u) * exp(-u * 1.4)
+        val f = f0 * (1.0 + u * u * 1.05)
+        phaseAcc += TWO_PI * f / SAMPLE_RATE
+        buf[i] += (sin(phaseAcc) * env * bGain).toFloat()
+      }
+    }
+  }
+
   fun synthesizeCue(cue: SoundCue, phase: Int = 0, pitchFactor: Float = 1f): ShortArray {
     val pitch = pitchFactor.coerceIn(0.82f, 1.18f).toDouble()
-    val pDark = 1.0 - (phase.coerceIn(0, 4) * 0.04)
+    val pDark = 1.0 - (phase.coerceIn(0, 4) * 0.035)
     return when (cue) {
       SoundCue.VALVE_PRESS -> renderValvePress(pitch * pDark, phase)
       SoundCue.CREATURE_BUY_SUTURE_HAND -> renderSutureHandBuy(pitch * pDark)
@@ -74,654 +325,468 @@ object ProceduralFoleySynth {
     }
   }
 
-  /** Deep, heavy cast-iron valve lug thud + muffled closed-room pipe resonance + dark seepage. */
+  /**
+   * Heavy wet cast-iron wall valve crank: authentic 6-mode cast-iron wheel clang + pawl ratchet
+   * scrape + recessed iron housing sub-weight + phase-escalating wet organ seepage behind the rim.
+   */
   private fun renderValvePress(pitch: Double, phase: Int): ShortArray {
-    val len = (SAMPLE_RATE * 0.21).toInt()
+    val len = (SAMPLE_RATE * 0.26).toInt()
     val buf = FloatArray(len)
-    val noise = NoiseGen(101 + phase * 17)
-    var lp = 0.0
-    var lp2 = 0.0
+
+    // 1. Heavy cast-iron wheel & mounting flange modal clang (dark cold iron fundamental ~285Hz)
+    addIronModalRing(
+      buf = buf,
+      startSec = 0.0,
+      durationSec = 0.25,
+      baseFreqHz = 285.0 * pitch,
+      gain = 0.84,
+      decayScale = 0.95,
+      seed = 101 + phase * 17,
+      includeRatchetGrit = true,
+    )
+
+    // 2. Tight bolted cast-iron wall housing weight (88Hz -> 44Hz) + secondary pawl lug catch at 42ms
+    var lugPhase = 0.0
     for (i in 0 until len) {
       val t = i.toDouble() / SAMPLE_RATE
-      val n = noise.nextFloat().toDouble()
-      // Heavily damped low-mid mechanical ratchet noise (no bright hiss)
-      lp += 0.13 * (n - lp)
-      lp2 += 0.045 * (lp - lp2)
-      val ratchet = (lp - lp2 * 0.45) * exp(-t * 58.0) * 0.62
-      // Deep cast-iron mass thump (84Hz -> 40Hz) + dull recessed collar resonance (165Hz -> 96Hz)
-      val subFreq = (40.0 + 44.0 * exp(-t * 24.0)) * pitch
-      val bodyFreq = (96.0 + 69.0 * exp(-t * 32.0)) * pitch
-      val iron =
-        sin(TWO_PI * subFreq * t) * exp(-t * 17.0) * 0.78 +
-          sin(TWO_PI * bodyFreq * t) * exp(-t * 28.0) * 0.30
-      // Muted dark seepage plop trailing 32ms behind the lug
-      val dropT = (t - 0.032).coerceAtLeast(0.0)
-      val drop =
-        if (t > 0.032) {
-          val freq = (148.0 + dropT * 620.0).coerceAtMost(240.0) * pitch
-          sin(TWO_PI * freq * dropT) * exp(-dropT * 38.0) * (0.14 + phase * 0.035)
-        } else 0.0
-      buf[i] = (ratchet + iron + drop).toFloat()
+      val subF = (44.0 + 44.0 * exp(-t * 28.0)) * pitch
+      lugPhase += TWO_PI * subF / SAMPLE_RATE
+      val housingThud = sin(lugPhase) * exp(-t * 24.0) * 0.36
+      buf[i] += housingThud.toFloat()
     }
-    return toPcm16(buf, 0.84f)
+    addIronModalRing(
+      buf = buf,
+      startSec = 0.042,
+      durationSec = 0.16,
+      baseFreqHz = 365.0 * pitch,
+      gain = 0.42,
+      decayScale = 1.28,
+      seed = 149 + phase * 7,
+      includeRatchetGrit = false,
+    )
+
+    // 3. Phase 1+: Damp organic ichor seepage trailing behind the iron turn
+    if (phase >= 1) {
+      val wet = (phase / 4.0).coerceIn(0.25, 1.0)
+      addWetSquelch(
+        buf = buf,
+        startSec = 0.055,
+        durationSec = 0.17,
+        pitch = pitch,
+        gain = 0.28 * wet,
+        formantStartHz = 340.0,
+        formantEndHz = 180.0,
+        wobbleHz = 12.0,
+        seed = 181 + phase * 13,
+      )
+      addBubbleCluster(
+        buf = buf,
+        startSec = 0.065,
+        spanSec = 0.12,
+        count = 2 + phase,
+        baseFreqHz = 190.0 * pitch,
+        gain = 0.14 * wet,
+        seed = 197 + phase * 11,
+      )
+    }
+
+    return toPcm16(buf, 0.86f, roomWet = 0.18f)
   }
 
-  /** Suture-Hand: dry-wet knuckle/joint crack + heavy palm grip settling onto cold cast iron. */
+  /** Suture-Hand: wet fascia tearing loose from plaster + tendons snapping + cold iron rim grip. */
   private fun renderSutureHandBuy(pitch: Double): ShortArray {
-    val len = (SAMPLE_RATE * 0.28).toInt()
+    val len = (SAMPLE_RATE * 0.42).toInt()
     val buf = FloatArray(len)
-    val noise = NoiseGen(202)
-    var lp = 0.0
-    var lp2 = 0.0
-    for (i in 0 until len) {
-      val t = i.toDouble() / SAMPLE_RATE
-      val n = noise.nextFloat().toDouble()
-      lp += 0.16 * (n - lp)
-      lp2 += 0.05 * (lp - lp2)
-      // Heavy iron grip weight
-      val gripFreq = (48.0 + 54.0 * exp(-t * 18.0)) * pitch
-      val grip = sin(TWO_PI * gripFreq * t) * exp(-t * 15.0) * 0.72
-      // Two staggered dull knuckle/tendon snaps settling on the wheel rim
-      val k1 = sin(TWO_PI * ((260.0 - t * 900.0).coerceAtLeast(115.0) * pitch) * t) * exp(-t * 48.0) * 0.34
-      val k2T = (t - 0.075).coerceAtLeast(0.0)
-      val k2 =
-        if (t > 0.075) {
-          sin(TWO_PI * ((215.0 - k2T * 750.0).coerceAtLeast(95.0) * pitch) * k2T) *
-            exp(-k2T * 42.0) *
-            0.30
-        } else 0.0
-      val dampGrip = (lp - lp2 * 0.3) * exp(-t * 22.0) * 0.42
-      buf[i] = (grip + k1 + k2 + dampGrip).toFloat()
-    }
-    return toPcm16(buf, 0.80f)
+    addTendonTear(buf, 0.0, 0.26, pitch, gain = 0.72, fiberCount = 16, seed = 202)
+    addWetSquelch(buf, 0.03, 0.24, pitch, gain = 0.38, formantStartHz = 260.0, formantEndHz = 520.0, seed = 205)
+    // Cold skeletal fingers clamping onto the iron valve wheel at 165ms
+    addIronModalRing(buf, 0.165, 0.22, 265.0 * pitch, gain = 0.44, decayScale = 1.35, seed = 209, includeRatchetGrit = false)
+    return toPcm16(buf, 0.82f, roomWet = 0.16f)
   }
 
-  /** Leech-Clerk: sluggish wet suction attach + low slimy glass drag across the counter bezel. */
+  /** Leech-Clerk: long viscous wet mucosal squelch + irregular suction-cup bubbles dragging on cold glass. */
   private fun renderLeechClerkBuy(pitch: Double): ShortArray {
-    val len = (SAMPLE_RATE * 0.34).toInt()
+    val len = (SAMPLE_RATE * 0.46).toInt()
     val buf = FloatArray(len)
-    val noise = NoiseGen(213)
-    var lp = 0.0
-    var lp2 = 0.0
-    for (i in 0 until len) {
-      val t = i.toDouble() / SAMPLE_RATE
-      val n = noise.nextFloat().toDouble()
-      val mod = 0.06 + 0.09 * sin(PI * (t / 0.34).coerceAtMost(1.0)).coerceAtLeast(0.0)
-      lp += mod * (n - lp)
-      lp2 += 0.03 * (lp - lp2)
-      // Wet suction slurp sweeping downward
-      val slurpFreq = (178.0 * exp(-t * 6.5) + 64.0) * pitch
-      val slurpEnv = sin(PI * (t / 0.28).coerceAtMost(1.0)).coerceAtLeast(0.0)
-      val slurp = sin(TWO_PI * slurpFreq * t) * slurpEnv * 0.56
-      // Thick mucus squelch texture
-      val slime = (lp - lp2 * 0.4) * slurpEnv * 0.72
-      // Late soft suction-cup seal pop
-      val popT = (t - 0.14).coerceAtLeast(0.0)
-      val pop =
-        if (t > 0.14) {
-          val pf = (118.0 - popT * 380.0).coerceAtLeast(52.0) * pitch
-          sin(TWO_PI * pf * popT) * exp(-popT * 26.0) * 0.48
-        } else 0.0
-      buf[i] = (slurp + slime + pop).toFloat()
-    }
-    return toPcm16(buf, 0.80f)
+    addWetSquelch(buf, 0.0, 0.42, pitch, gain = 0.78, formantStartHz = 220.0, formantEndHz = 620.0, wobbleHz = 8.5, seed = 213)
+    addBubbleCluster(buf, 0.04, 0.32, count = 7, baseFreqHz = 185.0 * pitch, gain = 0.32, seed = 219)
+    return toPcm16(buf, 0.82f, roomWet = 0.14f)
   }
 
-  /** Weeping Lamp: dull hollow dark-glass vessel groan + slow heavy dark-water droplet plop. */
+  /** Weeping Lamp: eerie hollow thick-glass vessel toll + slow heavy viscous condensation drops. */
   private fun renderWeepingLampBuy(pitch: Double): ShortArray {
-    val len = (SAMPLE_RATE * 0.40).toInt()
+    val len = (SAMPLE_RATE * 0.52).toInt()
     val buf = FloatArray(len)
-    val noise = NoiseGen(224)
-    var lp = 0.0
+    val glassPartials = doubleArrayOf(182.0, 346.0, 588.0, 91.0)
+    val glassAmps = doubleArrayOf(0.46, 0.24, 0.12, 0.30)
+    val glassDecays = doubleArrayOf(5.8, 8.5, 13.0, 6.2)
     for (i in 0 until len) {
       val t = i.toDouble() / SAMPLE_RATE
-      lp += 0.08 * (noise.nextFloat() - lp)
-      // Heavy hollow dark-glass bell resonance (low, moody, non-bright)
-      val bellEnv = exp(-t * 7.8) * (1.0 - exp(-t * 55.0))
-      val glass =
-        (sin(TWO_PI * (146.0 * pitch) * t) * 0.56 +
-          sin(TWO_PI * (220.0 * pitch) * t) * 0.24 +
-          sin(TWO_PI * (73.0 * pitch) * t) * 0.32) * bellEnv
-      // Slow condensation droplet plopping into pooled ichor at 135ms
-      val dropT = (t - 0.135).coerceAtLeast(0.0)
-      val drop =
-        if (t > 0.135) {
-          val df = (155.0 + dropT * 740.0).coerceAtMost(265.0) * pitch
-          sin(TWO_PI * df * dropT) * exp(-dropT * 28.0) * 0.34
-        } else 0.0
-      val sway = lp * exp(-t * 12.0) * 0.22
-      buf[i] = (glass + drop + sway).toFloat()
+      val attack = 1.0 - exp(-t * 50.0)
+      var g = 0.0
+      for (k in glassPartials.indices) {
+        g += sin(TWO_PI * (glassPartials[k] * pitch) * t) * exp(-t * glassDecays[k]) * glassAmps[k]
+      }
+      buf[i] = (g * attack).toFloat()
     }
-    return toPcm16(buf, 0.78f)
+    addBubbleCluster(buf, 0.14, 0.26, count = 4, baseFreqHz = 195.0 * pitch, gain = 0.28, seed = 224)
+    return toPcm16(buf, 0.80f, roomWet = 0.22f)
   }
 
-  /** Sump-Siphon: cavernous iron pipe vacuum inhale + deep submerged gurgling gulp. */
+  /** Sump-Siphon: cavernous wet bellows inhale + submerged bubbling iron-pipe gulp + iron seat clank. */
   private fun renderSumpSiphonBuy(pitch: Double): ShortArray {
-    val len = (SAMPLE_RATE * 0.44).toInt()
+    val len = (SAMPLE_RATE * 0.56).toInt()
     val buf = FloatArray(len)
-    val noise = NoiseGen(235)
-    var lp = 0.0
-    for (i in 0 until len) {
-      val t = i.toDouble() / SAMPLE_RATE
-      lp += 0.065 * (noise.nextFloat() - lp)
-      val env = sin(PI * (t / 0.44).coerceAtMost(1.0)).coerceAtLeast(0.0)
-      // Deep bellows sub-inhale (68Hz -> 38Hz) with bubbling modulation
-      val bubble = 0.70 + 0.30 * sin(TWO_PI * 14.0 * t)
-      val pipeFreq = (38.0 + 30.0 * exp(-t * 4.5)) * pitch
-      val pipe = sin(TWO_PI * pipeFreq * t) * env * 0.72
-      val gurgle = lp * env * bubble * 0.85
-      val valveSeat =
-        if (t > 0.22) {
-          val dt = t - 0.22
-          sin(TWO_PI * (92.0 * pitch) * dt) * exp(-dt * 20.0) * 0.42
-        } else 0.0
-      buf[i] = (pipe + gurgle + valveSeat).toFloat()
-    }
-    return toPcm16(buf, 0.82f)
+    addWetSquelch(buf, 0.0, 0.48, pitch, gain = 0.72, formantStartHz = 420.0, formantEndHz = 150.0, wobbleHz = 6.2, seed = 235)
+    addBubbleCluster(buf, 0.05, 0.38, count = 8, baseFreqHz = 140.0 * pitch, gain = 0.34, seed = 241)
+    addIronModalRing(buf, 0.28, 0.24, 175.0 * pitch, gain = 0.36, decayScale = 1.3, seed = 247, includeRatchetGrit = false)
+    return toPcm16(buf, 0.84f, roomWet = 0.18f)
   }
 
-  /** Dull bone/enamel root snap + damp plaster crumble. */
+  /** Pull Pale Tooth: taut periodontal ligament tearing out of wet plaster + enamel root wrench pop. */
   private fun renderToothPull(pitch: Double): ShortArray {
-    val len = (SAMPLE_RATE * 0.22).toInt()
-    val buf = FloatArray(len)
-    val noise = NoiseGen(303)
-    var lp = 0.0
-    for (i in 0 until len) {
-      val t = i.toDouble() / SAMPLE_RATE
-      lp += 0.16 * (noise.nextFloat() - lp)
-      val snapFreq = (520.0 - t * 1850.0).coerceAtLeast(175.0) * pitch
-      val snap = sin(TWO_PI * snapFreq * t) * exp(-t * 46.0) * 0.48
-      val socketPop = sin(TWO_PI * ((128.0 - t * 340.0).coerceAtLeast(56.0) * pitch) * t) * exp(-t * 24.0) * 0.62
-      val mortar = lp * exp(-t * 28.0) * 0.42
-      buf[i] = (snap + socketPop + mortar).toFloat()
-    }
-    return toPcm16(buf, 0.78f)
-  }
-
-  /** Heavy damp condensation wipe + low hollow glass-eye blink. */
-  private fun renderGlassEyeWipe(pitch: Double): ShortArray {
-    val len = (SAMPLE_RATE * 0.32).toInt()
-    val buf = FloatArray(len)
-    val noise = NoiseGen(404)
-    var lp1 = 0.0
-    var lp2 = 0.0
-    for (i in 0 until len) {
-      val t = i.toDouble() / SAMPLE_RATE
-      val n = noise.nextFloat().toDouble()
-      val cutoff = 0.05 + 0.11 * sin(PI * (t / 0.32)).coerceAtLeast(0.0)
-      lp1 += cutoff * (n - lp1)
-      lp2 += 0.025 * (n - lp2)
-      val wipeEnv = sin(PI * (t / 0.32)).coerceAtLeast(0.0)
-      val wipe = (lp1 - lp2) * wipeEnv * 0.88
-      val blink =
-        if (t > 0.17) {
-          val bt = t - 0.17
-          val bf = (118.0 - bt * 320.0).coerceAtLeast(62.0) * pitch
-          sin(TWO_PI * bf * bt) * exp(-bt * 26.0) * 0.48
-        } else 0.0
-      buf[i] = (wipe + blink).toFloat()
-    }
-    return toPcm16(buf, 0.76f)
-  }
-
-  /** Thick viscous blister rupture + sluggish oozing seepage. */
-  private fun renderNoduleProd(pitch: Double): ShortArray {
-    val len = (SAMPLE_RATE * 0.30).toInt()
-    val buf = FloatArray(len)
-    val noise = NoiseGen(505)
-    var lp = 0.0
-    for (i in 0 until len) {
-      val t = i.toDouble() / SAMPLE_RATE
-      lp += 0.08 * (noise.nextFloat() - lp)
-      val sweep = (146.0 - 82.0 * sin(PI * (t / 0.30).coerceAtMost(1.0))) * pitch
-      val squelch = sin(TWO_PI * sweep * t) * exp(-t * 13.0) * 0.66
-      val ooze = lp * exp(-t * 10.5) * 0.68
-      buf[i] = (squelch + ooze).toFloat()
-    }
-    return toPcm16(buf, 0.78f)
-  }
-
-  /** Deep calcified rib creak + hollow marrow pry. */
-  private fun renderRibPry(pitch: Double): ShortArray {
     val len = (SAMPLE_RATE * 0.36).toInt()
     val buf = FloatArray(len)
-    val noise = NoiseGen(606)
-    var lp = 0.0
-    for (i in 0 until len) {
-      val t = i.toDouble() / SAMPLE_RATE
-      lp += 0.15 * (noise.nextFloat() - lp)
-      val fm = sin(TWO_PI * 24.0 * t) * 28.0
-      val creak = sin(TWO_PI * (128.0 * pitch + fm) * t) * exp(-t * 9.5) * 0.50
-      val crack = lp * exp(-t * 24.0) * 0.54
-      val marrow = sin(TWO_PI * ((74.0 - t * 90.0).coerceAtLeast(38.0) * pitch) * t) * exp(-t * 12.0) * 0.56
-      buf[i] = (creak + crack + marrow).toFloat()
-    }
-    return toPcm16(buf, 0.80f)
+    addTendonTear(buf, 0.0, 0.28, pitch, gain = 0.84, fiberCount = 18, seed = 303)
+    addWetSquelch(buf, 0.08, 0.22, pitch, gain = 0.42, formantStartHz = 380.0, formantEndHz = 190.0, seed = 309)
+    addBubbleCluster(buf, 0.16, 0.12, count = 4, baseFreqHz = 230.0 * pitch, gain = 0.28, seed = 313)
+    return toPcm16(buf, 0.82f, roomWet = 0.15f)
   }
 
-  /** Thick dark apothecary glass vessel thud + deep wax-seal vacuum cork. */
-  private fun renderJarBottle(pitch: Double): ShortArray {
-    val len = (SAMPLE_RATE * 0.32).toInt()
+  /** Wipe Glass Eye: damp rubbery condensation smear + wet mucosal eyelid squelch + hollow sphere roll. */
+  private fun renderGlassEyeWipe(pitch: Double): ShortArray {
+    val len = (SAMPLE_RATE * 0.42).toInt()
     val buf = FloatArray(len)
-    val noise = NoiseGen(650)
-    var lp = 0.0
+    addWetSquelch(buf, 0.0, 0.34, pitch, gain = 0.74, formantStartHz = 290.0, formantEndHz = 780.0, wobbleHz = 6.0, seed = 404)
+    addBubbleCluster(buf, 0.14, 0.20, count = 5, baseFreqHz = 210.0 * pitch, gain = 0.26, seed = 409)
+    return toPcm16(buf, 0.80f, roomWet = 0.14f)
+  }
+
+  /** Prod Swollen Nodule: taut blister membrane tearing open + juicy oozing wet squelch & bubble burst. */
+  private fun renderNoduleProd(pitch: Double): ShortArray {
+    val len = (SAMPLE_RATE * 0.44).toInt()
+    val buf = FloatArray(len)
+    addTendonTear(buf, 0.0, 0.16, pitch, gain = 0.56, fiberCount = 12, seed = 505)
+    addWetSquelch(buf, 0.04, 0.38, pitch, gain = 0.84, formantStartHz = 480.0, formantEndHz = 175.0, wobbleHz = 9.5, seed = 509)
+    addBubbleCluster(buf, 0.07, 0.30, count = 7, baseFreqHz = 175.0 * pitch, gain = 0.34, seed = 515)
+    return toPcm16(buf, 0.84f, roomWet = 0.14f)
+  }
+
+  /** Pry Split Chitin Rib: deep calcified bone wrench + long fibrous tendon/ligament ripping + marrow groan. */
+  private fun renderRibPry(pitch: Double): ShortArray {
+    val len = (SAMPLE_RATE * 0.52).toInt()
+    val buf = FloatArray(len)
+    addTendonTear(buf, 0.0, 0.44, pitch * 0.92, gain = 0.90, fiberCount = 24, seed = 606)
+    addWetSquelch(buf, 0.10, 0.36, pitch, gain = 0.50, formantStartHz = 280.0, formantEndHz = 540.0, wobbleHz = 6.5, seed = 611)
+    addBubbleCluster(buf, 0.18, 0.24, count = 5, baseFreqHz = 155.0 * pitch, gain = 0.24, seed = 617)
+    return toPcm16(buf, 0.84f, roomWet = 0.18f)
+  }
+
+  /** Bottle Specimen Jar: dark thick-glass vessel resonance + viscous suction wax-cork seal. */
+  private fun renderJarBottle(pitch: Double): ShortArray {
+    val len = (SAMPLE_RATE * 0.40).toInt()
+    val buf = FloatArray(len)
     for (i in 0 until len) {
       val t = i.toDouble() / SAMPLE_RATE
-      lp += 0.09 * (noise.nextFloat() - lp)
+      val attack = 1.0 - exp(-t * 95.0)
       val vessel =
-        (sin(TWO_PI * (260.0 * pitch) * t) * 0.36 + sin(TWO_PI * (388.0 * pitch) * t) * 0.16) *
-          exp(-t * 22.0)
-      val waxT = (t - 0.055).coerceAtLeast(0.0)
-      val seal =
-        if (t > 0.055) {
-          val f = (84.0 - waxT * 180.0).coerceAtLeast(38.0) * pitch
-          sin(TWO_PI * f * waxT) * exp(-waxT * 16.0) * 0.72
-        } else 0.0
-      val cork = lp * exp(-t * 26.0) * 0.36
-      buf[i] = (vessel + seal + cork).toFloat()
+        (sin(TWO_PI * (248.0 * pitch) * t) * 0.40 +
+          sin(TWO_PI * (412.0 * pitch) * t) * 0.20 +
+          sin(TWO_PI * (124.0 * pitch) * t) * 0.24) * exp(-t * 14.0) * attack
+      buf[i] = vessel.toFloat()
     }
-    return toPcm16(buf, 0.78f)
+    addWetSquelch(buf, 0.05, 0.26, pitch, gain = 0.58, formantStartHz = 360.0, formantEndHz = 165.0, wobbleHz = 8.0, seed = 650)
+    addBubbleCluster(buf, 0.08, 0.18, count = 4, baseFreqHz = 170.0 * pitch, gain = 0.28, seed = 653)
+    return toPcm16(buf, 0.80f, roomWet = 0.16f)
   }
 
   /**
-   * Long (~940ms), visceral, deeply fleshy grafting ritual:
-   * - Stage 1 (0..320ms): heavy wet tissue compression & peristaltic sub-throb
-   * - Stage 2 (200..650ms): three staggered soggy braiding/suction gulps (zero metallic pings)
-   * - Stage 3 (560..940ms): heavy damp organic exhale settling into the wall
+   * Long (~1.15s) deeply organic & grotesque grafting ritual:
+   * - Stage 1 (0..450ms): heavy damp flesh compression & first slow tendon rip
+   * - Stage 2 (260..820ms): overlapping sinew tearing & wet mucosa braiding squelches + cavity bubbles
+   * - Stage 3 (680..1150ms): visceral deep sub-exhale & wet settling into the wall
    */
   private fun renderGraftPerform(pitch: Double): ShortArray {
-    val duration = 0.94
+    val duration = 1.15
     val len = (SAMPLE_RATE * duration).toInt()
     val buf = FloatArray(len)
-    val noise = NoiseGen(707)
-    var lp1 = 0.0
-    var lp2 = 0.0
-    val pulseStarts = doubleArrayOf(0.18, 0.38, 0.56)
-    val pulseFreqs = doubleArrayOf(158.0, 134.0, 114.0)
-    val pulseAmps = doubleArrayOf(0.46, 0.52, 0.44)
+
+    // Deep peristaltic body pressure swell (60Hz -> 33Hz)
+    var subPhase = 0.0
     for (i in 0 until len) {
       val t = i.toDouble() / SAMPLE_RATE
-      val n = noise.nextFloat().toDouble()
-      val wobble = 0.55 + 0.45 * sin(TWO_PI * 7.8 * t)
-      // Wet formant-modulated dark squelch bed (stays strictly low-passed, warm & fleshy)
-      val cutoff = 0.045 + 0.075 * wobble * (1.0 - (t / duration) * 0.45)
-      lp1 += cutoff * (n - lp1)
-      lp2 += 0.022 * (lp1 - lp2)
-      val bedEnv = sin(PI * (t / duration).coerceAtMost(1.0)).coerceAtLeast(0.0)
-      val fleshNoise = (lp1 - lp2 * 0.35) * bedEnv * (0.85 + 0.35 * wobble)
-
-      // Deep visceral sub-throb descending from 58Hz -> 34Hz
-      val subFreq = (34.0 + 24.0 * exp(-t * 2.2)) * pitch
-      val sub = sin(TWO_PI * subFreq * t) * bedEnv * 0.62
-
-      // Three staggered wet fleshy braiding suction contractions
-      var pulses = 0.0
-      for (k in pulseStarts.indices) {
-        val dt = t - pulseStarts[k]
-        if (dt >= 0.0 && dt < 0.28) {
-          val pEnv = sin(PI * (dt / 0.26).coerceAtMost(1.0)).coerceAtLeast(0.0) * exp(-dt * 5.2)
-          val pf = (pulseFreqs[k] * exp(-dt * 6.5) + 46.0) * pitch
-          val wetRipple = 0.72 + 0.28 * sin(TWO_PI * 19.0 * dt)
-          pulses += sin(TWO_PI * pf * dt) * pEnv * wetRipple * pulseAmps[k]
-        }
-      }
-
-      // Late damp organic exhale settling into masonry
-      val exhale =
-        if (t > 0.58) {
-          val et = t - 0.58
-          val eEnv = sin(PI * (et / 0.36).coerceAtMost(1.0)).coerceAtLeast(0.0)
-          lp2 * eEnv * 1.15
-        } else 0.0
-
-      buf[i] = (fleshNoise + sub + pulses + exhale).toFloat()
+      val frac = t / duration
+      val env = sin(PI * frac).coerceAtLeast(0.0)
+      val f = (33.0 + 27.0 * exp(-t * 2.0)) * pitch
+      subPhase += TWO_PI * f / SAMPLE_RATE
+      buf[i] = (sin(subPhase) * env * 0.44).toFloat()
     }
-    return toPcm16(buf, 0.84f)
+
+    // Dual overlapping fibrous tendon/sinew tearing waves
+    addTendonTear(buf, 0.05, 0.48, pitch * 0.96, gain = 0.74, fiberCount = 24, seed = 707)
+    addTendonTear(buf, 0.34, 0.52, pitch * 0.88, gain = 0.80, fiberCount = 26, seed = 719)
+
+    // Deep wet mucosa braiding squelch + dense organic bubble suction
+    addWetSquelch(buf, 0.02, 0.72, pitch, gain = 0.72, formantStartHz = 220.0, formantEndHz = 590.0, wobbleHz = 7.2, seed = 727)
+    addWetSquelch(buf, 0.52, 0.58, pitch * 0.92, gain = 0.66, formantStartHz = 440.0, formantEndHz = 155.0, wobbleHz = 5.4, seed = 733)
+    addBubbleCluster(buf, 0.16, 0.74, count = 11, baseFreqHz = 165.0 * pitch, gain = 0.30, seed = 743)
+
+    return toPcm16(buf, 0.85f, roomWet = 0.18f)
   }
 
-  /** Coarse surgical thread draw through damp skin + dull low-register seam settle. */
+  /** Suture Scar Node: surgical thread dragging taut through damp flesh + crisp tendon cinch. */
   private fun renderScarStitch(pitch: Double): ShortArray {
-    val len = (SAMPLE_RATE * 0.26).toInt()
+    val len = (SAMPLE_RATE * 0.38).toInt()
     val buf = FloatArray(len)
-    val noise = NoiseGen(808)
-    var lp = 0.0
-    var lp2 = 0.0
-    for (i in 0 until len) {
-      val t = i.toDouble() / SAMPLE_RATE
-      val n = noise.nextFloat().toDouble()
-      lp += 0.18 * (n - lp)
-      lp2 += 0.05 * (lp - lp2)
-      val thread = (lp - lp2) * sin(PI * (t / 0.26).coerceAtMost(1.0)) * 0.56
-      val knotT = (t - 0.10).coerceAtLeast(0.0)
-      val knot =
-        if (t > 0.10) {
-          sin(TWO_PI * ((240.0 - knotT * 780.0).coerceAtLeast(110.0) * pitch) * knotT) *
-            exp(-knotT * 34.0) *
-            0.38
-        } else 0.0
-      val sub = sin(TWO_PI * ((104.0 - t * 180.0).coerceAtLeast(48.0) * pitch) * t) * exp(-t * 18.0) * 0.56
-      buf[i] = (thread + knot + sub).toFloat()
-    }
-    return toPcm16(buf, 0.78f)
+    addTendonTear(buf, 0.0, 0.30, pitch * 1.05, gain = 0.74, fiberCount = 15, seed = 808)
+    addWetSquelch(buf, 0.06, 0.26, pitch, gain = 0.44, formantStartHz = 520.0, formantEndHz = 220.0, wobbleHz = 9.0, seed = 811)
+    return toPcm16(buf, 0.80f, roomWet = 0.14f)
   }
 
-  /** Heavy rusted cast-iron floor grate / diversion latch clank. */
+  /** Heavy rusted cast-iron floor sump grate latch slam & metallic ring. */
   private fun renderIronClank(pitch: Double): ShortArray {
-    val len = (SAMPLE_RATE * 0.28).toInt()
+    val len = (SAMPLE_RATE * 0.34).toInt()
     val buf = FloatArray(len)
-    val noise = NoiseGen(909)
-    var lp = 0.0
-    for (i in 0 until len) {
-      val t = i.toDouble() / SAMPLE_RATE
-      lp += 0.13 * (noise.nextFloat() - lp)
-      val clang =
-        (sin(TWO_PI * ((115.0 - t * 140.0).coerceAtLeast(56.0) * pitch) * t) * 0.62 +
-          sin(TWO_PI * (232.0 * pitch) * t) * 0.28 +
-          sin(TWO_PI * (348.0 * pitch) * t) * 0.12) * exp(-t * 16.0)
-      buf[i] = (clang + lp * exp(-t * 32.0) * 0.50).toFloat()
-    }
-    return toPcm16(buf, 0.80f)
+    addIronModalRing(buf, 0.0, 0.32, 205.0 * pitch, gain = 0.78, decayScale = 0.92, seed = 909, includeRatchetGrit = true)
+    addIronModalRing(buf, 0.048, 0.22, 290.0 * pitch, gain = 0.34, decayScale = 1.25, seed = 919, includeRatchetGrit = false)
+    return toPcm16(buf, 0.84f, roomWet = 0.20f)
   }
 
-  /** Submerged rusted chain-hook haul & dark sump water slosh. */
+  /** Submerged rusted iron chain-link haul & dark viscous sump water slosh. */
   private fun renderSumpDredge(pitch: Double): ShortArray {
-    val len = (SAMPLE_RATE * 0.48).toInt()
+    val len = (SAMPLE_RATE * 0.56).toInt()
     val buf = FloatArray(len)
-    val noise = NoiseGen(1010)
-    var lp = 0.0
-    for (i in 0 until len) {
-      val t = i.toDouble() / SAMPLE_RATE
-      lp += 0.075 * (noise.nextFloat() - lp)
-      val sluice = lp * sin(PI * (t / 0.48).coerceAtMost(1.0)) * 0.82
-      val chain1 = sin(TWO_PI * (196.0 * pitch) * t) * exp(-t * 28.0) * 0.36
-      val chain2 =
-        if (t > 0.14) {
-          sin(TWO_PI * (154.0 * pitch) * (t - 0.14)) * exp(-(t - 0.14) * 24.0) * 0.40
-        } else 0.0
-      val rise = sin(TWO_PI * ((56.0 + t * 72.0) * pitch) * t) * exp(-t * 7.5) * 0.48
-      buf[i] = (sluice + chain1 + chain2 + rise).toFloat()
-    }
-    return toPcm16(buf, 0.80f)
+    addWetSquelch(buf, 0.0, 0.50, pitch, gain = 0.64, formantStartHz = 280.0, formantEndHz = 460.0, wobbleHz = 6.8, seed = 1010)
+    addBubbleCluster(buf, 0.04, 0.42, count = 8, baseFreqHz = 160.0 * pitch, gain = 0.28, seed = 1013)
+    addIronModalRing(buf, 0.02, 0.20, 320.0 * pitch, gain = 0.42, decayScale = 1.4, seed = 1019, includeRatchetGrit = false)
+    addIronModalRing(buf, 0.16, 0.24, 255.0 * pitch, gain = 0.46, decayScale = 1.2, seed = 1021, includeRatchetGrit = false)
+    return toPcm16(buf, 0.84f, roomWet = 0.20f)
   }
 
   /** Deeply muffled triple knuckle-knock behind thick wet masonry. */
   private fun renderEchoTripleKnock(pitch: Double): ShortArray {
-    val len = (SAMPLE_RATE * 0.58).toInt()
+    val len = (SAMPLE_RATE * 0.62).toInt()
     val buf = FloatArray(len)
-    val offsets = doubleArrayOf(0.0, 0.155, 0.315)
-    val freqs = doubleArrayOf(92.0, 86.0, 80.0)
-    val amps = doubleArrayOf(0.64, 0.50, 0.38)
+    val offsets = doubleArrayOf(0.0, 0.16, 0.325)
+    val freqs = doubleArrayOf(96.0, 88.0, 82.0)
+    val amps = doubleArrayOf(0.66, 0.52, 0.40)
+    val noise = NoiseGen(1061)
+    val masonryFilter = SvFilter()
     for (i in 0 until len) {
       val t = i.toDouble() / SAMPLE_RATE
+      val n = noise.nextFloat().toDouble()
       var sum = 0.0
       for (k in offsets.indices) {
         val dt = t - offsets[k]
         if (dt >= 0.0) {
-          val f = (freqs[k] * exp(-dt * 8.0)).coerceAtLeast(44.0) * pitch
-          val tone = sin(TWO_PI * f * dt) * 0.74 + sin(TWO_PI * (f * 1.52) * dt) * 0.26
-          sum += tone * exp(-dt * 22.0) * amps[k]
+          val f = (freqs[k] * exp(-dt * 7.5)).coerceAtLeast(44.0) * pitch
+          val tone = sin(TWO_PI * f * dt) * 0.72 + sin(TWO_PI * (f * 1.56) * dt) * 0.28
+          val thumpNoise = masonryFilter.processLowpass(n, 240.0, 1.2) * exp(-dt * 34.0) * 0.55
+          sum += (tone * exp(-dt * 20.0) + thumpNoise) * amps[k]
         }
       }
       buf[i] = sum.toFloat()
     }
-    return toPcm16(buf, 0.76f)
+    return toPcm16(buf, 0.78f, roomWet = 0.22f)
   }
 
-  /** Massive iron jaws bolting down over the valve. */
+  /** Massive iron jaws bolting shut over the valve with cold metallic locking ring. */
   private fun renderClampLock(pitch: Double): ShortArray {
-    val len = (SAMPLE_RATE * 0.38).toInt()
+    val len = (SAMPLE_RATE * 0.44).toInt()
     val buf = FloatArray(len)
-    val noise = NoiseGen(1111)
-    var lp = 0.0
+    addIronModalRing(buf, 0.0, 0.40, 185.0 * pitch, gain = 0.80, decayScale = 0.85, seed = 1111, includeRatchetGrit = true)
+    addIronModalRing(buf, 0.095, 0.30, 278.0 * pitch, gain = 0.52, decayScale = 1.05, seed = 1117, includeRatchetGrit = false)
     for (i in 0 until len) {
       val t = i.toDouble() / SAMPLE_RATE
-      lp += 0.11 * (noise.nextFloat() - lp)
-      val slam = sin(TWO_PI * ((74.0 - t * 85.0).coerceAtLeast(36.0) * pitch) * t) * exp(-t * 11.5) * 0.82
-      val boltT = (t - 0.08).coerceAtLeast(0.0)
-      val bolt =
-        if (t > 0.08) {
-          sin(TWO_PI * ((168.0 - boltT * 280.0).coerceAtLeast(76.0) * pitch) * boltT) *
-            exp(-boltT * 26.0) *
-            0.46
-        } else 0.0
-      val grit = lp * exp(-t * 24.0) * 0.56
-      buf[i] = (slam + bolt + grit).toFloat()
+      val slam = sin(TWO_PI * ((72.0 - t * 80.0).coerceAtLeast(34.0) * pitch) * t) * exp(-t * 10.5) * 0.65
+      buf[i] += slam.toFloat()
     }
-    return toPcm16(buf, 0.84f)
+    return toPcm16(buf, 0.86f, roomWet = 0.22f)
   }
 
-  /** Deep pressurized masonry release into a wet cavern bloom. */
+  /** Iron clamp release snapping open into a cavernous tearing marrow & wet tissue bloom. */
   private fun renderMarrowBloom(pitch: Double): ShortArray {
-    val len = (SAMPLE_RATE * 0.62).toInt()
+    val len = (SAMPLE_RATE * 0.78).toInt()
     val buf = FloatArray(len)
-    val noise = NoiseGen(1212)
-    var lp = 0.0
-    for (i in 0 until len) {
-      val t = i.toDouble() / SAMPLE_RATE
-      lp += 0.095 * (noise.nextFloat() - lp)
-      val groan = sin(TWO_PI * ((62.0 - t * 38.0).coerceAtLeast(34.0) * pitch) * t) * exp(-t * 4.5) * 0.72
-      val fissure = lp * exp(-t * 5.8) * 0.74
-      val wetPop =
-        if (t > 0.12) {
-          val dt = t - 0.12
-          sin(TWO_PI * ((154.0 - dt * 240.0).coerceAtLeast(82.0) * pitch) * dt) *
-            exp(-dt * 18.0) *
-            0.30
-        } else 0.0
-      buf[i] = (groan + fissure + wetPop).toFloat()
-    }
-    return toPcm16(buf, 0.82f)
+    addIronModalRing(buf, 0.0, 0.28, 225.0 * pitch, gain = 0.52, decayScale = 1.15, seed = 1212, includeRatchetGrit = true)
+    addTendonTear(buf, 0.04, 0.48, pitch * 0.90, gain = 0.76, fiberCount = 22, seed = 1217)
+    addWetSquelch(buf, 0.08, 0.64, pitch, gain = 0.74, formantStartHz = 520.0, formantEndHz = 150.0, wobbleHz = 6.5, seed = 1223)
+    addBubbleCluster(buf, 0.14, 0.52, count = 9, baseFreqHz = 160.0 * pitch, gain = 0.28, seed = 1229)
+    return toPcm16(buf, 0.86f, roomWet = 0.20f)
   }
 
-  /** Cavernous hollow swallow + dull calcified tooth settle. */
+  /** Cavernous wet esophageal swallow + mucosal squelch + calcified tooth settle. */
   private fun renderThroatSwallow(pitch: Double): ShortArray {
-    val len = (SAMPLE_RATE * 0.48).toInt()
+    val len = (SAMPLE_RATE * 0.60).toInt()
     val buf = FloatArray(len)
-    val noise = NoiseGen(1260)
-    var lp = 0.0
-    for (i in 0 until len) {
-      val t = i.toDouble() / SAMPLE_RATE
-      lp += 0.08 * (noise.nextFloat() - lp)
-      val freq = (116.0 * exp(-t * 4.2) + 40.0) * pitch
-      val gulp = sin(TWO_PI * freq * t) * exp(-t * 5.6) * 0.76
-      val wet = lp * exp(-t * 8.0) * 0.46
-      val boneT = (t - 0.20).coerceAtLeast(0.0)
-      val bone =
-        if (t > 0.20) {
-          sin(TWO_PI * (208.0 * pitch) * boneT) * exp(-boneT * 30.0) * 0.28
-        } else 0.0
-      buf[i] = (gulp + wet + bone).toFloat()
-    }
-    return toPcm16(buf, 0.80f)
+    addWetSquelch(buf, 0.0, 0.52, pitch * 0.92, gain = 0.82, formantStartHz = 460.0, formantEndHz = 140.0, wobbleHz = 5.5, seed = 1260)
+    addBubbleCluster(buf, 0.08, 0.38, count = 7, baseFreqHz = 145.0 * pitch, gain = 0.30, seed = 1265)
+    addTendonTear(buf, 0.22, 0.24, pitch * 0.86, gain = 0.44, fiberCount = 12, seed = 1271)
+    return toPcm16(buf, 0.82f, roomWet = 0.18f)
   }
 
-  /** Heavy cold surgical shear + deep cavernous severance drop. */
+  /** Heavy cold surgical iron shear slicing straight through thick sinew into a hollow collapse. */
   private fun renderExcisionShear(pitch: Double): ShortArray {
-    val len = (SAMPLE_RATE * 0.84).toInt()
+    val len = (SAMPLE_RATE * 0.96).toInt()
     val buf = FloatArray(len)
-    val noise = NoiseGen(1313)
-    var lp = 0.0
-    var lp2 = 0.0
+    // Heavy cold iron shears biting shut
+    addIronModalRing(buf, 0.0, 0.46, 265.0 * pitch, gain = 0.68, decayScale = 0.82, seed = 1313, includeRatchetGrit = true)
+    // Thick sinew & flesh ripping apart under the shear
+    addTendonTear(buf, 0.04, 0.56, pitch * 0.88, gain = 0.82, fiberCount = 26, seed = 1319)
+    addWetSquelch(buf, 0.18, 0.66, pitch * 0.86, gain = 0.58, formantStartHz = 380.0, formantEndHz = 120.0, wobbleHz = 4.8, seed = 1327)
+    var subPhase = 0.0
     for (i in 0 until len) {
       val t = i.toDouble() / SAMPLE_RATE
-      val n = noise.nextFloat().toDouble()
-      lp += 0.16 * (n - lp)
-      lp2 += 0.04 * (lp - lp2)
-      val bladeEnv = exp(-t * 4.4) * (1.0 - exp(-t * 36.0))
-      val shear =
-        ((lp - lp2) * 0.48 +
-          sin(TWO_PI * ((380.0 - t * 240.0).coerceAtLeast(135.0) * pitch) * t) * 0.24) * bladeEnv
-      val bassDrop =
-        sin(TWO_PI * ((74.0 * exp(-t * 2.2) + 30.0) * pitch) * t) * exp(-t * 2.8) * 0.78
-      val hush = lp2 * exp(-t * 4.2) * 0.40
-      buf[i] = (shear + bassDrop + hush).toFloat()
+      val f = (72.0 * exp(-t * 2.2) + 29.0) * pitch
+      subPhase += TWO_PI * f / SAMPLE_RATE
+      buf[i] += (sin(subPhase) * exp(-t * 2.6) * 0.62).toFloat()
     }
-    return toPcm16(buf, 0.84f)
+    return toPcm16(buf, 0.86f, roomWet = 0.22f)
   }
 
   /** Low mournful damp seam sigh dissolving into muffled exterior rain (Arc 1 -> Arc 2). */
   private fun renderPleadSalvation(pitch: Double): ShortArray {
-    val len = (SAMPLE_RATE * 0.96).toInt()
+    val len = (SAMPLE_RATE * 0.98).toInt()
     val buf = FloatArray(len)
     val noise = NoiseGen(1414)
-    var lp = 0.0
+    val rainFilter = SvFilter()
     for (i in 0 until len) {
       val t = i.toDouble() / SAMPLE_RATE
-      lp += 0.095 * (noise.nextFloat() - lp)
-      val sighEnv = sin(PI * (t / 0.96).coerceAtMost(1.0)).coerceAtLeast(0.0)
+      val sighEnv = sin(PI * (t / 0.98).coerceAtMost(1.0)).coerceAtLeast(0.0)
       val lowChord =
         (sin(TWO_PI * (54.0 * pitch) * t) * 0.54 + sin(TWO_PI * (81.0 * pitch) * t) * 0.30) *
           sighEnv
-      val rainSwell = lp * (t / 0.96) * exp(-t * 1.3) * 0.60
+      val rainSwell = rainFilter.processBandpass(noise.nextFloat().toDouble(), 620.0, 0.9) *
+        (t / 0.98) * exp(-t * 1.2) * 0.72
       buf[i] = (lowChord + rainSwell).toFloat()
     }
-    return toPcm16(buf, 0.78f)
+    return toPcm16(buf, 0.78f, roomWet = 0.20f)
   }
 
   /** Quiet, low-register cistern condensation drop announcing a newly unlocked Story fragment. */
   private fun renderStoryCondensationDrip(pitch: Double): ShortArray {
-    val len = (SAMPLE_RATE * 0.24).toInt()
+    val len = (SAMPLE_RATE * 0.28).toInt()
     val buf = FloatArray(len)
+    addBubbleCluster(buf, 0.0, 0.04, count = 1, baseFreqHz = 225.0 * pitch, gain = 0.52, seed = 1451)
     for (i in 0 until len) {
       val t = i.toDouble() / SAMPLE_RATE
-      val freq = (245.0 + t * 920.0).coerceAtMost(385.0) * pitch
-      val drop = sin(TWO_PI * freq * t) * exp(-t * 26.0) * 0.44
-      val cistern = sin(TWO_PI * (126.0 * pitch) * t) * exp(-t * 17.0) * 0.26
-      buf[i] = (drop + cistern).toFloat()
+      val cistern = sin(TWO_PI * (122.0 * pitch) * t) * exp(-t * 14.0) * (1.0 - exp(-t * 90.0)) * 0.26
+      buf[i] += cistern.toFloat()
     }
-    return toPcm16(buf, 0.46f)
+    return toPcm16(buf, 0.50f, roomWet = 0.24f)
   }
 
-  /** Deep brooding architectural groan when advancing a Phase. */
+  /** Deep brooding architectural groan + wet masonry shift when advancing a Phase. */
   private fun renderPhaseShift(pitch: Double): ShortArray {
-    val len = (SAMPLE_RATE * 0.72).toInt()
+    val len = (SAMPLE_RATE * 0.78).toInt()
     val buf = FloatArray(len)
-    val noise = NoiseGen(1470)
-    var lp = 0.0
+    addWetSquelch(buf, 0.06, 0.62, pitch * 0.85, gain = 0.42, formantStartHz = 180.0, formantEndHz = 310.0, wobbleHz = 3.5, seed = 1470)
     for (i in 0 until len) {
       val t = i.toDouble() / SAMPLE_RATE
-      lp += 0.05 * (noise.nextFloat() - lp)
-      val env = sin(PI * (t / 0.72).coerceAtMost(1.0)).coerceAtLeast(0.0)
-      val sub =
-        sin(TWO_PI * (48.0 * pitch) * t) * 0.58 + sin(TWO_PI * (72.0 * pitch) * t) * 0.26
-      buf[i] = ((sub + lp * 0.35) * env).toFloat()
+      val env = sin(PI * (t / 0.78).coerceAtMost(1.0)).coerceAtLeast(0.0)
+      val sub = sin(TWO_PI * (46.0 * pitch) * t) * 0.58 + sin(TWO_PI * (69.0 * pitch) * t) * 0.26
+      buf[i] += (sub * env).toFloat()
     }
-    return toPcm16(buf, 0.68f)
+    return toPcm16(buf, 0.72f, roomWet = 0.22f)
   }
 
   /** Heavy muffled wooden desk stamp + dark blotter slap (Arc 2). */
   private fun renderDeskStamp(pitch: Double): ShortArray {
-    val len = (SAMPLE_RATE * 0.18).toInt()
+    val len = (SAMPLE_RATE * 0.20).toInt()
     val buf = FloatArray(len)
     val noise = NoiseGen(1515)
-    var lp = 0.0
+    val woodFilter = SvFilter()
     for (i in 0 until len) {
       val t = i.toDouble() / SAMPLE_RATE
-      lp += 0.15 * (noise.nextFloat() - lp)
-      val wood = sin(TWO_PI * ((98.0 - t * 240.0).coerceAtLeast(44.0) * pitch) * t) * exp(-t * 28.0) * 0.78
-      val paper = lp * exp(-t * 50.0) * 0.48
+      val wood = sin(TWO_PI * ((98.0 - t * 240.0).coerceAtLeast(44.0) * pitch) * t) * exp(-t * 24.0) * 0.76
+      val paper = woodFilter.processLowpass(noise.nextFloat().toDouble(), 520.0, 1.3) * exp(-t * 36.0) * 0.56
       buf[i] = (wood + paper).toFloat()
     }
-    return toPcm16(buf, 0.78f)
+    return toPcm16(buf, 0.78f, roomWet = 0.12f)
   }
 
   /** Heavy damp manila folder slide + low desk drawer tap (Arc 2). */
   private fun renderPaperFolder(pitch: Double): ShortArray {
-    val len = (SAMPLE_RATE * 0.24).toInt()
+    val len = (SAMPLE_RATE * 0.28).toInt()
     val buf = FloatArray(len)
     val noise = NoiseGen(1616)
-    var lp = 0.0
-    var lp2 = 0.0
+    val paperFilter = SvFilter()
     for (i in 0 until len) {
       val t = i.toDouble() / SAMPLE_RATE
-      val n = noise.nextFloat().toDouble()
-      lp += 0.17 * (n - lp)
-      lp2 += 0.05 * (lp - lp2)
-      val env = sin(PI * (t / 0.24).coerceAtMost(1.0)).coerceAtLeast(0.0)
-      val paper = (lp - lp2) * env * 0.54
-      val tap = sin(TWO_PI * ((142.0 - t * 260.0).coerceAtLeast(72.0) * pitch) * t) * exp(-t * 32.0) * 0.42
+      val env = sin(PI * (t / 0.28).coerceAtMost(1.0)).coerceAtLeast(0.0)
+      val paper = paperFilter.processBandpass(noise.nextFloat().toDouble(), 680.0 - t * 900.0, 1.8) * env * 0.78
+      val tap = sin(TWO_PI * ((142.0 - t * 260.0).coerceAtLeast(72.0) * pitch) * t) * exp(-t * 28.0) * 0.36
       buf[i] = (paper + tap).toFloat()
     }
-    return toPcm16(buf, 0.74f)
+    return toPcm16(buf, 0.74f, roomWet = 0.10f)
   }
 
   /** Corkboard pin press + dark damped bass red-string pluck (Arc 2). */
   private fun renderRedStringPin(pitch: Double): ShortArray {
-    val len = (SAMPLE_RATE * 0.26).toInt()
+    val len = (SAMPLE_RATE * 0.30).toInt()
     val buf = FloatArray(len)
     for (i in 0 until len) {
       val t = i.toDouble() / SAMPLE_RATE
       val twang =
-        (sin(TWO_PI * (164.0 * pitch) * t) * 0.56 + sin(TWO_PI * (246.0 * pitch) * t) * 0.22) *
-          exp(-t * 15.0)
-      val tack = sin(TWO_PI * ((310.0 - t * 1100.0).coerceAtLeast(115.0) * pitch) * t) * exp(-t * 48.0) * 0.34
+        (sin(TWO_PI * (158.0 * pitch) * t) * 0.56 + sin(TWO_PI * (237.0 * pitch) * t) * 0.24) *
+          exp(-t * 12.5) * (1.0 - exp(-t * 140.0))
+      val tack = sin(TWO_PI * ((290.0 - t * 980.0).coerceAtLeast(110.0) * pitch) * t) * exp(-t * 42.0) * 0.32
       buf[i] = (twang + tack).toFloat()
     }
-    return toPcm16(buf, 0.74f)
+    return toPcm16(buf, 0.74f, roomWet = 0.12f)
   }
 
   /** Damp envelope slit / muted brass reel latch (Arc 2). */
   private fun renderDeskAnomaly(pitch: Double): ShortArray {
-    val len = (SAMPLE_RATE * 0.24).toInt()
+    val len = (SAMPLE_RATE * 0.28).toInt()
     val buf = FloatArray(len)
-    val noise = NoiseGen(1717)
-    var lp = 0.0
-    for (i in 0 until len) {
-      val t = i.toDouble() / SAMPLE_RATE
-      lp += 0.14 * (noise.nextFloat() - lp)
-      val tear = lp * exp(-t * 18.0) * 0.62
-      val click = sin(TWO_PI * ((218.0 - t * 480.0).coerceAtLeast(110.0) * pitch) * t) * exp(-t * 36.0) * 0.38
-      buf[i] = (tear + click).toFloat()
-    }
-    return toPcm16(buf, 0.76f)
+    addTendonTear(buf, 0.0, 0.22, pitch * 1.12, gain = 0.52, fiberCount = 12, seed = 1717)
+    addIronModalRing(buf, 0.04, 0.18, 340.0 * pitch, gain = 0.26, decayScale = 1.6, seed = 1721, includeRatchetGrit = false)
+    return toPcm16(buf, 0.76f, roomWet = 0.12f)
   }
 
   /** Heavy case folder closed / chapter connected (Arc 2). */
   private fun renderCaseChapterThud(pitch: Double): ShortArray {
-    val len = (SAMPLE_RATE * 0.42).toInt()
+    val len = (SAMPLE_RATE * 0.44).toInt()
     val buf = FloatArray(len)
     val noise = NoiseGen(1818)
-    var lp = 0.0
+    val filter = SvFilter()
     for (i in 0 until len) {
       val t = i.toDouble() / SAMPLE_RATE
-      lp += 0.10 * (noise.nextFloat() - lp)
       val thud = sin(TWO_PI * ((76.0 - t * 110.0).coerceAtLeast(38.0) * pitch) * t) * exp(-t * 10.5) * 0.76
-      val rustle = lp * exp(-t * 15.0) * 0.46
+      val rustle = filter.processLowpass(noise.nextFloat().toDouble(), 440.0, 1.2) * exp(-t * 14.0) * 0.52
       buf[i] = (thud + rustle).toFloat()
     }
-    return toPcm16(buf, 0.78f)
+    return toPcm16(buf, 0.78f, roomWet = 0.14f)
   }
 
   /** File #00 reveal — desk folder giving way to cold subterranean chamber grout underneath. */
   private fun renderFileZeroReveal(pitch: Double): ShortArray {
-    val len = (SAMPLE_RATE * 0.94).toInt()
+    val len = (SAMPLE_RATE * 0.96).toInt()
     val buf = FloatArray(len)
-    val noise = NoiseGen(1919)
-    var lp = 0.0
+    addWetSquelch(buf, 0.08, 0.74, pitch * 0.82, gain = 0.38, formantStartHz = 220.0, formantEndHz = 135.0, wobbleHz = 3.2, seed = 1919)
     for (i in 0 until len) {
       val t = i.toDouble() / SAMPLE_RATE
-      lp += 0.075 * (noise.nextFloat() - lp)
-      val env = sin(PI * (t / 0.94).coerceAtMost(1.0)).coerceAtLeast(0.0)
+      val env = sin(PI * (t / 0.96).coerceAtMost(1.0)).coerceAtLeast(0.0)
       val drone =
         (sin(TWO_PI * (42.0 * pitch) * t) * 0.62 + sin(TWO_PI * (63.0 * pitch) * t) * 0.32) * env
-      val bleed = lp * env * 0.46
-      buf[i] = (drone + bleed).toFloat()
+      buf[i] += drone.toFloat()
     }
-    return toPcm16(buf, 0.80f)
+    return toPcm16(buf, 0.80f, roomWet = 0.22f)
   }
 
   /** Arc 3 hollow merged subterranean threshold resonance. */
   private fun renderConvergenceTone(pitch: Double): ShortArray {
-    val len = (SAMPLE_RATE * 0.80).toInt()
+    val len = (SAMPLE_RATE * 0.84).toInt()
     val buf = FloatArray(len)
     for (i in 0 until len) {
       val t = i.toDouble() / SAMPLE_RATE
-      val env = sin(PI * (t / 0.80).coerceAtMost(1.0)).coerceAtLeast(0.0)
+      val env = sin(PI * (t / 0.84).coerceAtMost(1.0)).coerceAtLeast(0.0)
       val tone =
         sin(TWO_PI * (50.0 * pitch) * t) * 0.54 + sin(TWO_PI * (75.0 * pitch) * t) * 0.24
       buf[i] = (tone * env).toFloat()
     }
-    return toPcm16(buf, 0.70f)
+    return toPcm16(buf, 0.70f, roomWet = 0.24f)
   }
 
   /**

@@ -613,27 +613,17 @@ button:focus-visible {
   0%,
   100% {
     transform: translate(-50%, -50%) scale(0.982, 0.988);
-    border-color: var(--anomaly-border-rest, rgba(200, 203, 195, 0.52));
-    box-shadow:
-      0 0 0 1px rgba(0, 0, 0, 0.56),
-      0 2px 6px rgba(0, 0, 0, 0.56),
-      inset 0 0 6px rgba(0, 0, 0, 0.45);
+    filter: drop-shadow(0 0 6px rgba(0, 0, 0, 0.72));
   }
   38% {
-    transform: translate(-50%, -50%) scale(1.036, 1.024);
-    border-color: var(--anomaly-border-peak, rgba(214, 217, 208, 0.86));
-    box-shadow:
-      0 0 12px var(--anomaly-glow, rgba(200, 203, 195, 0.18)),
-      0 3px 10px rgba(0, 0, 0, 0.64),
-      inset 0 0 8px var(--anomaly-inner-glow, rgba(200, 203, 195, 0.08));
+    transform: translate(-50%, -50%) scale(1.042, 1.028);
+    filter: drop-shadow(0 0 13px var(--anomaly-glow, rgba(200, 203, 195, 0.30)))
+      drop-shadow(0 3px 8px rgba(0, 0, 0, 0.78));
   }
   54% {
-    transform: translate(-50%, -50%) scale(1.026, 1.034);
-    border-color: var(--anomaly-border-peak, rgba(214, 217, 208, 0.80));
-    box-shadow:
-      0 0 10px var(--anomaly-glow, rgba(200, 203, 195, 0.16)),
-      0 3px 9px rgba(0, 0, 0, 0.60),
-      inset 0 0 7px var(--anomaly-inner-glow, rgba(200, 203, 195, 0.07));
+    transform: translate(-50%, -50%) scale(1.03, 1.038);
+    filter: drop-shadow(0 0 11px var(--anomaly-glow, rgba(200, 203, 195, 0.24)))
+      drop-shadow(0 3px 7px rgba(0, 0, 0, 0.74));
   }
 }
 
@@ -641,35 +631,22 @@ button:focus-visible {
   0%,
   100% {
     transform: translate(-50%, -50%) scale(0.98, 0.986);
-    border-color: var(--anomaly-border-rest, rgba(123, 74, 74, 0.6));
-    box-shadow:
-      0 0 0 1px rgba(0, 0, 0, 0.58),
-      0 2px 7px rgba(0, 0, 0, 0.58),
-      inset 0 0 7px rgba(40, 12, 12, 0.52);
+    filter: drop-shadow(0 0 7px rgba(18, 6, 6, 0.8));
   }
   28% {
-    transform: translate(-50%, -50%) scale(1.044, 1.032);
-    border-color: var(--anomaly-border-peak, rgba(168, 92, 92, 0.94));
-    box-shadow:
-      0 0 15px var(--anomaly-glow, rgba(123, 74, 74, 0.3)),
-      0 3px 11px rgba(0, 0, 0, 0.66),
-      inset 0 0 10px var(--anomaly-inner-glow, rgba(123, 74, 74, 0.16));
+    transform: translate(-50%, -50%) scale(1.052, 1.038);
+    filter: drop-shadow(0 0 16px var(--anomaly-glow, rgba(148, 66, 66, 0.48)))
+      drop-shadow(0 3px 10px rgba(0, 0, 0, 0.82));
   }
   44% {
     transform: translate(-50%, -50%) scale(1.008, 1.014);
-    border-color: var(--anomaly-border-rest, rgba(123, 74, 74, 0.72));
-    box-shadow:
-      0 0 8px var(--anomaly-glow, rgba(123, 74, 74, 0.18)),
-      0 2px 8px rgba(0, 0, 0, 0.6),
-      inset 0 0 7px rgba(40, 12, 12, 0.45);
+    filter: drop-shadow(0 0 9px var(--anomaly-glow, rgba(123, 74, 74, 0.28)))
+      drop-shadow(0 2px 7px rgba(0, 0, 0, 0.76));
   }
   58% {
-    transform: translate(-50%, -50%) scale(1.032, 1.038);
-    border-color: var(--anomaly-border-peak, rgba(168, 92, 92, 0.88));
-    box-shadow:
-      0 0 13px var(--anomaly-glow, rgba(123, 74, 74, 0.26)),
-      0 3px 10px rgba(0, 0, 0, 0.64),
-      inset 0 0 9px var(--anomaly-inner-glow, rgba(123, 74, 74, 0.14));
+    transform: translate(-50%, -50%) scale(1.038, 1.044);
+    filter: drop-shadow(0 0 14px var(--anomaly-glow, rgba(148, 66, 66, 0.42)))
+      drop-shadow(0 3px 9px rgba(0, 0, 0, 0.8));
   }
 }
 
@@ -688,13 +665,28 @@ button:focus-visible {
   justify-content: center;
   gap: 2px;
   pointer-events: auto;
-  transition: transform 120ms ease, background-color 120ms ease, border-color 140ms ease, box-shadow 140ms ease;
+  transition: transform 120ms ease, background-color 120ms ease, border-color 140ms ease, filter 140ms ease;
 }
 
 .anomaly-layer .anomaly-node,
 .anomaly-node--wall {
-  will-change: transform, box-shadow;
+  will-change: transform, filter;
   animation: wall-anomaly-breathe var(--breath-duration, 4.6s) ease-in-out var(--breath-delay, 0s) infinite;
+}
+
+.anomaly-node--wall {
+  width: 76px;
+  height: 76px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    rgba(10, 11, 11, 0.86) 0%,
+    var(--anomaly-cavity, rgba(14, 15, 14, 0.56)) 56%,
+    transparent 86%
+  );
+  overflow: visible;
 }
 
 .anomaly-node:hover {
@@ -705,51 +697,71 @@ button:focus-visible {
 .anomaly-layer .anomaly-node:hover,
 .anomaly-node--wall:hover {
   animation: none;
-  transform: translate(-50%, -50%) scale(1.06);
-  background: var(--sunken-slate);
-  border-color: var(--anomaly-border-peak, rgba(214, 217, 208, 0.88));
-  box-shadow:
-    0 0 14px var(--anomaly-glow, rgba(200, 203, 195, 0.22)),
-    0 4px 12px rgba(0, 0, 0, 0.68);
+  transform: translate(-50%, -50%) scale(1.07);
+  filter: drop-shadow(0 0 15px var(--anomaly-glow, rgba(200, 203, 195, 0.36)))
+    drop-shadow(0 4px 11px rgba(0, 0, 0, 0.85));
+}
+
+.anomaly-node--wall:hover {
+  background: radial-gradient(
+    circle,
+    rgba(10, 11, 11, 0.9) 0%,
+    var(--anomaly-cavity, rgba(18, 20, 18, 0.68)) 60%,
+    transparent 88%
+  );
 }
 
 .anomaly-node--pale_tooth {
   --breath-duration: 5.2s;
-  --anomaly-border-rest: rgba(200, 203, 195, 0.52);
-  --anomaly-border-peak: rgba(218, 220, 212, 0.86);
-  --anomaly-glow: rgba(200, 203, 195, 0.16);
-  --anomaly-inner-glow: rgba(200, 203, 195, 0.08);
+  --anomaly-glow: rgba(200, 203, 195, 0.30);
+  --anomaly-cavity: rgba(20, 22, 21, 0.54);
+  color: var(--bleached-bone);
 }
 
 .anomaly-node--glass_eye {
   --breath-duration: 4.4s;
-  --anomaly-border-rest: rgba(141, 152, 138, 0.58);
-  --anomaly-border-peak: rgba(168, 182, 164, 0.92);
-  --anomaly-glow: rgba(141, 152, 138, 0.24);
-  --anomaly-inner-glow: rgba(141, 152, 138, 0.11);
-  border-color: rgba(141, 152, 138, 0.72);
+  --anomaly-glow: rgba(141, 152, 138, 0.38);
+  --anomaly-cavity: rgba(31, 37, 32, 0.58);
   color: var(--pale-lichen);
 }
 
 .anomaly-node--swollen_nodule {
   --breath-duration: 3.6s;
-  --anomaly-border-rest: rgba(123, 74, 74, 0.62);
-  --anomaly-border-peak: rgba(168, 92, 92, 0.94);
-  --anomaly-glow: rgba(123, 74, 74, 0.3);
-  --anomaly-inner-glow: rgba(123, 74, 74, 0.16);
-  border-color: rgba(123, 74, 74, 0.78);
+  --anomaly-glow: rgba(154, 68, 68, 0.50);
+  --anomaly-cavity: rgba(46, 20, 21, 0.66);
   color: var(--dried-clot);
   animation-name: wall-anomaly-pulse;
 }
 
 .anomaly-node--chitin_rib {
   --breath-duration: 4.0s;
-  --anomaly-border-rest: rgba(123, 74, 74, 0.6);
-  --anomaly-border-peak: rgba(182, 114, 106, 0.92);
-  --anomaly-glow: rgba(138, 76, 76, 0.26);
-  --anomaly-inner-glow: rgba(138, 76, 76, 0.14);
-  border-color: rgba(123, 74, 74, 0.78);
+  --anomaly-glow: rgba(146, 76, 74, 0.42);
+  --anomaly-cavity: rgba(42, 22, 22, 0.62);
   color: var(--dried-clot);
+}
+
+.anomaly-photo {
+  width: 68px;
+  height: 68px;
+  border-radius: 50%;
+  object-fit: cover;
+  transform: scale(1.12);
+  pointer-events: none;
+  display: block;
+  -webkit-mask-image: radial-gradient(
+    circle,
+    #000 46%,
+    rgba(0, 0, 0, 0.88) 65%,
+    rgba(0, 0, 0, 0.28) 84%,
+    transparent 100%
+  );
+  mask-image: radial-gradient(
+    circle,
+    #000 46%,
+    rgba(0, 0, 0, 0.88) 65%,
+    rgba(0, 0, 0, 0.28) 84%,
+    transparent 100%
+  );
 }
 
 .anomaly-glyph {
@@ -761,6 +773,21 @@ button:focus-visible {
 .anomaly-label {
   font-size: 9px;
   letter-spacing: 1px;
+}
+
+.anomaly-node--wall .anomaly-label {
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 1px 5px;
+  border-radius: 2px;
+  background: rgba(10, 11, 11, 0.82);
+  font-size: 8.5px;
+  letter-spacing: 1.1px;
+  line-height: 1.25;
+  white-space: nowrap;
+  pointer-events: none;
 }
 
 /* Apparatus Deck */

@@ -86,14 +86,13 @@ import {
   stillnessIdleDelaySec,
   totalCreatureIchorPerSec,
   valveClampDurationSec,
-} from './engine.js?v=3.6';
+} from './engine.js?v=3.7';
 import {
   drawActionArtwork,
-  drawAnomalyGlyph,
   drawDeskAnomalyGlyph,
   drawSumpSiphonPortrait,
   drawWeepingLampPortrait,
-} from './chamberCanvas.js?v=3.6';
+} from './chamberCanvas.js?v=3.7';
 
 function randomBetween(min, max, rng) {
   const raw = typeof rng === 'function' ? Number(rng()) : Math.random();
@@ -400,7 +399,7 @@ export function createUiController(handlers) {
   const deckTabButtons = new Map();
   const arc2TabButtons = new Map();
 
-  const anomalyCanvasMap = new Map();
+  const mountedWallAnomalyIds = new Set();
   const deskAnomalyCanvasMap = new Map();
   let lampPortraitCanvas = null;
   let siphonPortraitCanvas = null;
@@ -637,14 +636,14 @@ export function createUiController(handlers) {
     for (const child of Array.from(els.anomalyLayer.children)) {
       const id = child.dataset.anomalyId;
       if (!activeIds.has(id)) {
-        anomalyCanvasMap.delete(id);
+        mountedWallAnomalyIds.delete(id);
         child.remove();
       }
     }
 
     for (const anomaly of state.activeAnomalies) {
       const key = String(anomaly.id);
-      if (anomalyCanvasMap.has(key)) continue;
+      if (mountedWallAnomalyIds.has(key)) continue;
       const meta = Object.values(WALL_ANOMALY_TYPES).find((t) => t.id === anomaly.type);
       if (!meta) continue;
 
@@ -658,19 +657,21 @@ export function createUiController(handlers) {
       btn.style.setProperty('--breath-delay', `-${phaseOffsetSec}s`);
       btn.setAttribute('aria-label', meta.ariaLabel);
 
-      const canvas = document.createElement('canvas');
-      canvas.className = 'anomaly-glyph';
-      canvas.width = 60;
-      canvas.height = 60;
+      const photo = document.createElement('img');
+      photo.className = 'anomaly-photo';
+      photo.src = `./assets/img_anomaly_${anomaly.type}.jpg?v=3.7`;
+      photo.alt = '';
+      photo.draggable = false;
+      photo.setAttribute('aria-hidden', 'true');
 
       const label = document.createElement('span');
       label.className = 'anomaly-label';
       label.textContent = meta.label;
 
-      btn.append(canvas, label);
+      btn.append(photo, label);
       btn.addEventListener('click', () => handlers.onInteractAnomaly(anomaly.id));
       els.anomalyLayer.appendChild(btn);
-      anomalyCanvasMap.set(key, { canvas, type: anomaly.type });
+      mountedWallAnomalyIds.add(key);
     }
   }
 
@@ -2145,10 +2146,8 @@ export function createUiController(handlers) {
       }
       renderLedger(state);
     },
-    renderAnimatedGlyphs(breath) {
-      for (const { canvas, type } of anomalyCanvasMap.values()) {
-        drawAnomalyGlyph(canvas, type, breath);
-      }
+    renderAnimatedGlyphs() {
+      // Wall anomalies now use feathered photographic macro specimens driven by CSS breathing keyframes.
     },
     renderAnimatedDeskGlyphs(breath) {
       for (const { canvas, type } of deskAnomalyCanvasMap.values()) {

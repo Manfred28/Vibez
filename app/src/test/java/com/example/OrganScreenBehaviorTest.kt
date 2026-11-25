@@ -41,6 +41,7 @@ import com.example.ui.components.STORY_DRIP_TOTAL_MS
 import com.example.ui.components.TabAlertEvaluator
 import com.example.ui.components.computeWallAnomalyBreathScale
 import com.example.ui.components.computeWallLayerAlphas
+import com.example.ui.components.wallAnomalyDrawableRes
 import com.example.ui.components.weepingLampLayout
 import com.example.ui.theme.BleakTheme
 import org.junit.Assert.assertEquals
@@ -1502,5 +1503,61 @@ class OrganScreenBehaviorTest {
     composeTestRule.onNodeWithTag("chamber_wall_phase_4").assertIsDisplayed()
     composeTestRule.onNodeWithTag("valve_aperture_art").assertIsDisplayed()
     composeTestRule.onNodeWithTag("suture_hands_overlay").assertIsDisplayed()
+  }
+
+  @Test
+  fun wallAnomalies_renderDistinctPhotographicMacroSpecimensAndRemainInteractive() {
+    val drawables = WallAnomalyType.entries.map { wallAnomalyDrawableRes(it) }
+    assertEquals("Each wall anomaly type must map to its own distinct photographic drawable", 4, drawables.toSet().size)
+    assertEquals(R.drawable.img_anomaly_pale_tooth, wallAnomalyDrawableRes(WallAnomalyType.PALE_TOOTH))
+    assertEquals(R.drawable.img_anomaly_glass_eye, wallAnomalyDrawableRes(WallAnomalyType.GLASS_EYE))
+    assertEquals(R.drawable.img_anomaly_swollen_nodule, wallAnomalyDrawableRes(WallAnomalyType.SWOLLEN_NODULE))
+    assertEquals(R.drawable.img_anomaly_chitin_rib, wallAnomalyDrawableRes(WallAnomalyType.CHITIN_RIB))
+
+    val context = ApplicationProvider.getApplicationContext<Context>()
+    val catalog = AssetDialogueRepository(context).loadCatalog()
+    val interactedIds = mutableListOf<Long>()
+    val state =
+      OrganGameEngine.initialState(catalog).copy(
+        ichor = 90_000.0,
+        cycleLifetimeIchor = 90_000.0,
+        phase = 4,
+        phaseName = catalog.phaseName(4),
+        activeAnomalies =
+          listOf(
+            ActiveWallAnomaly(101L, WallAnomalyType.PALE_TOOTH, 0.16f, 0.25f),
+            ActiveWallAnomaly(102L, WallAnomalyType.GLASS_EYE, 0.84f, 0.25f),
+            ActiveWallAnomaly(103L, WallAnomalyType.SWOLLEN_NODULE, 0.16f, 0.72f),
+            ActiveWallAnomaly(104L, WallAnomalyType.CHITIN_RIB, 0.84f, 0.72f),
+          ),
+      )
+
+    composeTestRule.setContent {
+      BleakTheme(phase = state.phase) {
+        OrganScreen(
+          state = state,
+          onPressValve = {},
+          onBuyCreature = {},
+          onBottleJar = {},
+          onPerformGraft = {},
+          onInteractAnomaly = { interactedIds.add(it) },
+          onPerformExcision = {},
+        )
+      }
+    }
+    composeTestRule.waitForIdle()
+
+    for (anomaly in state.activeAnomalies) {
+      composeTestRule
+        .onNodeWithTag("anomaly_art_${anomaly.type.id}", useUnmergedTree = true)
+        .assertIsDisplayed()
+      composeTestRule
+        .onNodeWithTag("anomaly_${anomaly.type.id}_${anomaly.id}")
+        .assertIsDisplayed()
+        .assert(hasClickAction())
+    }
+    composeTestRule.onNodeWithTag("anomaly_swollen_nodule_103").performClick()
+    composeTestRule.waitForIdle()
+    assertEquals(listOf(103L), interactedIds)
   }
 }

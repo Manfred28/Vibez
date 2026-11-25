@@ -123,6 +123,7 @@ import {
 } from '../src/ui.js';
 import {
   AUDIO_MUTE_STORAGE_KEY,
+  IRON_MODE_RATIOS,
   SOUND_ACTION_HINTS,
   SOUND_CUES,
   computeAmbientProfile,
@@ -157,6 +158,10 @@ test('GitHub Pages static bundle integrity and Android dialogues.json parity', (
     'assets/img_wall_phase3.jpg',
     'assets/img_wall_phase4.jpg',
     'assets/img_wall_excision_late.jpg',
+    'assets/img_anomaly_pale_tooth.jpg',
+    'assets/img_anomaly_glass_eye.jpg',
+    'assets/img_anomaly_swollen_nodule.jpg',
+    'assets/img_anomaly_chitin_rib.jpg',
     'assets/img_recessed_valve.jpg',
     'assets/img_suture_hand.jpg',
     'assets/img_leech_clerk.jpg',
@@ -169,20 +174,24 @@ test('GitHub Pages static bundle integrity and Android dialogues.json parity', (
     assert.ok(fs.existsSync(abs), `Missing required GitHub Pages file: docs/${rel}`);
   }
 
-  // Verify all 5 progressive chamber wall JPEG assets match Android res/drawable byte-for-byte
-  for (const wallFile of [
+  // Verify all 5 progressive chamber wall JPEGs + 4 photographic wall anomaly JPEGs match Android byte-for-byte
+  for (const imgFile of [
     'img_wall_phase1.jpg',
     'img_wall_fleshy.jpg',
     'img_wall_phase3.jpg',
     'img_wall_phase4.jpg',
     'img_wall_excision_late.jpg',
+    'img_anomaly_pale_tooth.jpg',
+    'img_anomaly_glass_eye.jpg',
+    'img_anomaly_swollen_nodule.jpg',
+    'img_anomaly_chitin_rib.jpg',
   ]) {
-    const webBuf = fs.readFileSync(path.join(docsDir, 'assets', wallFile));
+    const webBuf = fs.readFileSync(path.join(docsDir, 'assets', imgFile));
     const androidBuf = fs.readFileSync(
-      path.join(repoRoot, 'app', 'src', 'main', 'res', 'drawable', wallFile),
+      path.join(repoRoot, 'app', 'src', 'main', 'res', 'drawable', imgFile),
     );
-    assert.ok(webBuf.length > 5000, `${wallFile} must be a real photographic asset`);
-    assert.ok(webBuf.equals(androidBuf), `docs/assets/${wallFile} must match Android res/drawable/${wallFile}`);
+    assert.ok(webBuf.length > 5000, `${imgFile} must be a real photographic asset`);
+    assert.ok(webBuf.equals(androidBuf), `docs/assets/${imgFile} must match Android res/drawable/${imgFile}`);
   }
 
   // Verify exact dialogue parity with canonical Android dialogues.json
@@ -201,8 +210,8 @@ test('GitHub Pages static bundle integrity and Android dialogues.json parity', (
 
   // Verify index.html uses relative ./ paths so GitHub Pages subpaths work
   const html = fs.readFileSync(path.join(docsDir, 'index.html'), 'utf8');
-  assert.ok(html.includes('href="./styles.css?v=3.6"'));
-  assert.ok(html.includes('src="./src/app.js?v=3.6"'));
+  assert.ok(html.includes('href="./styles.css?v=3.7"'));
+  assert.ok(html.includes('src="./src/app.js?v=3.7"'));
   assert.ok(html.includes('src="./assets/img_recessed_valve.jpg"'));
   assert.ok(html.includes('THE COUNTING ROOM'));
   assert.ok(!html.includes('PHASE 00'), 'User-facing HTML must not show the word PHASE');
@@ -1565,18 +1574,50 @@ test('Web 5-stage progressive wall texture blending, heavy sump basin, sculpted 
   assert.ok(canvasSrc.includes('const rivets ='), 'Floor sump basin must include riveted cast-iron architecture');
   assert.ok(canvasSrc.includes('helixPts') && canvasSrc.includes('segRadius'), 'Grafted Choir-Tendrils must render sculpted segmented stalks with helical sinew');
 
-  // Verify app.js preloads all 5 wall textures with v=3.6 cache bust
+  // Verify app.js preloads all 5 wall textures + 4 photographic wall anomalies with v=3.7 cache bust
   const appSrc = fs.readFileSync(path.join(docsDir, 'src', 'app.js'), 'utf8');
   for (const wallAsset of [
-    'img_wall_phase1.jpg?v=3.6',
-    'img_wall_fleshy.jpg?v=3.6',
-    'img_wall_phase3.jpg?v=3.6',
-    'img_wall_phase4.jpg?v=3.6',
-    'img_wall_excision_late.jpg?v=3.6',
+    'img_wall_phase1.jpg?v=3.7',
+    'img_wall_fleshy.jpg?v=3.7',
+    'img_wall_phase3.jpg?v=3.7',
+    'img_wall_phase4.jpg?v=3.7',
+    'img_wall_excision_late.jpg?v=3.7',
+    'img_anomaly_pale_tooth.jpg?v=3.7',
+    'img_anomaly_glass_eye.jpg?v=3.7',
+    'img_anomaly_swollen_nodule.jpg?v=3.7',
+    'img_anomaly_chitin_rib.jpg?v=3.7',
   ]) {
     assert.ok(appSrc.includes(wallAsset), `app.js must preload ${wallAsset}`);
   }
 });
+
+test('Web photographic feathered wall anomalies and cast-iron / tendon-tearing / wet-squelch audio architecture match Android 1:1', () => {
+  const uiSrc = fs.readFileSync(path.join(docsDir, 'src', 'ui.js'), 'utf8');
+  const css = fs.readFileSync(path.join(docsDir, 'styles.css'), 'utf8');
+  const audioSrc = fs.readFileSync(path.join(docsDir, 'src', 'audio.js'), 'utf8');
+
+  // Photographic circular feathered wall anomalies replace flat icon canvases on Arc 1 wall
+  assert.ok(uiSrc.includes("photo.className = 'anomaly-photo'"));
+  assert.ok(uiSrc.includes('./assets/img_anomaly_${anomaly.type}.jpg?v=3.7'));
+  assert.ok(css.includes('.anomaly-photo'));
+  assert.ok(css.includes('mask-image: radial-gradient('));
+  assert.ok(css.includes('border: none;') && css.includes('border-radius: 50%;'));
+
+  // Cast-iron inharmonic modal ratios + organic fibrous tendon-tearing + wet mucosa squelch + slapback room
+  assert.deepEqual([...IRON_MODE_RATIOS], [1.0, 1.53, 2.24, 2.89, 3.71, 4.68]);
+  for (const token of [
+    'createCrackleNoiseBuffer',
+    'triggerIronModalRing',
+    'triggerTendonTear',
+    'triggerWetSquelch',
+    'triggerBubbleCluster',
+    'slapDelay1',
+    'slapDelay2',
+  ]) {
+    assert.ok(audioSrc.includes(token), `docs/src/audio.js must implement ${token}`);
+  }
+});
+
 
 
 

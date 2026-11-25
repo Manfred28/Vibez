@@ -437,4 +437,67 @@ class OrganAudioTest {
     vm.setAudioForegroundActive(false)
     assertEquals(listOf(false), engine.foregroundStates)
   }
+
+  @Test
+  fun proceduralFoleySynth_producesCastIronOvertonesForValveAndSustainedOrganicEnergyForGraftAndTears() {
+    val sr = ProceduralFoleySynth.SAMPLE_RATE
+
+    // 1. Cast-iron valve must contain genuine metallic inharmonic upper-mid partials (~235..1100Hz),
+    // not just a low-frequency sine pop (verify via zero-crossing rate + high-pass first-difference energy)
+    val valveP0 = ProceduralFoleySynth.synthesizeCue(SoundCue.VALVE_PRESS, phase = 0, pitchFactor = 1f)
+    val valveP4 = ProceduralFoleySynth.synthesizeCue(SoundCue.VALVE_PRESS, phase = 4, pitchFactor = 1f)
+    assertTrue("Valve cue should be >= 0.24s to carry iron ring tail", valveP0.size >= (sr * 0.24).toInt())
+    var diffEnergy = 0L
+    var totalEnergy = 0L
+    for (i in 1 until valveP0.size) {
+      val s = valveP0[i].toInt()
+      totalEnergy += abs(s)
+      diffEnergy += abs(s - valveP0[i - 1].toInt())
+    }
+    val spectralRatio = diffEnergy.toDouble() / totalEnergy.coerceAtLeast(1L).toDouble()
+    assertTrue(
+      "Valve waveform should carry cast-iron upper-mid modal texture (ratio=$spectralRatio)",
+      spectralRatio > 0.14,
+    )
+    // Phase 4 valve adds wet organic seepage tail compared to Phase 0 dry iron
+    var diffP0P4 = 0L
+    val tailStart = (sr * 0.06).toInt()
+    val tailEnd = minOf(valveP0.size, valveP4.size)
+    for (i in tailStart until tailEnd) {
+      diffP0P4 += abs(valveP4[i].toInt() - valveP0[i].toInt())
+    }
+    assertTrue("Phase 4 valve should diverge in wet trailing seepage from Phase 0", diffP0P4 > 50_000L)
+
+    // 2. Grafting must be a long (~1.15s) multi-stage fleshy/tendon-tearing cue with sustained energy
+    // across early, middle, and late thirds (never a short click + empty tail)
+    val graft = ProceduralFoleySynth.synthesizeCue(SoundCue.GRAFT_PERFORM, phase = 3, pitchFactor = 1f)
+    assertTrue("Expected ~1.15s graft waveform (>= 1.05s)", graft.size >= (sr * 1.05).toInt())
+    val third = graft.size / 3
+    for (seg in 0..2) {
+      var segPeak = 0
+      for (i in (seg * third) until ((seg + 1) * third)) {
+        val a = abs(graft[i].toInt())
+        if (a > segPeak) segPeak = a
+      }
+      assertTrue("Graft segment $seg should carry strong sustained flesh/tear energy (peak=$segPeak)", segPeak > 2_500)
+    }
+
+    // 3. Tendon-tearing & wet-squelch cues (Tooth, Nodule, Rib, Leech, Excision) must sustain body energy
+    // well past initial 40ms transient (proving they are not short percussive clicks)
+    for (cue in listOf(
+      SoundCue.ANOMALY_TOOTH,
+      SoundCue.ANOMALY_NODULE,
+      SoundCue.ANOMALY_RIB,
+      SoundCue.CREATURE_BUY_LEECH_CLERK,
+      SoundCue.EXCISION_CUT,
+    )) {
+      val pcm = ProceduralFoleySynth.synthesizeCue(cue, phase = 3, pitchFactor = 1f)
+      val bodyStart = (sr * 0.05).toInt()
+      val bodyEnd = (sr * 0.28).toInt().coerceAtMost(pcm.size)
+      var bodyEnergy = 0L
+      for (i in bodyStart until bodyEnd) bodyEnergy += abs(pcm[i].toInt())
+      val meanAbs = bodyEnergy.toDouble() / (bodyEnd - bodyStart).coerceAtLeast(1)
+      assertTrue("Cue ${cue.id} must sustain fleshy/tearing body past 50ms (meanAbs=$meanAbs)", meanAbs > 700.0)
+    }
+  }
 }

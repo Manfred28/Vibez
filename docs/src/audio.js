@@ -2,14 +2,24 @@
  * Zero-asset Web Audio procedural foley & phase-escalating room ambience engine for
  * "The Tending of the Unnamed Organ" (1:1 parity with Android SoundCueResolver + ProceduralFoleySynth).
  *
- * Acoustic identity: deep closed-room cast iron, heavy wet seepage, long fleshy grafting,
- * distinct organism signatures, and low subterranean room ambience — never bright arcade tones,
- * shrill pings, or tab-switch clicks.
+ * Acoustic architecture:
+ * - True cast-iron inharmonic modal bank (6 detuned iron ring modes + gritty pawl ratchet + heavy
+ *   wall-mounted housing thud) for the valve, floor sump grate, iron clamp, and surgical shears.
+ * - Visceral organic flesh/tendon synthesis: stochastic fibrous tearing trains through dual
+ *   sweeping formant resonators, LFO-modulated wet mucosa squelches, and irregular cavity bubble
+ *   clusters — eliminating generic percussive synth clicks.
+ * - Subtle closed-tile-chamber early reflection tail (`19ms` / `35ms`) grounding every cue in a
+ *   damp subterranean room, with zero tab-switch clicks.
  */
 
-import { CREATURE_TYPES, DESK_ANOMALY_TYPES, GAME_ARCS, WALL_ANOMALY_TYPES } from './engine.js?v=3.6';
+import { CREATURE_TYPES, DESK_ANOMALY_TYPES, GAME_ARCS, WALL_ANOMALY_TYPES } from './engine.js?v=3.7';
 
 export const AUDIO_MUTE_STORAGE_KEY = 'unnamed_organ_audio_muted_v1';
+
+// Inharmonic cast-iron wheel ring modal ratios (authentic cast-iron clank/clang spectrum)
+export const IRON_MODE_RATIOS = Object.freeze([1.0, 1.53, 2.24, 2.89, 3.71, 4.68]);
+const IRON_MODE_AMPS = Object.freeze([0.50, 0.48, 0.44, 0.36, 0.28, 0.20]);
+const IRON_MODE_DECAYS = Object.freeze([10.5, 13.0, 16.5, 21.0, 27.0, 34.0]);
 
 export const SOUND_CUES = Object.freeze({
   VALVE_PRESS: 'valve_press',
@@ -69,24 +79,24 @@ export const SOUND_ACTION_HINTS = Object.freeze({
 
 const CUE_MIN_INTERVAL_MS = Object.freeze({
   [SOUND_CUES.VALVE_PRESS]: 62,
-  [SOUND_CUES.CREATURE_BUY_SUTURE_HAND]: 80,
-  [SOUND_CUES.CREATURE_BUY_LEECH_CLERK]: 85,
-  [SOUND_CUES.CREATURE_BUY_WEEPING_LAMP]: 95,
-  [SOUND_CUES.CREATURE_BUY_SUMP_SIPHON]: 100,
-  [SOUND_CUES.ANOMALY_TOOTH]: 90,
-  [SOUND_CUES.ANOMALY_EYE]: 110,
-  [SOUND_CUES.ANOMALY_NODULE]: 110,
-  [SOUND_CUES.ANOMALY_RIB]: 120,
-  [SOUND_CUES.JAR_BOTTLE]: 120,
-  [SOUND_CUES.GRAFT_PERFORM]: 260,
-  [SOUND_CUES.SCAR_UNLOCK]: 110,
+  [SOUND_CUES.CREATURE_BUY_SUTURE_HAND]: 85,
+  [SOUND_CUES.CREATURE_BUY_LEECH_CLERK]: 95,
+  [SOUND_CUES.CREATURE_BUY_WEEPING_LAMP]: 100,
+  [SOUND_CUES.CREATURE_BUY_SUMP_SIPHON]: 110,
+  [SOUND_CUES.ANOMALY_TOOTH]: 95,
+  [SOUND_CUES.ANOMALY_EYE]: 115,
+  [SOUND_CUES.ANOMALY_NODULE]: 115,
+  [SOUND_CUES.ANOMALY_RIB]: 130,
+  [SOUND_CUES.JAR_BOTTLE]: 125,
+  [SOUND_CUES.GRAFT_PERFORM]: 300,
+  [SOUND_CUES.SCAR_UNLOCK]: 115,
   [SOUND_CUES.DRAIN_TOGGLE]: 110,
-  [SOUND_CUES.SUMP_DREDGE]: 180,
+  [SOUND_CUES.SUMP_DREDGE]: 190,
   [SOUND_CUES.ECHO_PULSE]: 260,
-  [SOUND_CUES.CLAMP_ENGAGE]: 160,
-  [SOUND_CUES.MARROW_BLOOM]: 300,
-  [SOUND_CUES.THROAT_OFFER]: 200,
-  [SOUND_CUES.EXCISION_CUT]: 400,
+  [SOUND_CUES.CLAMP_ENGAGE]: 170,
+  [SOUND_CUES.MARROW_BLOOM]: 320,
+  [SOUND_CUES.THROAT_OFFER]: 220,
+  [SOUND_CUES.EXCISION_CUT]: 420,
   [SOUND_CUES.PLEAD_SALVATION]: 450,
   [SOUND_CUES.STORY_DRIP]: 380,
   [SOUND_CUES.PHASE_SHIFT]: 450,
@@ -399,6 +409,7 @@ export function createWebAudioEngine({ storage } = {}) {
   let sfxBus = null;
   let ambientBus = null;
   let noiseBuffer = null;
+  let crackleNoiseBuffer = null;
   let ambientNodes = null;
   let ambientTimer = null;
   let currentProfile = computeAmbientProfile(null);
@@ -421,8 +432,30 @@ export function createWebAudioEngine({ storage } = {}) {
       const white = Math.random() * 2 - 1;
       b0 = 0.99 * b0 + white * 0.08;
       b1 = 0.93 * b1 + white * 0.22;
-      // Darker pink/brown-weighted noise so foley sounds muffled & heavy in a closed room
       data[i] = Math.max(-1, Math.min(1, white * 0.35 + b1 * 0.45 + b0 * 0.30));
+    }
+    return buffer;
+  }
+
+  /**
+   * Crackle-rich sticky wet excitation noise: injects stochastic viscous micro-pop bursts into
+   * filtered noise so resonant bandpass sweeps sound like wet flesh/mucosa/sinew rather than hiss.
+   */
+  function createCrackleNoiseBuffer(audioCtx) {
+    const length = Math.floor(audioCtx.sampleRate * 2.0);
+    const buffer = audioCtx.createBuffer(1, length, audioCtx.sampleRate);
+    const data = buffer.getChannelData(0);
+    let crackleEnv = 0;
+    let smooth = 0;
+    for (let i = 0; i < length; i += 1) {
+      const white = Math.random() * 2 - 1;
+      if (Math.random() > 0.988) {
+        crackleEnv = 0.85 + Math.random() * 0.95;
+      }
+      crackleEnv *= 0.92;
+      smooth = smooth * 0.55 + white * 0.45;
+      const sample = smooth * (0.42 + crackleEnv * 1.45);
+      data[i] = Math.max(-1, Math.min(1, sample));
     }
     return buffer;
   }
@@ -437,31 +470,61 @@ export function createWebAudioEngine({ storage } = {}) {
       compressor.threshold.value = -16;
       compressor.knee.value = 18;
       compressor.ratio.value = 4;
-      compressor.attack.value = 0.005;
+      compressor.attack.value = 0.004;
       compressor.release.value = 0.14;
 
-      // Global closed-room warmth low-pass ceiling so no transient ever feels shrill or tinny
+      // Global closed-room warmth ceiling: preserves cast-iron overtones & wet tearing formants
+      // up to 3.4kHz while keeping everything grounded inside a damp windowless chamber.
       const roomFilter = ctx.createBiquadFilter();
       roomFilter.type = 'lowpass';
-      roomFilter.frequency.value = 1850;
-      roomFilter.Q.value = 0.65;
+      roomFilter.frequency.value = 3400;
+      roomFilter.Q.value = 0.55;
 
       masterGain = ctx.createGain();
       masterGain.gain.value = muted || !foregroundActive ? 0.0001 : 0.88;
 
       sfxBus = ctx.createGain();
-      sfxBus.gain.value = 0.78;
+      sfxBus.gain.value = 0.82;
 
       ambientBus = ctx.createGain();
       ambientBus.gain.value = 0.30;
 
+      // Subtle tiled-chamber early slapback reflections (19ms & 35ms damped by 1400Hz lowpass)
+      const slapDelay1 = ctx.createDelay(0.1);
+      slapDelay1.delayTime.value = 0.019;
+      const slapGain1 = ctx.createGain();
+      slapGain1.gain.value = 0.68;
+
+      const slapDelay2 = ctx.createDelay(0.1);
+      slapDelay2.delayTime.value = 0.035;
+      const slapGain2 = ctx.createGain();
+      slapGain2.gain.value = 0.42;
+
+      const slapDamp = ctx.createBiquadFilter();
+      slapDamp.type = 'lowpass';
+      slapDamp.frequency.value = 1400;
+      slapDamp.Q.value = 0.7;
+
+      const slapMix = ctx.createGain();
+      slapMix.gain.value = 0.15;
+
       sfxBus.connect(roomFilter);
+      sfxBus.connect(slapDelay1);
+      sfxBus.connect(slapDelay2);
+      slapDelay1.connect(slapGain1);
+      slapDelay2.connect(slapGain2);
+      slapGain1.connect(slapDamp);
+      slapGain2.connect(slapDamp);
+      slapDamp.connect(slapMix);
+      slapMix.connect(roomFilter);
+
       ambientBus.connect(roomFilter);
       roomFilter.connect(compressor);
       compressor.connect(masterGain);
       masterGain.connect(ctx.destination);
 
       noiseBuffer = createNoiseBuffer(ctx);
+      crackleNoiseBuffer = createCrackleNoiseBuffer(ctx);
       initAmbientGraph();
       applyAmbientTargets(currentProfile);
       startAmbientScheduler();
@@ -591,7 +654,6 @@ export function createWebAudioEngine({ storage } = {}) {
     if (!ctx || !ambientBus) return;
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();
-    // Low subterranean cistern droplet (never high-pitched)
     const base = 210 + Math.random() * 115;
     osc.type = 'sine';
     osc.frequency.setValueAtTime(base * 0.85, now);
@@ -658,7 +720,8 @@ export function createWebAudioEngine({ storage } = {}) {
     }
   }
 
-  // --- Low-level Web Audio synthesis helpers ---
+  // ==================== SHARED PHYSICAL ACOUSTIC PRIMITIVES ====================
+
   function triggerTone(
     startTime,
     duration,
@@ -666,7 +729,7 @@ export function createWebAudioEngine({ storage } = {}) {
     freqEnd,
     peakGain,
     type = 'sine',
-    attack = 0.008,
+    attack = 0.01,
   ) {
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();
@@ -681,7 +744,7 @@ export function createWebAudioEngine({ storage } = {}) {
     osc.connect(gain);
     gain.connect(sfxBus);
     osc.start(startTime);
-    osc.stop(startTime + duration + 0.02);
+    osc.stop(startTime + duration + 0.025);
   }
 
   function triggerNoise(
@@ -692,10 +755,11 @@ export function createWebAudioEngine({ storage } = {}) {
     freqEnd,
     q,
     peakGain,
-    attack = 0.008,
+    attack = 0.01,
+    useCrackle = false,
   ) {
     const src = ctx.createBufferSource();
-    src.buffer = noiseBuffer;
+    src.buffer = useCrackle ? crackleNoiseBuffer : noiseBuffer;
     src.loop = true;
     const filter = ctx.createBiquadFilter();
     filter.type = filterType;
@@ -713,248 +777,559 @@ export function createWebAudioEngine({ storage } = {}) {
     src.connect(filter);
     filter.connect(gain);
     gain.connect(sfxBus);
-    const offset = Math.random() * 1.4;
-    src.start(startTime, offset);
-    src.stop(startTime + duration + 0.02);
+    src.start(startTime, Math.random() * 1.4);
+    src.stop(startTime + duration + 0.025);
+  }
+
+  /**
+   * Authentic struck/ratcheted cast-iron modal bank: 6 inharmonic metallic partials with
+   * initial impact pitch sag + metallic clang transient + 46Hz pawl gear ratchet scrape.
+   */
+  function triggerIronModalRing(
+    startTime,
+    duration,
+    baseFreq,
+    peakGain,
+    decayScale = 1.0,
+    includeRatchet = true,
+  ) {
+    const bus = ctx.createGain();
+    bus.gain.value = peakGain;
+    bus.connect(sfxBus);
+
+    for (let m = 0; m < IRON_MODE_RATIOS.length; m += 1) {
+      const f = Math.min(3200, Math.max(60, baseFreq * IRON_MODE_RATIOS[m]));
+      const modeDur = Math.min(duration, Math.max(0.055, 3.8 / (IRON_MODE_DECAYS[m] * decayScale)));
+      const osc = ctx.createOscillator();
+      const g = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(f * 1.026, startTime);
+      osc.frequency.exponentialRampToValueAtTime(f, startTime + 0.032);
+
+      g.gain.setValueAtTime(0.0001, startTime);
+      g.gain.linearRampToValueAtTime(IRON_MODE_AMPS[m] * 0.48, startTime + 0.003);
+      g.gain.exponentialRampToValueAtTime(0.0001, startTime + modeDur);
+
+      osc.connect(g);
+      g.connect(bus);
+      osc.start(startTime);
+      osc.stop(startTime + modeDur + 0.02);
+    }
+
+    // Metallic strike burst
+    const clangDur = Math.min(duration, 0.06);
+    const clangSrc = ctx.createBufferSource();
+    clangSrc.buffer = noiseBuffer;
+    clangSrc.loop = true;
+    const clangFilter = ctx.createBiquadFilter();
+    clangFilter.type = 'bandpass';
+    clangFilter.frequency.value = Math.min(2900, Math.max(500, baseFreq * 4.2));
+    clangFilter.Q.value = 3.4;
+    const clangGain = ctx.createGain();
+    clangGain.gain.setValueAtTime(0.0001, startTime);
+    clangGain.gain.linearRampToValueAtTime(0.52, startTime + 0.0025);
+    clangGain.gain.exponentialRampToValueAtTime(0.0001, startTime + clangDur);
+    clangSrc.connect(clangFilter);
+    clangFilter.connect(clangGain);
+    clangGain.connect(bus);
+    clangSrc.start(startTime, Math.random() * 1.2);
+    clangSrc.stop(startTime + clangDur + 0.02);
+
+    // Cast-iron pawl ratchet grit (46Hz gear-tooth AM modulation)
+    if (includeRatchet) {
+      const rDur = Math.min(duration, 0.09);
+      const rSrc = ctx.createBufferSource();
+      rSrc.buffer = crackleNoiseBuffer;
+      rSrc.loop = true;
+      const rFilter = ctx.createBiquadFilter();
+      rFilter.type = 'bandpass';
+      const rStart = Math.min(2600, Math.max(420, baseFreq * 4.8));
+      const rEnd = Math.min(1800, Math.max(320, baseFreq * 2.1));
+      rFilter.frequency.setValueAtTime(rStart, startTime);
+      rFilter.frequency.exponentialRampToValueAtTime(rEnd, startTime + rDur);
+      rFilter.Q.value = 4.2;
+
+      const rModGain = ctx.createGain();
+      rModGain.gain.setValueAtTime(0.28, startTime);
+      rModGain.gain.exponentialRampToValueAtTime(0.0001, startTime + rDur);
+
+      const teethLfo = ctx.createOscillator();
+      teethLfo.type = 'sine';
+      teethLfo.frequency.value = 46;
+      const teethDepth = ctx.createGain();
+      teethDepth.gain.value = 0.18;
+      teethLfo.connect(teethDepth);
+      teethDepth.connect(rModGain.gain);
+
+      rSrc.connect(rFilter);
+      rFilter.connect(rModGain);
+      rModGain.connect(bus);
+      rSrc.start(startTime, Math.random() * 1.2);
+      teethLfo.start(startTime);
+      rSrc.stop(startTime + rDur + 0.02);
+      teethLfo.stop(startTime + rDur + 0.02);
+    }
+  }
+
+  /**
+   * Fibrous sinew / tendon tearing: stochastic train of irregular snapping micro-fibers routed
+   * through dual sweeping resonant formant bands (wet tissue cavity + taut fascia rasp), layered
+   * over a stretched low-mid ligament groan with 29Hz fibrous flutter.
+   */
+  function triggerTendonTear(startTime, duration, pitch, peakGain, fiberCount = 18) {
+    const out = ctx.createGain();
+    out.gain.value = peakGain;
+    out.connect(sfxBus);
+
+    // Dual sweeping formant resonators shared by the ripping source & snapping fibers
+    const ripBus = ctx.createGain();
+    ripBus.gain.value = 1.0;
+
+    const cavityFilter = ctx.createBiquadFilter();
+    cavityFilter.type = 'bandpass';
+    cavityFilter.Q.value = 4.6;
+    cavityFilter.frequency.setValueAtTime(Math.max(180, 320 * pitch), startTime);
+    cavityFilter.frequency.exponentialRampToValueAtTime(Math.min(950, 710 * pitch), startTime + duration);
+
+    const fiberFilter = ctx.createBiquadFilter();
+    fiberFilter.type = 'bandpass';
+    fiberFilter.Q.value = 3.8;
+    fiberFilter.frequency.setValueAtTime(Math.min(2900, 2140 * pitch), startTime);
+    fiberFilter.frequency.exponentialRampToValueAtTime(Math.max(620, 1220 * pitch), startTime + duration);
+
+    const wobbleLfo = ctx.createOscillator();
+    wobbleLfo.type = 'sine';
+    wobbleLfo.frequency.value = 11.5;
+    const wobbleDepth1 = ctx.createGain();
+    wobbleDepth1.gain.value = 85;
+    const wobbleDepth2 = ctx.createGain();
+    wobbleDepth2.gain.value = 150;
+    wobbleLfo.connect(wobbleDepth1);
+    wobbleLfo.connect(wobbleDepth2);
+    wobbleDepth1.connect(cavityFilter.frequency);
+    wobbleDepth2.connect(fiberFilter.frequency);
+
+    const cavityGain = ctx.createGain();
+    cavityGain.gain.value = 0.78;
+    const fiberGain = ctx.createGain();
+    fiberGain.gain.value = 0.56;
+
+    ripBus.connect(cavityFilter);
+    ripBus.connect(fiberFilter);
+    cavityFilter.connect(cavityGain);
+    fiberFilter.connect(fiberGain);
+    cavityGain.connect(out);
+    fiberGain.connect(out);
+
+    // Continuous wet fibrous friction bed across the rip arc
+    const bedSrc = ctx.createBufferSource();
+    bedSrc.buffer = crackleNoiseBuffer;
+    bedSrc.loop = true;
+    const bedGain = ctx.createGain();
+    bedGain.gain.setValueAtTime(0.0001, startTime);
+    bedGain.gain.linearRampToValueAtTime(0.42, startTime + duration * 0.25);
+    bedGain.gain.linearRampToValueAtTime(0.48, startTime + duration * 0.65);
+    bedGain.gain.exponentialRampToValueAtTime(0.0001, startTime + duration);
+    bedSrc.connect(bedGain);
+    bedGain.connect(ripBus);
+    bedSrc.start(startTime, Math.random() * 1.4);
+    bedSrc.stop(startTime + duration + 0.03);
+
+    // Stochastic irregular snapping tendon micro-fibers
+    const snaps = Math.max(8, Math.min(28, fiberCount));
+    for (let k = 0; k < snaps; k += 1) {
+      const progress = k / snaps;
+      const jitter = (Math.random() - 0.5) * (duration / snaps) * 1.4;
+      const t = startTime + Math.max(0, Math.min(duration - 0.02, progress * duration * 0.88 + jitter));
+      const snapDur = 0.016 + Math.random() * 0.012;
+      const snapAmp = (0.38 + 0.48 * Math.sin(Math.PI * progress) + Math.random() * 0.25) * 0.42;
+
+      const osc = ctx.createOscillator();
+      osc.type = 'sawtooth';
+      const f0 = (760 + Math.random() * 1350) * pitch;
+      osc.frequency.setValueAtTime(f0, t);
+      osc.frequency.exponentialRampToValueAtTime(Math.max(180, f0 * 0.36), t + snapDur);
+
+      const sg = ctx.createGain();
+      sg.gain.setValueAtTime(0.0001, t);
+      sg.gain.linearRampToValueAtTime(snapAmp, t + 0.002);
+      sg.gain.exponentialRampToValueAtTime(0.0001, t + snapDur);
+
+      osc.connect(sg);
+      sg.connect(ripBus);
+      osc.start(t);
+      osc.stop(t + snapDur + 0.01);
+    }
+
+    // Stretched elastic ligament groan pitching downward under tension with 29Hz flutter
+    const groanOsc = ctx.createOscillator();
+    groanOsc.type = 'triangle';
+    groanOsc.frequency.setValueAtTime(Math.max(45, 195 * pitch), startTime);
+    groanOsc.frequency.exponentialRampToValueAtTime(Math.max(38, 54 * pitch), startTime + duration);
+
+    const groanLp = ctx.createBiquadFilter();
+    groanLp.type = 'lowpass';
+    groanLp.frequency.value = 340;
+
+    const groanGain = ctx.createGain();
+    groanGain.gain.setValueAtTime(0.0001, startTime);
+    groanGain.gain.linearRampToValueAtTime(0.28, startTime + duration * 0.28);
+    groanGain.gain.exponentialRampToValueAtTime(0.0001, startTime + duration);
+
+    const flutterOsc = ctx.createOscillator();
+    flutterOsc.type = 'sine';
+    flutterOsc.frequency.value = 29;
+    const flutterDepth = ctx.createGain();
+    flutterDepth.gain.value = 0.09;
+    flutterOsc.connect(flutterDepth);
+    flutterDepth.connect(groanGain.gain);
+
+    groanOsc.connect(groanLp);
+    groanLp.connect(groanGain);
+    groanGain.connect(out);
+
+    wobbleLfo.start(startTime);
+    wobbleLfo.stop(startTime + duration + 0.03);
+    groanOsc.start(startTime);
+    groanOsc.stop(startTime + duration + 0.03);
+    flutterOsc.start(startTime);
+    flutterOsc.stop(startTime + duration + 0.03);
+  }
+
+  /**
+   * Thick, wet, organic mucosa squelch using crackle-injected wet noise routed through dual
+   * LFO-swept vocal/cavity formant bandpass filters + slow fleshy pressure sub-swell.
+   */
+  function triggerWetSquelch(
+    startTime,
+    duration,
+    pitch,
+    peakGain,
+    formantStart = 240,
+    formantEnd = 640,
+    wobbleHz = 7.5,
+  ) {
+    const out = ctx.createGain();
+    out.gain.value = peakGain;
+    out.connect(sfxBus);
+
+    const src = ctx.createBufferSource();
+    src.buffer = crackleNoiseBuffer;
+    src.loop = true;
+
+    const f1 = ctx.createBiquadFilter();
+    f1.type = 'bandpass';
+    f1.Q.value = 5.8;
+    const f1Start = Math.max(110, Math.min(1100, formantStart * pitch));
+    const f1End = Math.max(110, Math.min(1100, formantEnd * pitch));
+    f1.frequency.setValueAtTime(f1Start, startTime);
+    f1.frequency.exponentialRampToValueAtTime(f1End, startTime + duration);
+
+    const f2 = ctx.createBiquadFilter();
+    f2.type = 'bandpass';
+    f2.Q.value = 6.4;
+    f2.frequency.setValueAtTime(Math.min(2600, f1Start * 2.15), startTime);
+    f2.frequency.exponentialRampToValueAtTime(Math.min(2600, f1End * 2.15), startTime + duration);
+
+    const lfo1 = ctx.createOscillator();
+    lfo1.type = 'sine';
+    lfo1.frequency.value = wobbleHz;
+    const lfo1Depth = ctx.createGain();
+    lfo1Depth.gain.value = Math.max(40, (f1Start + f1End) * 0.18);
+    lfo1.connect(lfo1Depth);
+    lfo1Depth.connect(f1.frequency);
+
+    const lfo2 = ctx.createOscillator();
+    lfo2.type = 'sine';
+    lfo2.frequency.value = wobbleHz * 1.35;
+    const lfo2Depth = ctx.createGain();
+    lfo2Depth.gain.value = 140;
+    lfo2.connect(lfo2Depth);
+    lfo2Depth.connect(f2.frequency);
+
+    const envGain = ctx.createGain();
+    envGain.gain.setValueAtTime(0.0001, startTime);
+    envGain.gain.linearRampToValueAtTime(0.75, startTime + Math.min(0.06, duration * 0.32));
+    envGain.gain.linearRampToValueAtTime(0.62, startTime + duration * 0.68);
+    envGain.gain.exponentialRampToValueAtTime(0.0001, startTime + duration);
+
+    const f2Mix = ctx.createGain();
+    f2Mix.gain.value = 0.56;
+
+    src.connect(f1);
+    src.connect(f2);
+    f1.connect(envGain);
+    f2.connect(f2Mix);
+    f2Mix.connect(envGain);
+    envGain.connect(out);
+
+    // Fleshy low-end body pressure swell
+    const subOsc = ctx.createOscillator();
+    subOsc.type = 'sine';
+    subOsc.frequency.setValueAtTime(Math.max(36, 78 * pitch), startTime);
+    subOsc.frequency.exponentialRampToValueAtTime(Math.max(30, 52 * pitch), startTime + duration);
+    const subGain = ctx.createGain();
+    subGain.gain.setValueAtTime(0.0001, startTime);
+    subGain.gain.linearRampToValueAtTime(0.32, startTime + duration * 0.35);
+    subGain.gain.exponentialRampToValueAtTime(0.0001, startTime + duration);
+    subOsc.connect(subGain);
+    subGain.connect(out);
+
+    src.start(startTime, Math.random() * 1.4);
+    lfo1.start(startTime);
+    lfo2.start(startTime);
+    subOsc.start(startTime);
+    src.stop(startTime + duration + 0.03);
+    lfo1.stop(startTime + duration + 0.03);
+    lfo2.stop(startTime + duration + 0.03);
+    subOsc.stop(startTime + duration + 0.03);
+  }
+
+  /**
+   * Staggered cluster of wet cavity bubble pops (soft attack, upward pitch chirp) selling thick
+   * liquid mucosa, blister rupture, and submerged suction.
+   */
+  function triggerBubbleCluster(startTime, span, count, baseFreq, peakGain) {
+    for (let b = 0; b < count; b += 1) {
+      const t = startTime + Math.random() * Math.max(0.01, span);
+      const dur = 0.028 + Math.random() * 0.032;
+      const f0 = Math.max(85, baseFreq * (0.68 + Math.random() * 0.78));
+      const amp = peakGain * (0.55 + Math.random() * 0.55);
+
+      const osc = ctx.createOscillator();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(f0, t);
+      osc.frequency.exponentialRampToValueAtTime(Math.min(1200, f0 * 2.05), t + dur);
+
+      const g = ctx.createGain();
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.linearRampToValueAtTime(amp, t + dur * 0.28);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+
+      osc.connect(g);
+      g.connect(sfxBus);
+      osc.start(t);
+      osc.stop(t + dur + 0.015);
+    }
   }
 
   function renderCue(cue, phase, pitch) {
-    if (!ctx || !sfxBus || !noiseBuffer) return;
+    if (!ctx || !sfxBus || !noiseBuffer || !crackleNoiseBuffer) return;
     const now = ctx.currentTime + 0.003;
     const p = Math.max(0, Math.min(6, phase ?? 0));
-    const wetness = Math.min(1, p / 4);
-    const pDark = 1.0 - Math.min(4, p) * 0.04;
+    const pDark = 1.0 - Math.min(4, p) * 0.035;
     const darkPitch = pitch * pDark;
 
     switch (cue) {
       case SOUND_CUES.VALVE_PRESS:
-        // Heavy, deep cast-iron valve lug thud + muffled collar resonance + dark seepage
-        triggerTone(now, 0.19, 84 * darkPitch, 40 * darkPitch, 0.46, 'sine', 0.003);
-        triggerTone(now, 0.11, 165 * darkPitch, 96 * darkPitch, 0.22, 'triangle', 0.003);
-        triggerNoise(now, 0.09, 'lowpass', 520 * darkPitch, 210 * darkPitch, 1.4, 0.26, 0.003);
-        if (wetness > 0.08) {
-          triggerTone(
-            now + 0.032,
-            0.10,
-            148 * darkPitch,
-            225 * darkPitch,
-            0.11 * wetness,
-            'sine',
-            0.01,
-          );
-          triggerNoise(
-            now + 0.03,
-            0.14,
-            'bandpass',
-            320 * darkPitch,
-            135 * darkPitch,
-            2.2,
-            0.15 * wetness,
-            0.014,
-          );
+        // Heavy wet cast-iron wall valve crank: 6-mode iron clang + pawl ratchet + tight housing weight
+        triggerIronModalRing(now, 0.25, 285 * darkPitch, 0.78, 0.95, true);
+        triggerTone(now, 0.14, 88 * darkPitch, 44 * darkPitch, 0.28, 'sine', 0.004);
+        triggerIronModalRing(now + 0.042, 0.16, 365 * darkPitch, 0.38, 1.28, false);
+        if (p >= 1) {
+          const wet = Math.max(0.25, Math.min(1.0, p / 4));
+          triggerWetSquelch(now + 0.055, 0.17, darkPitch, 0.28 * wet, 340, 180, 12.0);
+          triggerBubbleCluster(now + 0.065, 0.12, 2 + Math.min(4, p), 190 * darkPitch, 0.13 * wet);
         }
         break;
 
       case SOUND_CUES.CREATURE_BUY_SUTURE_HAND:
-        // Heavy iron rim palm thud + staggered dry-wet knuckle/tendon snaps
-        triggerTone(now, 0.22, 102 * darkPitch, 48 * darkPitch, 0.40, 'sine', 0.004);
-        triggerTone(now, 0.07, 260 * darkPitch, 115 * darkPitch, 0.20, 'triangle', 0.002);
-        triggerTone(now + 0.075, 0.085, 215 * darkPitch, 95 * darkPitch, 0.18, 'triangle', 0.003);
-        triggerNoise(now, 0.14, 'lowpass', 540 * darkPitch, 200 * darkPitch, 1.4, 0.22, 0.005);
+        // Wet fascia tearing loose from plaster + tendons snapping + cold iron rim grip
+        triggerTendonTear(now, 0.26, darkPitch, 0.62, 16);
+        triggerWetSquelch(now + 0.03, 0.24, darkPitch, 0.34, 260, 520, 8.0);
+        triggerIronModalRing(now + 0.165, 0.22, 265 * darkPitch, 0.42, 1.35, false);
         break;
 
       case SOUND_CUES.CREATURE_BUY_LEECH_CLERK:
-        // Sluggish wet suction attach + slimy low drag across cold counter glass
-        triggerTone(now, 0.26, 178 * darkPitch, 64 * darkPitch, 0.30, 'sine', 0.025);
-        triggerNoise(now, 0.28, 'bandpass', 340 * darkPitch, 130 * darkPitch, 2.4, 0.28, 0.028);
-        triggerTone(now + 0.14, 0.13, 118 * darkPitch, 52 * darkPitch, 0.28, 'sine', 0.012);
+        // Long viscous wet mucosal squelch + irregular suction-cup bubbles dragging on cold glass
+        triggerWetSquelch(now, 0.42, darkPitch, 0.72, 220, 620, 8.5);
+        triggerBubbleCluster(now + 0.04, 0.32, 7, 185 * darkPitch, 0.24);
         break;
 
       case SOUND_CUES.CREATURE_BUY_WEEPING_LAMP:
-        // Dull hollow dark-glass vessel groan + slow heavy dark-water droplet plop
-        triggerTone(now, 0.34, 146 * darkPitch, 140 * darkPitch, 0.26, 'sine', 0.012);
-        triggerTone(now, 0.28, 220 * darkPitch, 210 * darkPitch, 0.12, 'triangle', 0.014);
-        triggerTone(now, 0.30, 73 * darkPitch, 66 * darkPitch, 0.20, 'sine', 0.015);
-        triggerTone(now + 0.135, 0.13, 155 * darkPitch, 255 * darkPitch, 0.16, 'sine', 0.008);
+        // Eerie hollow thick-glass vessel toll + slow heavy viscous condensation drops
+        triggerTone(now, 0.46, 182 * darkPitch, 179 * darkPitch, 0.30, 'sine', 0.015);
+        triggerTone(now, 0.36, 346 * darkPitch, 340 * darkPitch, 0.15, 'sine', 0.014);
+        triggerTone(now, 0.26, 588 * darkPitch, 578 * darkPitch, 0.08, 'sine', 0.012);
+        triggerTone(now, 0.44, 91 * darkPitch, 86 * darkPitch, 0.22, 'sine', 0.018);
+        triggerBubbleCluster(now + 0.14, 0.26, 4, 195 * darkPitch, 0.20);
         break;
 
       case SOUND_CUES.CREATURE_BUY_SUMP_SIPHON:
-        // Deep submerged iron pipe vacuum inhale + cavernous gurgling gulp
-        triggerTone(now, 0.38, 68 * darkPitch, 38 * darkPitch, 0.40, 'sine', 0.03);
-        triggerNoise(now, 0.40, 'bandpass', 240 * darkPitch, 92 * darkPitch, 2.2, 0.32, 0.035);
-        triggerTone(now + 0.22, 0.15, 92 * darkPitch, 54 * darkPitch, 0.24, 'triangle', 0.01);
+        // Cavernous wet bellows inhale + submerged bubbling iron-pipe gulp + iron seat clank
+        triggerWetSquelch(now, 0.48, darkPitch, 0.68, 420, 150, 6.2);
+        triggerBubbleCluster(now + 0.05, 0.38, 8, 140 * darkPitch, 0.26);
+        triggerIronModalRing(now + 0.28, 0.24, 175 * darkPitch, 0.36, 1.3, false);
         break;
 
       case SOUND_CUES.ANOMALY_TOOTH:
-        // Dull bone/enamel root snap + damp mortar crumble
-        triggerTone(now, 0.07, 520 * pitch, 175 * pitch, 0.24, 'triangle', 0.002);
-        triggerTone(now, 0.15, 128 * pitch, 56 * pitch, 0.34, 'sine', 0.003);
-        triggerNoise(now + 0.02, 0.14, 'bandpass', 560, 210, 1.8, 0.22, 0.006);
+        // Taut periodontal ligament tearing out of wet plaster + enamel root wrench pop
+        triggerTendonTear(now, 0.28, pitch, 0.72, 18);
+        triggerWetSquelch(now + 0.08, 0.22, pitch, 0.38, 380, 190, 8.5);
+        triggerBubbleCluster(now + 0.16, 0.12, 4, 230 * pitch, 0.20);
         break;
 
       case SOUND_CUES.ANOMALY_EYE:
-        // Heavy wet condensation wipe + low hollow glass-eye blink
-        triggerNoise(now, 0.26, 'bandpass', 340 * pitch, 560 * pitch, 2.1, 0.22, 0.035);
-        triggerTone(now + 0.17, 0.14, 118 * pitch, 62 * pitch, 0.26, 'sine', 0.008);
+        // Damp rubbery condensation smear + wet mucosal eyelid squelch + hollow sphere roll
+        triggerWetSquelch(now, 0.34, pitch, 0.68, 290, 780, 6.0);
+        triggerBubbleCluster(now + 0.14, 0.20, 5, 210 * pitch, 0.20);
         break;
 
       case SOUND_CUES.ANOMALY_NODULE:
-        // Thick viscous blister rupture + sluggish seepage
-        triggerTone(now, 0.16, 146 * pitch, 52 * pitch, 0.36, 'sine', 0.005);
-        triggerNoise(now + 0.015, 0.26, 'lowpass', 380, 115, 1.8, 0.28, 0.014);
+        // Taut blister membrane tearing open + juicy oozing wet squelch & bubble burst
+        triggerTendonTear(now, 0.16, pitch, 0.50, 12);
+        triggerWetSquelch(now + 0.04, 0.38, pitch, 0.76, 480, 175, 9.5);
+        triggerBubbleCluster(now + 0.07, 0.30, 7, 175 * pitch, 0.26);
         break;
 
       case SOUND_CUES.ANOMALY_RIB:
-        // Deep calcified rib creak + hollow marrow pry
-        triggerTone(now, 0.12, 340 * pitch, 120 * pitch, 0.24, 'triangle', 0.003);
-        triggerNoise(now, 0.16, 'bandpass', 480, 180, 2.0, 0.26, 0.006);
-        triggerTone(now + 0.04, 0.30, 74 * pitch, 38 * pitch, 0.34, 'sine', 0.015);
+        // Deep calcified bone wrench + long fibrous tendon/ligament ripping + marrow groan
+        triggerTendonTear(now, 0.44, pitch * 0.92, 0.78, 24);
+        triggerWetSquelch(now + 0.10, 0.36, pitch, 0.46, 280, 540, 6.5);
+        triggerBubbleCluster(now + 0.18, 0.24, 5, 155 * pitch, 0.20);
         break;
 
       case SOUND_CUES.JAR_BOTTLE:
-        // Thick dark apothecary jar thud + heavy wax-seal vacuum cork
-        triggerTone(now, 0.18, 260 * pitch, 290 * pitch, 0.18, 'sine', 0.006);
-        triggerTone(now + 0.055, 0.20, 84 * pitch, 38 * pitch, 0.38, 'sine', 0.006);
-        triggerNoise(now + 0.05, 0.14, 'lowpass', 320, 110, 1.2, 0.22, 0.008);
+        // Dark thick-glass vessel resonance + viscous suction wax-cork seal
+        triggerTone(now, 0.28, 248 * pitch, 244 * pitch, 0.24, 'sine', 0.008);
+        triggerTone(now, 0.22, 412 * pitch, 405 * pitch, 0.12, 'sine', 0.008);
+        triggerTone(now, 0.28, 124 * pitch, 118 * pitch, 0.18, 'sine', 0.01);
+        triggerWetSquelch(now + 0.05, 0.26, pitch, 0.54, 360, 165, 8.0);
+        triggerBubbleCluster(now + 0.08, 0.18, 4, 170 * pitch, 0.22);
         break;
 
       case SOUND_CUES.GRAFT_PERFORM:
-        // Long (~940ms) wet, visceral, deeply fleshy braiding & suction ritual
-        // 1. Heavy damp tissue compression & visceral sub-throb (58Hz -> 34Hz)
-        triggerTone(now, 0.90, 58 * pitch, 34 * pitch, 0.36, 'sine', 0.09);
-        triggerNoise(now, 0.86, 'lowpass', 300, 95, 1.9, 0.30, 0.07);
-        // 2. Three staggered soggy fleshy braiding suction pulses
-        triggerTone(now + 0.18, 0.24, 158 * pitch, 54 * pitch, 0.26, 'sine', 0.03);
-        triggerNoise(now + 0.17, 0.22, 'bandpass', 340, 145, 2.3, 0.22, 0.025);
-        triggerTone(now + 0.38, 0.25, 134 * pitch, 48 * pitch, 0.28, 'sine', 0.032);
-        triggerNoise(now + 0.37, 0.23, 'bandpass', 290, 120, 2.2, 0.24, 0.028);
-        triggerTone(now + 0.56, 0.26, 114 * pitch, 44 * pitch, 0.24, 'sine', 0.035);
-        // 3. Damp breathless exhale settling into the masonry
-        triggerNoise(now + 0.56, 0.36, 'lowpass', 230, 82, 1.3, 0.22, 0.06);
+        // Long (~1.15s) deeply organic & grotesque grafting ritual:
+        // peristaltic body swell + 2 overlapping tendon tears + 2 mucosa squelches + 11 bubbles
+        triggerTone(now, 1.12, 60 * pitch, 33 * pitch, 0.34, 'sine', 0.16);
+        triggerTendonTear(now + 0.05, 0.48, pitch * 0.96, 0.66, 24);
+        triggerTendonTear(now + 0.34, 0.52, pitch * 0.88, 0.72, 26);
+        triggerWetSquelch(now + 0.02, 0.72, pitch, 0.66, 220, 590, 7.2);
+        triggerWetSquelch(now + 0.52, 0.58, pitch * 0.92, 0.60, 440, 155, 5.4);
+        triggerBubbleCluster(now + 0.16, 0.74, 11, 165 * pitch, 0.24);
         break;
 
       case SOUND_CUES.SCAR_UNLOCK:
-        // Coarse surgical suture draw + dull low seam settle
-        triggerNoise(now, 0.18, 'bandpass', 660 * pitch, 260 * pitch, 2.4, 0.22, 0.01);
-        triggerTone(now, 0.18, 104 * pitch, 48 * pitch, 0.30, 'sine', 0.006);
-        triggerTone(now + 0.10, 0.11, 240 * pitch, 110 * pitch, 0.18, 'triangle', 0.004);
+        // Surgical thread dragging taut through damp flesh + crisp tendon cinch
+        triggerTendonTear(now, 0.30, pitch * 1.05, 0.64, 15);
+        triggerWetSquelch(now + 0.06, 0.26, pitch, 0.42, 520, 220, 9.0);
         break;
 
       case SOUND_CUES.DRAIN_TOGGLE:
-        // Heavy rusted cast-iron floor grate latch clank
-        triggerTone(now, 0.22, 115 * pitch, 56 * pitch, 0.38, 'triangle', 0.003);
-        triggerTone(now, 0.14, 232 * pitch, 130 * pitch, 0.16, 'triangle', 0.003);
-        triggerNoise(now, 0.14, 'lowpass', 460, 180, 1.6, 0.24, 0.004);
+        // Heavy rusted cast-iron floor sump grate latch slam & metallic ring
+        triggerIronModalRing(now, 0.32, 205 * pitch, 0.72, 0.92, true);
+        triggerIronModalRing(now + 0.048, 0.22, 290 * pitch, 0.32, 1.25, false);
         break;
 
       case SOUND_CUES.SUMP_DREDGE:
-        // Submerged rusted chain haul & dark water slosh
-        triggerNoise(now, 0.38, 'lowpass', 340, 125, 1.5, 0.28, 0.03);
-        triggerTone(now, 0.14, 196 * pitch, 120 * pitch, 0.20, 'triangle', 0.006);
-        triggerTone(now + 0.14, 0.18, 154 * pitch, 96 * pitch, 0.22, 'triangle', 0.008);
-        triggerTone(now + 0.06, 0.34, 56 * pitch, 95 * pitch, 0.28, 'sine', 0.04);
+        // Submerged rusted iron chain-link haul & dark viscous sump water slosh
+        triggerWetSquelch(now, 0.50, pitch, 0.58, 280, 460, 6.8);
+        triggerBubbleCluster(now + 0.04, 0.42, 8, 160 * pitch, 0.22);
+        triggerIronModalRing(now + 0.02, 0.20, 320 * pitch, 0.38, 1.4, false);
+        triggerIronModalRing(now + 0.16, 0.24, 255 * pitch, 0.42, 1.2, false);
         break;
 
       case SOUND_CUES.ECHO_PULSE:
         // Deeply muffled triple knuckle-knock behind thick wet masonry
         for (let i = 0; i < 3; i += 1) {
-          const t = now + i * 0.155;
-          const amp = 0.28 * (1 - i * 0.2);
-          triggerTone(t, 0.11, (92 - i * 6) * pitch, 44 * pitch, amp, 'sine', 0.005);
-          triggerNoise(t, 0.08, 'lowpass', 210, 100, 1.1, amp * 0.65, 0.005);
+          const t = now + i * 0.16;
+          const amp = 0.30 * (1 - i * 0.2);
+          triggerTone(t, 0.12, (96 - i * 7) * pitch, 44 * pitch, amp, 'sine', 0.005);
+          triggerNoise(t, 0.09, 'lowpass', 240, 100, 1.1, amp * 0.65, 0.005);
         }
         break;
 
       case SOUND_CUES.CLAMP_ENGAGE:
-        // Massive iron jaws bolting shut over the valve
-        triggerTone(now, 0.28, 74 * pitch, 36 * pitch, 0.44, 'sine', 0.004);
-        triggerTone(now + 0.08, 0.18, 168 * pitch, 76 * pitch, 0.26, 'triangle', 0.005);
-        triggerNoise(now + 0.04, 0.22, 'lowpass', 420, 150, 2.0, 0.24, 0.006);
+        // Massive iron jaws bolting shut over the valve with cold metallic locking ring
+        triggerIronModalRing(now, 0.40, 185 * pitch, 0.74, 0.85, true);
+        triggerIronModalRing(now + 0.095, 0.30, 278 * pitch, 0.48, 1.05, false);
+        triggerTone(now, 0.30, 72 * pitch, 34 * pitch, 0.42, 'sine', 0.004);
         break;
 
       case SOUND_CUES.MARROW_BLOOM:
-        // Deep pressurized masonry release into a wet cavern bloom
-        triggerTone(now, 0.50, 62 * pitch, 34 * pitch, 0.42, 'sine', 0.015);
-        triggerNoise(now, 0.46, 'lowpass', 520, 130, 1.5, 0.30, 0.012);
-        triggerTone(now + 0.12, 0.28, 154 * pitch, 82 * pitch, 0.18, 'sine', 0.03);
+        // Iron clamp release snapping open into a cavernous tearing marrow & wet tissue bloom
+        triggerIronModalRing(now, 0.28, 225 * pitch, 0.48, 1.15, true);
+        triggerTendonTear(now + 0.04, 0.48, pitch * 0.90, 0.66, 22);
+        triggerWetSquelch(now + 0.08, 0.64, pitch, 0.68, 520, 150, 6.5);
+        triggerBubbleCluster(now + 0.14, 0.52, 9, 160 * pitch, 0.22);
         break;
 
       case SOUND_CUES.THROAT_OFFER:
-        // Cavernous wet swallow + dull calcified tooth settle
-        triggerTone(now, 0.32, 116 * pitch, 40 * pitch, 0.36, 'sine', 0.025);
-        triggerNoise(now + 0.06, 0.28, 'lowpass', 380, 140, 1.7, 0.24, 0.03);
-        triggerTone(now + 0.20, 0.14, 208 * pitch, 95 * pitch, 0.16, 'triangle', 0.006);
+        // Cavernous wet esophageal swallow + mucosal squelch + calcified tooth settle
+        triggerWetSquelch(now, 0.52, pitch * 0.92, 0.74, 460, 140, 5.5);
+        triggerBubbleCluster(now + 0.08, 0.38, 7, 145 * pitch, 0.24);
+        triggerTendonTear(now + 0.22, 0.24, pitch * 0.86, 0.40, 12);
         break;
 
       case SOUND_CUES.EXCISION_CUT:
-        // Heavy cold surgical shear + deep cavernous severance drop
-        triggerNoise(now, 0.32, 'bandpass', 620, 200, 1.8, 0.28, 0.006);
-        triggerTone(now + 0.04, 0.64, 74 * pitch, 30 * pitch, 0.46, 'sine', 0.02);
-        triggerNoise(now + 0.14, 0.48, 'lowpass', 280, 90, 1.1, 0.26, 0.035);
+        // Heavy cold surgical iron shear slicing straight through thick sinew into hollow collapse
+        triggerIronModalRing(now, 0.46, 265 * pitch, 0.64, 0.82, true);
+        triggerTendonTear(now + 0.04, 0.56, pitch * 0.88, 0.74, 26);
+        triggerWetSquelch(now + 0.18, 0.66, pitch * 0.86, 0.54, 380, 120, 4.8);
+        triggerTone(now + 0.04, 0.82, 72 * pitch, 29 * pitch, 0.42, 'sine', 0.02);
         break;
 
       case SOUND_CUES.PLEAD_SALVATION:
-        // Low mournful seam sigh dissolving into muffled exterior rain
-        triggerTone(now, 0.86, 54 * pitch, 46 * pitch, 0.36, 'sine', 0.10);
-        triggerTone(now + 0.08, 0.80, 81 * pitch, 72 * pitch, 0.18, 'sine', 0.12);
-        triggerNoise(now + 0.10, 0.78, 'lowpass', 680, 320, 0.9, 0.24, 0.14);
+        // Low mournful damp seam sigh dissolving into muffled exterior rain
+        triggerTone(now, 0.94, 54 * pitch, 46 * pitch, 0.34, 'sine', 0.12);
+        triggerTone(now + 0.06, 0.88, 81 * pitch, 72 * pitch, 0.18, 'sine', 0.14);
+        triggerNoise(now + 0.10, 0.84, 'bandpass', 620, 320, 0.9, 0.26, 0.14);
         break;
 
       case SOUND_CUES.STORY_DRIP:
-        // Quiet low-register cistern condensation drop
-        triggerTone(now, 0.12, 245 * pitch, 375 * pitch, 0.14, 'sine', 0.006);
-        triggerTone(now + 0.06, 0.16, 126 * pitch, 112 * pitch, 0.10, 'sine', 0.01);
+        // Quiet low-register cistern condensation drop announcing a newly unlocked Story fragment
+        triggerBubbleCluster(now, 0.02, 1, 225 * pitch, 0.20);
+        triggerTone(now + 0.05, 0.18, 122 * pitch, 110 * pitch, 0.10, 'sine', 0.01);
         break;
 
       case SOUND_CUES.PHASE_SHIFT:
-        // Deep brooding architectural groan behind the grout
-        triggerTone(now, 0.68, 48 * pitch, 36 * pitch, 0.38, 'sine', 0.08);
-        triggerTone(now, 0.62, 72 * pitch, 56 * pitch, 0.18, 'triangle', 0.09);
-        triggerNoise(now + 0.04, 0.56, 'lowpass', 210, 85, 1.3, 0.22, 0.07);
+        // Deep brooding architectural groan + wet masonry shift
+        triggerWetSquelch(now + 0.06, 0.62, pitch * 0.85, 0.38, 180, 310, 3.5);
+        triggerTone(now, 0.76, 46 * pitch, 36 * pitch, 0.36, 'sine', 0.10);
+        triggerTone(now, 0.68, 69 * pitch, 54 * pitch, 0.18, 'triangle', 0.10);
         break;
 
       case SOUND_CUES.ARC2_STAMP:
         // Heavy muffled wooden desk stamp + dark blotter slap
-        triggerTone(now, 0.11, 98 * pitch, 44 * pitch, 0.38, 'sine', 0.003);
-        triggerNoise(now, 0.08, 'lowpass', 620 * pitch, 240 * pitch, 1.4, 0.22, 0.003);
+        triggerTone(now, 0.14, 98 * pitch, 44 * pitch, 0.38, 'sine', 0.003);
+        triggerNoise(now, 0.10, 'lowpass', 520 * pitch, 220 * pitch, 1.3, 0.22, 0.003);
         break;
 
       case SOUND_CUES.ARC2_CONTACT:
         // Heavy damp manila folder slide + low desk drawer tap
-        triggerNoise(now, 0.16, 'bandpass', 680, 300, 1.5, 0.20, 0.01);
-        triggerTone(now + 0.05, 0.12, 142 * pitch, 72 * pitch, 0.24, 'triangle', 0.005);
+        triggerNoise(now, 0.22, 'bandpass', 680, 300, 1.8, 0.24, 0.015);
+        triggerTone(now + 0.05, 0.13, 142 * pitch, 72 * pitch, 0.24, 'triangle', 0.005);
         break;
 
       case SOUND_CUES.ARC2_DEDUCTION:
         // Corkboard pin press + dark damped bass red-string pluck
-        triggerTone(now, 0.07, 310 * pitch, 115 * pitch, 0.20, 'triangle', 0.003);
-        triggerTone(now + 0.02, 0.20, 164 * pitch, 92 * pitch, 0.26, 'sine', 0.005);
+        triggerTone(now, 0.07, 290 * pitch, 110 * pitch, 0.18, 'triangle', 0.003);
+        triggerTone(now + 0.02, 0.24, 158 * pitch, 92 * pitch, 0.26, 'sine', 0.006);
         break;
 
       case SOUND_CUES.ARC2_DESK_ANOMALY:
         // Damp envelope slit / muted brass reel latch
-        triggerNoise(now, 0.16, 'lowpass', 560, 210, 1.8, 0.22, 0.008);
-        triggerTone(now + 0.03, 0.14, 218 * pitch, 110 * pitch, 0.20, 'sine', 0.006);
+        triggerTendonTear(now, 0.22, pitch * 1.12, 0.44, 12);
+        triggerIronModalRing(now + 0.04, 0.18, 340 * pitch, 0.24, 1.6, false);
         break;
 
       case SOUND_CUES.ARC2_CHAPTER:
         // Heavy case-file slam
-        triggerTone(now, 0.28, 76 * pitch, 38 * pitch, 0.36, 'sine', 0.005);
-        triggerNoise(now + 0.02, 0.20, 'lowpass', 580, 200, 1.7, 0.22, 0.006);
+        triggerTone(now, 0.32, 76 * pitch, 38 * pitch, 0.38, 'sine', 0.005);
+        triggerNoise(now + 0.02, 0.24, 'lowpass', 440, 180, 1.2, 0.24, 0.006);
         break;
 
       case SOUND_CUES.ARC2_FILE_ZERO:
         // Heavy manila dossier flap + cold subterranean grout bleed
-        triggerNoise(now, 0.32, 'lowpass', 440, 140, 1.4, 0.24, 0.012);
-        triggerTone(now + 0.05, 0.78, 42 * pitch, 34 * pitch, 0.42, 'sine', 0.04);
-        triggerTone(now + 0.14, 0.62, 63 * pitch, 52 * pitch, 0.20, 'sine', 0.05);
+        triggerWetSquelch(now + 0.08, 0.74, pitch * 0.82, 0.34, 220, 135, 3.2);
+        triggerTone(now + 0.04, 0.88, 42 * pitch, 34 * pitch, 0.42, 'sine', 0.06);
+        triggerTone(now + 0.12, 0.72, 63 * pitch, 52 * pitch, 0.20, 'sine', 0.06);
         break;
 
       case SOUND_CUES.ARC3_ENTER:
         // Dual subterranean convergence drone
-        triggerTone(now, 0.80, 50 * pitch, 38 * pitch, 0.36, 'sine', 0.10);
-        triggerTone(now + 0.04, 0.74, 75 * pitch, 58 * pitch, 0.18, 'sine', 0.10);
-        triggerNoise(now + 0.06, 0.72, 'lowpass', 560, 240, 1.0, 0.20, 0.12);
+        triggerTone(now, 0.84, 50 * pitch, 38 * pitch, 0.36, 'sine', 0.10);
+        triggerTone(now + 0.04, 0.76, 75 * pitch, 58 * pitch, 0.18, 'sine', 0.10);
         break;
 
       default:

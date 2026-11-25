@@ -1,32 +1,33 @@
 package com.example.ui.components
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
@@ -74,6 +75,19 @@ internal fun computeWallAnomalyBreathScale(
   return (minX + ampX * wave) to (minY + ampY * wave)
 }
 
+internal fun wallAnomalyDrawableRes(type: WallAnomalyType): Int =
+  when (type) {
+    WallAnomalyType.PALE_TOOTH -> R.drawable.img_anomaly_pale_tooth
+    WallAnomalyType.GLASS_EYE -> R.drawable.img_anomaly_glass_eye
+    WallAnomalyType.SWOLLEN_NODULE -> R.drawable.img_anomaly_swollen_nodule
+    WallAnomalyType.CHITIN_RIB -> R.drawable.img_anomaly_chitin_rib
+  }
+
+/**
+ * Interactive photographic wall anomaly specimen erupting directly from the damp masonry wall.
+ * Renders a circular edge-feathered macro photograph with living organic breathing scale and
+ * soft cavity glow — eliminating rigid square icon boxes and flat vector symbols.
+ */
 @Composable
 internal fun WallAnomalyNode(
   anomaly: ActiveWallAnomaly,
@@ -108,20 +122,39 @@ internal fun WallAnomalyNode(
       WallAnomalyType.CHITIN_RIB -> colorScheme.tertiary
     }
 
-  Surface(
+  val cavityColor =
+    when (anomaly.type) {
+      WallAnomalyType.SWOLLEN_NODULE,
+      WallAnomalyType.CHITIN_RIB -> colorScheme.tertiaryContainer
+      WallAnomalyType.GLASS_EYE -> colorScheme.primaryContainer
+      WallAnomalyType.PALE_TOOTH -> colorScheme.background
+    }
+
+  Box(
     modifier =
       modifier
-        .size(62.dp)
+        .size(76.dp)
         .minimumInteractiveComponentSize()
         .drawBehind {
           val (sx, _) = computeWallAnomalyBreathScale(anomaly.id, anomaly.type, breathPhaseProvider())
           val glowStrength = ((sx - 0.98f) / 0.064f).coerceIn(0f, 1f)
-          val pad = (2.5f + glowStrength * 3.5f).dp.toPx()
-          drawRoundRect(
-            color = accentColor.copy(alpha = 0.06f + glowStrength * 0.18f),
-            topLeft = Offset(-pad, -pad),
-            size = Size(size.width + pad * 2f, size.height + pad * 2f),
-            cornerRadius = CornerRadius(6.dp.toPx(), 6.dp.toPx()),
+          val center = Offset(size.width * 0.5f, size.height * 0.5f)
+          val haloR = size.minDimension * (0.54f + glowStrength * 0.14f)
+          drawCircle(
+            brush =
+              Brush.radialGradient(
+                colors =
+                  listOf(
+                    colorScheme.background.copy(alpha = 0.88f),
+                    cavityColor.copy(alpha = 0.36f + glowStrength * 0.28f),
+                    accentColor.copy(alpha = 0.10f + glowStrength * 0.18f),
+                    Color.Transparent,
+                  ),
+                center = center,
+                radius = haloR,
+              ),
+            radius = haloR,
+            center = center,
           )
         }
         .graphicsLayer {
@@ -138,183 +171,71 @@ internal fun WallAnomalyNode(
             onInteract()
           },
         ),
-    shape = MaterialTheme.shapes.small,
-    color = colorScheme.surfaceContainerLowest.copy(alpha = 0.90f),
-    border = BorderStroke(1.dp, accentColor.copy(alpha = 0.65f)),
+    contentAlignment = Alignment.Center,
   ) {
-    Column(
-      modifier = Modifier.fillMaxSize().padding(4.dp),
-      horizontalAlignment = Alignment.CenterHorizontally,
-      verticalArrangement = Arrangement.Center,
+    // Circular photographic macro specimen dissolved seamlessly into the damp wall
+    Box(
+      modifier = Modifier.size(66.dp).clip(CircleShape),
+      contentAlignment = Alignment.Center,
     ) {
-      Canvas(modifier = Modifier.size(30.dp)) {
-        val breath = breathPhaseProvider()
-        val cx = size.width / 2f
-        val cy = size.height / 2f
-        when (anomaly.type) {
-          WallAnomalyType.PALE_TOOTH -> {
-            val lift = breath * 2.dp.toPx()
-
-            // Jagged plaster fissure cavity
-            val crackPath =
-              Path().apply {
-                moveTo(2.dp.toPx(), size.height * 0.72f)
-                lineTo(cx - 6.dp.toPx(), size.height * 0.68f)
-                lineTo(cx, size.height * 0.79f)
-                lineTo(cx + 6.dp.toPx(), size.height * 0.66f)
-                lineTo(size.width - 2.dp.toPx(), size.height * 0.70f)
-              }
-            drawOval(
-              color = colorScheme.background.copy(alpha = 0.92f),
-              topLeft = Offset(cx - 9.dp.toPx(), size.height * 0.60f),
-              size = Size(18.dp.toPx(), 7.dp.toPx()),
-            )
-            drawPath(
-              path = crackPath,
-              color = colorScheme.outline,
-              style = Stroke(width = 1.4.dp.toPx(), cap = StrokeCap.Round),
-            )
-
-            // Anatomical bifurcated molar crown + roots emerging from the seam
-            val topY = cy - 9.dp.toPx() - lift
-            val midY = cy + 1.dp.toPx() - lift
-            val rootY = cy + 7.5.dp.toPx() - lift * 0.4f
-            val toothPath =
-              Path().apply {
-                moveTo(cx - 6.5.dp.toPx(), topY + 2.5.dp.toPx())
-                quadraticTo(cx - 4.5.dp.toPx(), topY - 1.5.dp.toPx(), cx - 1.2.dp.toPx(), topY + 1.4.dp.toPx())
-                quadraticTo(cx, topY + 2.4.dp.toPx(), cx + 1.2.dp.toPx(), topY + 1.4.dp.toPx())
-                quadraticTo(cx + 4.5.dp.toPx(), topY - 1.5.dp.toPx(), cx + 6.5.dp.toPx(), topY + 2.5.dp.toPx())
-                quadraticTo(cx + 7.dp.toPx(), midY, cx + 4.2.dp.toPx(), rootY)
-                lineTo(cx + 1.6.dp.toPx(), midY + 2.dp.toPx())
-                lineTo(cx, midY + 1.dp.toPx())
-                lineTo(cx - 1.6.dp.toPx(), midY + 2.dp.toPx())
-                lineTo(cx - 4.2.dp.toPx(), rootY)
-                quadraticTo(cx - 7.dp.toPx(), midY, cx - 6.5.dp.toPx(), topY + 2.5.dp.toPx())
-                close()
-              }
-
-            drawPath(
-              path = toothPath,
-              brush =
-                Brush.verticalGradient(
-                  colors =
-                    listOf(
-                      colorScheme.onBackground,
-                      colorScheme.onSurfaceVariant,
-                      colorScheme.surfaceVariant,
-                    ),
-                  startY = topY,
-                  endY = rootY,
-                ),
-            )
-            drawPath(
-              path = toothPath,
-              color = colorScheme.outline.copy(alpha = 0.85f),
-              style = Stroke(width = 1.dp.toPx(), cap = StrokeCap.Round),
-            )
-            // Subtle enamel cusp specular glint
-            drawLine(
-              color = colorScheme.onBackground.copy(alpha = 0.75f),
-              start = Offset(cx - 3.8.dp.toPx(), topY + 3.dp.toPx()),
-              end = Offset(cx - 2.6.dp.toPx(), topY + 6.5.dp.toPx()),
-              strokeWidth = 1.1.dp.toPx(),
-              cap = StrokeCap.Round,
-            )
-          }
-          WallAnomalyType.GLASS_EYE -> {
-            val eyeHeight = (12.dp.toPx() * (0.45f + 0.55f * (1f - breath * 0.4f)))
-            drawOval(
-              color = colorScheme.primaryContainer,
-              topLeft = Offset(cx - 12.dp.toPx(), cy - eyeHeight / 2f),
-              size = Size(24.dp.toPx(), eyeHeight),
-            )
-            drawOval(
-              color = colorScheme.primary,
-              topLeft = Offset(cx - 12.dp.toPx(), cy - eyeHeight / 2f),
-              size = Size(24.dp.toPx(), eyeHeight),
-              style = Stroke(width = 1.2.dp.toPx()),
-            )
-            drawCircle(
-              color = colorScheme.onBackground,
-              radius = 3.2.dp.toPx(),
-              center = Offset(cx + (breath - 0.5f) * 3.dp.toPx(), cy),
-            )
-          }
-          WallAnomalyType.SWOLLEN_NODULE -> {
-            val radius = (8.5f + breath * 2.5f).dp.toPx()
-            drawCircle(color = colorScheme.tertiaryContainer, radius = radius, center = Offset(cx, cy))
-            drawCircle(
-              color = colorScheme.tertiary,
-              radius = radius,
-              center = Offset(cx, cy),
-              style = Stroke(width = 1.4.dp.toPx()),
-            )
-            drawCircle(
-              color = colorScheme.tertiary.copy(alpha = 0.55f),
-              radius = radius * 0.42f,
-              center = Offset(cx - 2.dp.toPx(), cy - 1.5.dp.toPx()),
-            )
-          }
-          WallAnomalyType.CHITIN_RIB -> {
-            val spread = (1.0f + breath * 1.6f).dp.toPx()
-            // Raw arterial fissure cavity parted open by the calcified ribs
-            drawOval(
-              color = colorScheme.tertiaryContainer.copy(alpha = 0.96f),
-              topLeft = Offset(cx - 6.5.dp.toPx(), cy - 11.dp.toPx()),
-              size = Size(13.dp.toPx(), 22.dp.toPx()),
-            )
-            drawLine(
-              color = colorScheme.tertiary.copy(alpha = 0.72f + breath * 0.22f),
-              start = Offset(cx, cy - 8.5.dp.toPx()),
-              end = Offset(cx, cy + 8.5.dp.toPx()),
-              strokeWidth = (2.2f + breath * 0.9f).dp.toPx(),
-              cap = StrokeCap.Round,
-            )
-
-            // Twin curved bleached-bone rib prongs arching inward and prying the masonry apart
-            for (side in intArrayOf(-1, 1)) {
-              val s = side.toFloat()
-              val ribPath =
-                Path().apply {
-                  moveTo(cx + s * (11.5.dp.toPx()), cy - 8.5.dp.toPx())
-                  cubicTo(
-                    cx + s * (3.0.dp.toPx() + spread),
-                    cy - 5.dp.toPx(),
-                    cx + s * (2.2.dp.toPx() + spread),
-                    cy + 5.dp.toPx(),
-                    cx + s * (10.5.dp.toPx()),
-                    cy + 9.dp.toPx(),
-                  )
-                }
-              drawPath(
-                path = ribPath,
-                color = colorScheme.background.copy(alpha = 0.94f),
-                style = Stroke(width = 5.4.dp.toPx(), cap = StrokeCap.Round),
-              )
-              drawPath(
-                path = ribPath,
-                color = colorScheme.onBackground.copy(alpha = 0.92f),
-                style = Stroke(width = 3.0.dp.toPx(), cap = StrokeCap.Round),
-              )
-              // Hairline calcified fracture across the curved bone
-              drawLine(
-                color = colorScheme.tertiary.copy(alpha = 0.85f),
-                start = Offset(cx + s * (4.8.dp.toPx() + spread * 0.6f), cy - 1.dp.toPx()),
-                end = Offset(cx + s * (7.2.dp.toPx() + spread * 0.6f), cy + 1.4.dp.toPx()),
-                strokeWidth = 1.dp.toPx(),
-                cap = StrokeCap.Round,
-              )
+      Image(
+        painter = painterResource(id = wallAnomalyDrawableRes(anomaly.type)),
+        contentDescription = null,
+        contentScale = ContentScale.Crop,
+        modifier =
+          Modifier.fillMaxSize()
+            .graphicsLayer {
+              scaleX = 1.12f
+              scaleY = 1.12f
             }
-          }
-        }
-      }
-
-      Text(
-        text = label,
-        style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp),
-        color = accentColor,
+            .testTag("anomaly_art_${anomaly.type.id}"),
       )
+
+      // Feathered radial cavity vignette + faint wet organic rim glint (no crisp sticker border)
+      Canvas(modifier = Modifier.fillMaxSize()) {
+        val (sx, _) = computeWallAnomalyBreathScale(anomaly.id, anomaly.type, breathPhaseProvider())
+        val glowStrength = ((sx - 0.98f) / 0.064f).coerceIn(0f, 1f)
+        val center = Offset(size.width * 0.5f, size.height * 0.5f)
+        val radius = size.minDimension * 0.5f
+
+        drawCircle(
+          brush =
+            Brush.radialGradient(
+              colorStops =
+                arrayOf(
+                  0.0f to Color.Transparent,
+                  0.50f to Color.Transparent,
+                  0.78f to colorScheme.background.copy(alpha = 0.58f),
+                  1.0f to colorScheme.background.copy(alpha = 0.96f),
+                ),
+              center = center,
+              radius = radius,
+            ),
+          radius = radius,
+          center = center,
+        )
+
+        drawCircle(
+          color = accentColor.copy(alpha = 0.16f + glowStrength * 0.24f),
+          radius = radius - 1.5.dp.toPx(),
+          center = center,
+          style = Stroke(width = 1.1.dp.toPx()),
+        )
+      }
     }
+
+    // Minimal dark-whisper action cue tucked along the lower edge
+    Text(
+      text = label,
+      style = MaterialTheme.typography.labelSmall.copy(fontSize = 8.5.sp, letterSpacing = 1.1.sp),
+      color = accentColor.copy(alpha = 0.92f),
+      modifier =
+        Modifier.align(Alignment.BottomCenter)
+          .background(
+            color = colorScheme.background.copy(alpha = 0.78f),
+            shape = RoundedCornerShape(2.dp),
+          )
+          .padding(horizontal = 5.dp, vertical = 1.dp),
+    )
   }
 }
