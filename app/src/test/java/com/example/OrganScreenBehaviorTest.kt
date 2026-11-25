@@ -41,6 +41,8 @@ import com.example.ui.components.STORY_DRIP_TOTAL_MS
 import com.example.ui.components.TabAlertEvaluator
 import com.example.ui.components.computeWallAnomalyBreathScale
 import com.example.ui.components.computeWallLayerAlphas
+import com.example.ui.components.partitionChamberShelfJars
+import com.example.ui.components.specimenJarDrawableRes
 import com.example.ui.components.wallAnomalyDrawableRes
 import com.example.ui.components.weepingLampLayout
 import com.example.ui.theme.BleakTheme
@@ -1678,5 +1680,116 @@ class OrganScreenBehaviorTest {
       .onNodeWithTag("deck_tab_alert_excision", useUnmergedTree = true)
       .performScrollTo()
       .assertIsDisplayed()
+  }
+
+  @Test
+  fun specimenJars_renderMacroPortraitsAndTwinChamberWallShelvesWithCatatonicTideRetention() {
+    val context = ApplicationProvider.getApplicationContext<Context>()
+    val catalog = AssetDialogueRepository(context).loadCatalog()
+
+    // 1. All 6 Specimen Jars map to 6 distinct photographic macro drawables
+    val jarDrawables = SpecimenJar.entries.map { specimenJarDrawableRes(it) }
+    assertEquals(6, jarDrawables.toSet().size)
+    assertTrue(jarDrawables.all { it != 0 })
+
+    // 2. Shelf partitioning cleanly splits 3 foundational jars (left) vs 3 deep jars (right)
+    val (emptyLeft, emptyRight) = partitionChamberShelfJars(emptySet())
+    assertTrue(emptyLeft.isEmpty() && emptyRight.isEmpty())
+    val (allLeft, allRight) = partitionChamberShelfJars(SpecimenJar.entries.toSet())
+    assertEquals(
+      listOf(SpecimenJar.YESTERDAYS_DUST, SpecimenJar.UNSPENT_BREATH, SpecimenJar.ALMOST_A_NAME),
+      allLeft,
+    )
+    assertEquals(
+      listOf(SpecimenJar.SALT_FROM_THE_GROUT, SpecimenJar.A_BORROWED_PULSE, SpecimenJar.THE_UNCOUNTED_HOUR),
+      allRight,
+    )
+
+    // 3. Robolectric Compose UI: shelves stay hidden at 0 jars, appear progressively, and respect Catatonic Tide
+    var state by
+      mutableStateOf(
+        OrganGameEngine.initialState(catalog).copy(
+          cycle = 2,
+          highestExcisionMilestone = 2,
+          ichor = 300_000.0,
+          cycleLifetimeIchor = 300_000.0,
+          stillness = 5_000.0,
+          isStillnessActive = true,
+          phase = 4,
+          phaseName = catalog.phaseName(4),
+          nextPhaseThreshold = null,
+          unlockedScarNodes = setOf(ScarNodeId.FIRST_INCISION, ScarNodeId.CATATONIC_TIDE),
+          ownedJars = emptySet(),
+        )
+      )
+
+    composeTestRule.setContent {
+      BleakTheme(phase = state.phase) {
+        OrganScreen(
+          state = state,
+          onPressValve = {},
+          onBuyCreature = {},
+          onBottleJar = { jar -> state = OrganGameEngine.bottleJar(state, jar, catalog) },
+          onPerformGraft = {},
+          onInteractAnomaly = {},
+          onPerformExcision = { state = OrganGameEngine.performExcision(state, catalog) },
+        )
+      }
+    }
+    composeTestRule.waitForIdle()
+
+    // Zero jars owned -> neither chamber wall shelf renders
+    composeTestRule.onNodeWithTag("chamber_jar_shelf_left", useUnmergedTree = true).assertDoesNotExist()
+    composeTestRule.onNodeWithTag("chamber_jar_shelf_right", useUnmergedTree = true).assertDoesNotExist()
+
+    // Open JARS tab -> all 6 photographic jar portraits render
+    composeTestRule.onNodeWithTag("deck_tab_jars_and_graft").performScrollTo().performClick()
+    composeTestRule.waitForIdle()
+    for (jar in SpecimenJar.entries) {
+      composeTestRule
+        .onNodeWithTag("art_jar_${jar.id}", useUnmergedTree = true)
+        .performScrollTo()
+        .assertIsDisplayed()
+    }
+
+    // Bottling Yesterday's Dust populates ONLY the left foundational shelf
+    composeTestRule.onNodeWithTag("jar_yesterdays_dust").performScrollTo().performClick()
+    composeTestRule.waitForIdle()
+    composeTestRule
+      .onNodeWithTag("chamber_jar_shelf_left", useUnmergedTree = true)
+      .performScrollTo()
+      .assertIsDisplayed()
+    composeTestRule
+      .onNodeWithTag("chamber_jar_yesterdays_dust", useUnmergedTree = true)
+      .assertIsDisplayed()
+    composeTestRule.onNodeWithTag("chamber_jar_shelf_right", useUnmergedTree = true).assertDoesNotExist()
+
+    // Bottling A Borrowed Pulse and The Uncounted Hour populates the right deep shelf
+    composeTestRule.onNodeWithTag("jar_a_borrowed_pulse").performScrollTo().performClick()
+    composeTestRule.waitForIdle()
+    composeTestRule.onNodeWithTag("jar_the_uncounted_hour").performScrollTo().performClick()
+    composeTestRule.waitForIdle()
+    composeTestRule
+      .onNodeWithTag("chamber_jar_shelf_right", useUnmergedTree = true)
+      .performScrollTo()
+      .assertIsDisplayed()
+    composeTestRule
+      .onNodeWithTag("chamber_jar_a_borrowed_pulse", useUnmergedTree = true)
+      .assertIsDisplayed()
+    composeTestRule
+      .onNodeWithTag("chamber_jar_the_uncounted_hour", useUnmergedTree = true)
+      .assertIsDisplayed()
+
+    // Perform Excision with CATATONIC_TIDE -> left foundational shelf stays standing while right deep shelf clears
+    composeTestRule.runOnIdle { state = OrganGameEngine.performExcision(state, catalog) }
+    composeTestRule.waitForIdle()
+    composeTestRule
+      .onNodeWithTag("chamber_jar_shelf_left", useUnmergedTree = true)
+      .performScrollTo()
+      .assertIsDisplayed()
+    composeTestRule
+      .onNodeWithTag("chamber_jar_yesterdays_dust", useUnmergedTree = true)
+      .assertIsDisplayed()
+    composeTestRule.onNodeWithTag("chamber_jar_shelf_right", useUnmergedTree = true).assertDoesNotExist()
   }
 }

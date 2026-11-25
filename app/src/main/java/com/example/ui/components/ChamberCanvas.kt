@@ -249,6 +249,14 @@ fun ChamberCanvas(
         dropPhaseProvider = dropPhaseProvider,
       )
 
+      // Twin lower-flank iron specimen ledges holding sealed Specimen Jars (behind interactive overlays)
+      ChamberSpecimenShelves(
+        ownedJars = state.ownedJars,
+        isStillnessActive = state.isStillnessActive,
+        breathPhaseProvider = breathPhaseProvider,
+        arterialPulsePhaseProvider = { arterialPulseState.value },
+      )
+
       Column(
         modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 14.dp),
         horizontalAlignment = Alignment.CenterHorizontally,

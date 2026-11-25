@@ -110,6 +110,8 @@ import {
   valveClampDurationSec,
 } from '../src/engine.js';
 import {
+  DEEP_SHELF_JARS,
+  FOUNDATIONAL_SHELF_JARS,
   REPEAT_EVENT_DRIP_CHANCE,
   applyDripMotionProfile,
   arc1UnlockKeys,
@@ -117,6 +119,7 @@ import {
   computeDripMotionProfile,
   isArc1TabReady,
   isArc2TabReady,
+  partitionChamberShelfJars,
   shouldAlertArc1Tab,
   shouldAlertArc2Tab,
   shouldTriggerEventDrip,
@@ -162,6 +165,12 @@ test('GitHub Pages static bundle integrity and Android dialogues.json parity', (
     'assets/img_anomaly_glass_eye.jpg',
     'assets/img_anomaly_swollen_nodule.jpg',
     'assets/img_anomaly_chitin_rib.jpg',
+    'assets/img_jar_yesterdays_dust.jpg',
+    'assets/img_jar_unspent_breath.jpg',
+    'assets/img_jar_almost_a_name.jpg',
+    'assets/img_jar_salt_from_the_grout.jpg',
+    'assets/img_jar_a_borrowed_pulse.jpg',
+    'assets/img_jar_the_uncounted_hour.jpg',
     'assets/img_recessed_valve.jpg',
     'assets/img_suture_hand.jpg',
     'assets/img_leech_clerk.jpg',
@@ -174,7 +183,7 @@ test('GitHub Pages static bundle integrity and Android dialogues.json parity', (
     assert.ok(fs.existsSync(abs), `Missing required GitHub Pages file: docs/${rel}`);
   }
 
-  // Verify all 5 progressive chamber wall JPEGs + 4 photographic wall anomaly JPEGs match Android byte-for-byte
+  // Verify all 5 wall JPEGs + 4 wall anomaly JPEGs + 6 specimen jar JPEGs match Android byte-for-byte
   for (const imgFile of [
     'img_wall_phase1.jpg',
     'img_wall_fleshy.jpg',
@@ -185,6 +194,12 @@ test('GitHub Pages static bundle integrity and Android dialogues.json parity', (
     'img_anomaly_glass_eye.jpg',
     'img_anomaly_swollen_nodule.jpg',
     'img_anomaly_chitin_rib.jpg',
+    'img_jar_yesterdays_dust.jpg',
+    'img_jar_unspent_breath.jpg',
+    'img_jar_almost_a_name.jpg',
+    'img_jar_salt_from_the_grout.jpg',
+    'img_jar_a_borrowed_pulse.jpg',
+    'img_jar_the_uncounted_hour.jpg',
   ]) {
     const webBuf = fs.readFileSync(path.join(docsDir, 'assets', imgFile));
     const androidBuf = fs.readFileSync(
@@ -210,8 +225,9 @@ test('GitHub Pages static bundle integrity and Android dialogues.json parity', (
 
   // Verify index.html uses relative ./ paths so GitHub Pages subpaths work
   const html = fs.readFileSync(path.join(docsDir, 'index.html'), 'utf8');
-  assert.ok(html.includes('href="./styles.css?v=3.8"'));
-  assert.ok(html.includes('src="./src/app.js?v=3.8"'));
+  assert.ok(html.includes('href="./styles.css?v=3.9"'));
+  assert.ok(html.includes('src="./src/app.js?v=3.9"'));
+  assert.ok(html.includes('id="chamber-jar-shelves"'));
   assert.ok(html.includes('src="./assets/img_recessed_valve.jpg"'));
   assert.ok(html.includes('THE COUNTING ROOM'));
   assert.ok(html.includes('id="phase-progress-fill"'), 'Diegetic progress bar must be restored in header');
@@ -1642,18 +1658,24 @@ test('Web 5-stage progressive wall texture blending, heavy sump basin, sculpted 
   assert.ok(canvasSrc.includes('const rivets ='), 'Floor sump basin must include riveted cast-iron architecture');
   assert.ok(canvasSrc.includes('helixPts') && canvasSrc.includes('segRadius'), 'Grafted Choir-Tendrils must render sculpted segmented stalks with helical sinew');
 
-  // Verify app.js preloads all 5 wall textures + 4 photographic wall anomalies with v=3.8 cache bust
+  // Verify app.js preloads all 5 wall textures + 4 wall anomalies + 6 specimen jars with v=3.9 cache bust
   const appSrc = fs.readFileSync(path.join(docsDir, 'src', 'app.js'), 'utf8');
   for (const wallAsset of [
-    'img_wall_phase1.jpg?v=3.8',
-    'img_wall_fleshy.jpg?v=3.8',
-    'img_wall_phase3.jpg?v=3.8',
-    'img_wall_phase4.jpg?v=3.8',
-    'img_wall_excision_late.jpg?v=3.8',
-    'img_anomaly_pale_tooth.jpg?v=3.8',
-    'img_anomaly_glass_eye.jpg?v=3.8',
-    'img_anomaly_swollen_nodule.jpg?v=3.8',
-    'img_anomaly_chitin_rib.jpg?v=3.8',
+    'img_wall_phase1.jpg?v=3.9',
+    'img_wall_fleshy.jpg?v=3.9',
+    'img_wall_phase3.jpg?v=3.9',
+    'img_wall_phase4.jpg?v=3.9',
+    'img_wall_excision_late.jpg?v=3.9',
+    'img_anomaly_pale_tooth.jpg?v=3.9',
+    'img_anomaly_glass_eye.jpg?v=3.9',
+    'img_anomaly_swollen_nodule.jpg?v=3.9',
+    'img_anomaly_chitin_rib.jpg?v=3.9',
+    'img_jar_yesterdays_dust.jpg?v=3.9',
+    'img_jar_unspent_breath.jpg?v=3.9',
+    'img_jar_almost_a_name.jpg?v=3.9',
+    'img_jar_salt_from_the_grout.jpg?v=3.9',
+    'img_jar_a_borrowed_pulse.jpg?v=3.9',
+    'img_jar_the_uncounted_hour.jpg?v=3.9',
   ]) {
     assert.ok(appSrc.includes(wallAsset), `app.js must preload ${wallAsset}`);
   }
@@ -1666,7 +1688,7 @@ test('Web photographic feathered wall anomalies and cast-iron / tendon-tearing /
 
   // Photographic circular feathered wall anomalies replace flat icon canvases on Arc 1 wall
   assert.ok(uiSrc.includes("photo.className = 'anomaly-photo'"));
-  assert.ok(uiSrc.includes('./assets/img_anomaly_${anomaly.type}.jpg?v=3.8'));
+  assert.ok(uiSrc.includes('./assets/img_anomaly_${anomaly.type}.jpg?v=3.9'));
   assert.ok(css.includes('.anomaly-photo'));
   assert.ok(css.includes('mask-image: radial-gradient('));
   assert.ok(css.includes('border: none;') && css.includes('border-radius: 50%;'));
@@ -1684,6 +1706,53 @@ test('Web photographic feathered wall anomalies and cast-iron / tendon-tearing /
   ]) {
     assert.ok(audioSrc.includes(token), `docs/src/audio.js must implement ${token}`);
   }
+});
+
+test('Web twin chamber specimen jar shelves and macro JARS tab portraits match Android 1:1', () => {
+  assert.deepEqual([...FOUNDATIONAL_SHELF_JARS], ['yesterdays_dust', 'unspent_breath', 'almost_a_name']);
+  assert.deepEqual([...DEEP_SHELF_JARS], ['salt_from_the_grout', 'a_borrowed_pulse', 'the_uncounted_hour']);
+
+  const empty = partitionChamberShelfJars([]);
+  assert.deepEqual(empty, { left: [], right: [] });
+
+  const mixed = partitionChamberShelfJars([
+    'the_uncounted_hour',
+    'almost_a_name',
+    'yesterdays_dust',
+    'a_borrowed_pulse',
+  ]);
+  assert.deepEqual(mixed, {
+    left: ['yesterdays_dust', 'almost_a_name'],
+    right: ['a_borrowed_pulse', 'the_uncounted_hour'],
+  });
+
+  // After Excision with CATATONIC_TIDE, left foundational jars persist while right deep shelf clears
+  const preExcision = {
+    ...initialState(realCatalog),
+    cycle: 2,
+    highestExcisionMilestone: 2,
+    ichor: 300_000,
+    cycleLifetimeIchor: 300_000,
+    unlockedScarNodes: ['first_incision', 'catatonic_tide'],
+    ownedJars: ['yesterdays_dust', 'unspent_breath', 'a_borrowed_pulse', 'the_uncounted_hour'],
+  };
+  const postExcision = performExcision(preExcision, realCatalog);
+  assert.deepEqual(partitionChamberShelfJars(postExcision.ownedJars), {
+    left: ['yesterdays_dust', 'unspent_breath'],
+    right: [],
+  });
+
+  const html = fs.readFileSync(path.join(docsDir, 'index.html'), 'utf8');
+  const css = fs.readFileSync(path.join(docsDir, 'styles.css'), 'utf8');
+  const uiSrc = fs.readFileSync(path.join(docsDir, 'src', 'ui.js'), 'utf8');
+
+  assert.ok(html.includes('id="chamber-jar-shelves"'));
+  assert.ok(css.includes('.chamber-jar-shelves') && css.includes('pointer-events: none;'));
+  assert.ok(css.includes('.chamber-jar-ledge') && css.includes('.jar-photo-emblem'));
+  assert.ok(css.includes('@keyframes jar-borrowed-pulse'));
+  assert.ok(uiSrc.includes('./assets/img_jar_${jarId}.jpg?v=3.9'));
+  assert.ok(uiSrc.includes('./assets/img_jar_${jar.id}.jpg?v=3.9'));
+  assert.ok(uiSrc.includes('renderChamberJarShelves(state)'));
 });
 
 

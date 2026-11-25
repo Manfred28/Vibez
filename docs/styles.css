@@ -330,6 +330,157 @@ button:focus-visible {
   z-index: 4;
 }
 
+/* Twin recessed dark cast-iron specimen jar shelves flanking the lower chamber wall */
+.chamber-jar-shelves {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.chamber-jar-shelf {
+  position: absolute;
+  bottom: 5px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.chamber-jar-shelf--left {
+  left: 6px;
+}
+
+.chamber-jar-shelf--right {
+  right: 6px;
+}
+
+.chamber-jar-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  padding: 0 4px;
+}
+
+.chamber-jar-specimen {
+  position: relative;
+  width: 26px;
+  height: 36px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  transform-origin: center bottom;
+}
+
+.chamber-jar-specimen--tall {
+  width: 29px;
+  height: 41px;
+}
+
+.chamber-jar-specimen::after {
+  content: '';
+  position: absolute;
+  left: 16%;
+  right: 16%;
+  bottom: -2px;
+  height: 5px;
+  border-radius: 50%;
+  background: radial-gradient(ellipse at center, rgba(4, 5, 5, 0.84) 0%, transparent 78%);
+  pointer-events: none;
+}
+
+.chamber-jar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  filter: brightness(0.92) contrast(1.06);
+  -webkit-mask-image: radial-gradient(
+    ellipse 68% 72% at 50% 53%,
+    #000 58%,
+    rgba(0, 0, 0, 0.45) 84%,
+    transparent 100%
+  );
+  mask-image: radial-gradient(
+    ellipse 68% 72% at 50% 53%,
+    #000 58%,
+    rgba(0, 0, 0, 0.45) 84%,
+    transparent 100%
+  );
+  transition: filter 420ms ease;
+}
+
+.chamber-jar-shelves--stillness .chamber-jar-img {
+  filter: brightness(1.02) contrast(1.08) drop-shadow(0 0 3px rgba(141, 152, 138, 0.28));
+}
+
+.chamber-jar-specimen--pulse {
+  animation: jar-borrowed-pulse 3.1s ease-in-out infinite;
+  will-change: transform, filter;
+}
+
+@keyframes jar-borrowed-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+    filter: drop-shadow(0 0 0 rgba(123, 74, 74, 0));
+  }
+  18% {
+    transform: scale(1.032);
+    filter: drop-shadow(0 0 4px rgba(132, 62, 62, 0.34));
+  }
+  34% {
+    transform: scale(1.006);
+    filter: drop-shadow(0 0 1px rgba(132, 62, 62, 0.12));
+  }
+  50% {
+    transform: scale(1.02);
+    filter: drop-shadow(0 0 3px rgba(132, 62, 62, 0.24));
+  }
+  70% {
+    transform: scale(1);
+    filter: drop-shadow(0 0 0 rgba(123, 74, 74, 0));
+  }
+}
+
+.chamber-jar-ledge {
+  position: relative;
+  width: 100%;
+  min-width: 40px;
+  height: 6px;
+  margin-top: -1px;
+  border-radius: 1.5px;
+  background: linear-gradient(180deg, #2b302e 0%, #171a19 52%, #0c0e0e 100%);
+  border-top: 1px solid rgba(141, 152, 138, 0.34);
+  border-bottom: 1px solid rgba(6, 7, 7, 0.92);
+  box-shadow:
+    0 3px 5px rgba(3, 4, 4, 0.72),
+    inset 0 1px 0 rgba(200, 203, 195, 0.12);
+}
+
+.chamber-jar-shelves--stillness .chamber-jar-ledge {
+  border-top-color: rgba(141, 152, 138, 0.54);
+}
+
+.chamber-jar-ledge::before,
+.chamber-jar-ledge::after {
+  content: '';
+  position: absolute;
+  top: 1.5px;
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, #5c635e, #181b1a 75%);
+  box-shadow: 0 4px 0 0 rgba(10, 12, 12, 0.85);
+}
+
+.chamber-jar-ledge::before {
+  left: 5px;
+}
+
+.chamber-jar-ledge::after {
+  right: 5px;
+}
+
 .chamber-foreground {
   position: relative;
   z-index: 2;
@@ -1209,6 +1360,47 @@ button:focus-visible {
 .deck-row--accent:not(:disabled) {
   background: rgba(40, 25, 26, 0.75);
   border-color: var(--dried-clot);
+}
+
+.jar-photo-frame {
+  position: relative;
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+  border-radius: 2px;
+  overflow: hidden;
+  background: var(--void-abyss);
+  border: 1px solid rgba(62, 68, 65, 0.72);
+  box-shadow: inset 0 0 8px rgba(0, 0, 0, 0.65);
+  transition: border-color 160ms ease, box-shadow 160ms ease;
+}
+
+.jar-photo-frame--sealed {
+  border-color: rgba(123, 74, 74, 0.88);
+  box-shadow:
+    inset 0 0 6px rgba(0, 0, 0, 0.45),
+    0 0 8px rgba(123, 74, 74, 0.22);
+}
+
+.jar-photo-frame--affordable {
+  border-color: rgba(141, 152, 138, 0.78);
+}
+
+.jar-photo-emblem {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  filter: saturate(0.28) brightness(0.56) contrast(1.04);
+  transition: filter 180ms ease;
+}
+
+.jar-photo-frame--affordable .jar-photo-emblem {
+  filter: saturate(0.65) brightness(0.76) contrast(1.06);
+}
+
+.jar-photo-frame--sealed .jar-photo-emblem {
+  filter: saturate(1.06) brightness(0.98) contrast(1.08);
 }
 
 .deck-row-text {
@@ -2439,7 +2631,8 @@ body[data-arc='arc_2'] {
     transform: none;
   }
   .anomaly-layer .anomaly-node,
-  .anomaly-node--wall {
+  .anomaly-node--wall,
+  .chamber-jar-specimen--pulse {
     animation: none;
     will-change: auto;
   }

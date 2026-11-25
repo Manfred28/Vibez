@@ -87,13 +87,37 @@ import {
   stillnessIdleDelaySec,
   totalCreatureIchorPerSec,
   valveClampDurationSec,
-} from './engine.js?v=3.8';
+} from './engine.js?v=3.9';
 import {
   drawActionArtwork,
   drawDeskAnomalyGlyph,
   drawSumpSiphonPortrait,
   drawWeepingLampPortrait,
-} from './chamberCanvas.js?v=3.8';
+} from './chamberCanvas.js?v=3.9';
+
+export const FOUNDATIONAL_SHELF_JARS = Object.freeze([
+  'yesterdays_dust',
+  'unspent_breath',
+  'almost_a_name',
+]);
+
+export const DEEP_SHELF_JARS = Object.freeze([
+  'salt_from_the_grout',
+  'a_borrowed_pulse',
+  'the_uncounted_hour',
+]);
+
+/**
+ * Splits owned Specimen Jars into the left foundational wall shelf and right deep wall shelf
+ * in canonical order. Mirrors Android `partitionChamberShelfJars` 1:1.
+ */
+export function partitionChamberShelfJars(ownedJars) {
+  const owned = new Set(Array.isArray(ownedJars) ? ownedJars : []);
+  return {
+    left: FOUNDATIONAL_SHELF_JARS.filter((id) => owned.has(id)),
+    right: DEEP_SHELF_JARS.filter((id) => owned.has(id)),
+  };
+}
 
 function randomBetween(min, max, rng) {
   const raw = typeof rng === 'function' ? Number(rng()) : Math.random();
@@ -346,6 +370,7 @@ export function createUiController(handlers) {
     valveSubLabel: document.getElementById('valve-sub-label'),
     residueLayer: document.getElementById('residue-layer'),
     anomalyLayer: document.getElementById('anomaly-layer'),
+    chamberJarShelves: document.getElementById('chamber-jar-shelves'),
 
     deckPanel: document.getElementById('apparatus-deck'),
     deckTabs: document.getElementById('deck-tabs'),
@@ -390,6 +415,7 @@ export function createUiController(handlers) {
   let excisionArmed = false;
   let lastDeckSignature = '';
   let lastArc2DeckSignature = '';
+  let lastJarShelfSignature = '';
   let lastCounterDisplay = -1;
   let lastDialogueId = null;
   let hasHydratedDialogue = false;
@@ -686,7 +712,7 @@ export function createUiController(handlers) {
 
       const photo = document.createElement('img');
       photo.className = 'anomaly-photo';
-      photo.src = `./assets/img_anomaly_${anomaly.type}.jpg?v=3.8`;
+      photo.src = `./assets/img_anomaly_${anomaly.type}.jpg?v=3.9`;
       photo.alt = '';
       photo.draggable = false;
       photo.setAttribute('aria-hidden', 'true');
@@ -700,6 +726,60 @@ export function createUiController(handlers) {
       els.anomalyLayer.appendChild(btn);
       mountedWallAnomalyIds.add(key);
     }
+  }
+
+  function renderChamberJarShelves(state) {
+    const container = els.chamberJarShelves;
+    if (!container) return;
+    const { left, right } = partitionChamberShelfJars(state.ownedJars);
+    const stillnessFlag = state.isStillnessActive ? '1' : '0';
+    const sig = `${left.join(',')}|${right.join(',')}|${stillnessFlag}`;
+    if (sig === lastJarShelfSignature) return;
+    lastJarShelfSignature = sig;
+
+    container.classList.toggle('chamber-jar-shelves--stillness', Boolean(state.isStillnessActive));
+    container.innerHTML = '';
+    if (left.length === 0 && right.length === 0) return;
+
+    const buildShelf = (jarIds, side) => {
+      if (jarIds.length === 0) return;
+      const shelf = document.createElement('div');
+      shelf.className = `chamber-jar-shelf chamber-jar-shelf--${side}`;
+      shelf.dataset.shelfSide = side;
+
+      const row = document.createElement('div');
+      row.className = 'chamber-jar-row';
+
+      for (const jarId of jarIds) {
+        const specimen = document.createElement('span');
+        const extraClass =
+          jarId === 'the_uncounted_hour'
+            ? ' chamber-jar-specimen--tall'
+            : jarId === 'a_borrowed_pulse'
+              ? ' chamber-jar-specimen--pulse'
+              : '';
+        specimen.className = `chamber-jar-specimen${extraClass}`;
+        specimen.dataset.jarId = jarId;
+
+        const img = document.createElement('img');
+        img.className = 'chamber-jar-img';
+        img.src = `./assets/img_jar_${jarId}.jpg?v=3.9`;
+        img.alt = '';
+        img.draggable = false;
+        img.setAttribute('aria-hidden', 'true');
+
+        specimen.appendChild(img);
+        row.appendChild(specimen);
+      }
+
+      const ledge = document.createElement('div');
+      ledge.className = 'chamber-jar-ledge';
+      shelf.append(row, ledge);
+      container.appendChild(shelf);
+    };
+
+    buildShelf(left, 'left');
+    buildShelf(right, 'right');
   }
 
   function renderDeckTabs(state, availableTabs, activeTab) {
@@ -1101,7 +1181,15 @@ export function createUiController(handlers) {
       btn.className = 'deck-row';
       btn.dataset.jarId = jar.id;
       btn.innerHTML = `
-        <canvas class="action-emblem" width="38" height="38" aria-hidden="true"></canvas>
+        <span class="jar-photo-frame" data-role="jar-frame" aria-hidden="true">
+          <img
+            class="jar-photo-emblem"
+            src="./assets/img_jar_${jar.id}.jpg?v=3.9"
+            alt=""
+            draggable="false"
+            aria-hidden="true"
+          />
+        </span>
         <span class="deck-row-text">
           <span class="deck-row-title">${jar.name}</span>
           <span class="deck-row-sub">${jar.effect}</span>
@@ -1113,9 +1201,8 @@ export function createUiController(handlers) {
       jarRows.push({
         jar,
         btn,
-        emblemCanvas: btn.querySelector('canvas'),
+        frameEl: btn.querySelector('[data-role="jar-frame"]'),
         pillEl: btn.querySelector('[data-role="pill"]'),
-        lastDrawnActive: null,
       });
     }
 
@@ -1125,17 +1212,14 @@ export function createUiController(handlers) {
   function updateJarsAndGraftInPlace(state) {
     if (!jarsPanelRefs) return;
     for (const row of jarsPanelRefs.jarRows) {
-      const { jar, btn, emblemCanvas, pillEl } = row;
+      const { jar, btn, frameEl, pillEl } = row;
       const owned = state.ownedJars.includes(jar.id);
       const cost = effectiveJarCost(state, jar);
       const canAfford = !owned && state.stillness >= cost;
       btn.disabled = !canAfford;
       btn.classList.toggle('deck-row--accent', owned);
-      emblemCanvas.classList.toggle('action-emblem--active', owned);
-      if (row.lastDrawnActive !== owned || emblemCanvas.width <= 1) {
-        row.lastDrawnActive = owned;
-        drawActionArtwork(emblemCanvas, 'jar', jar.id, owned);
-      }
+      frameEl.classList.toggle('jar-photo-frame--sealed', owned);
+      frameEl.classList.toggle('jar-photo-frame--affordable', canAfford);
       pillEl.textContent = owned ? 'SEALED' : `BOTTLE · ${formatInteger(cost)} STILL`;
     }
   }
@@ -2164,6 +2248,7 @@ export function createUiController(handlers) {
       if (isArc1) {
         renderTelemetry(state);
         renderChamberHud(state);
+        renderChamberJarShelves(state);
         syncAnomalies(state);
         renderDeck(state);
       } else if (isArc2) {
@@ -2205,6 +2290,7 @@ export function createUiController(handlers) {
       excisionArmed = false;
       lastDeckSignature = '';
       lastArc2DeckSignature = '';
+      lastJarShelfSignature = '';
       lastDialogueId = null;
       hasHydratedDialogue = false;
       lastCounterDisplay = -1;
