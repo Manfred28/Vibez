@@ -56,6 +56,11 @@
     <string name="drip_echo_answer">Something behind the mortar answers in kind.</string>
     <string name="drip_sacrifice_tendril">Two hands and two leeches slacken, braided into one hum.</string>
     <string name="drip_sacrifice_lung">Two lamps and a tendril collapse inward into wet breath.</string>
+    <string name="drip_desk_event_speaker">CASE DESK</string>
+    <string name="drip_desk_anomaly_envelope">The damp seal yields; a smeared slip pins itself to the margin.</string>
+    <string name="drip_desk_anomaly_spectacles">The lenses wipe clear; every line on the blotter sharpens.</string>
+    <string name="drip_desk_anomaly_string">The red string pulls taut; quiet settles across the precinct desk.</string>
+    <string name="drip_desk_anomaly_tape">The cold reel clicks; faint counter-ticks bleed through the static.</string>
 
     <!-- Apparatus deck tabs & organisms -->
     <string name="tab_organisms">ORGANISMS</string>

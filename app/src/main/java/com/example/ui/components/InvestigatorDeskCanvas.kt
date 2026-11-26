@@ -59,6 +59,7 @@ fun InvestigatorDeskCanvas(
   dropPhaseProvider: () -> Float,
   onInspectCaseFile: () -> Unit,
   onInteractDeskAnomaly: (Long) -> Unit,
+  onEmitThematicDrip: (eventKey: String, text: String) -> Unit = { _, _ -> },
   modifier: Modifier = Modifier,
 ) {
   val colorScheme = MaterialTheme.colorScheme
@@ -302,14 +303,29 @@ fun InvestigatorDeskCanvas(
         }
       }
 
-      // Interactive Desk Anomalies
+      // Interactive Desk Anomalies emit slow thematic drips to the subordinate left margin
+      val envelopeDrip = stringResource(R.string.drip_desk_anomaly_envelope)
+      val spectaclesDrip = stringResource(R.string.drip_desk_anomaly_spectacles)
+      val stringDrip = stringResource(R.string.drip_desk_anomaly_string)
+      val tapeDrip = stringResource(R.string.drip_desk_anomaly_tape)
+
       desk.activeDeskAnomalies.forEach { anomaly ->
         key(anomaly.id) {
           val offsetX = (boxW - 76.dp) * anomaly.xFraction
           val offsetY = (boxH - 52.dp) * anomaly.yFraction
+          val dripLine =
+            when (anomaly.type) {
+              DeskAnomalyType.EVIDENCE_ENVELOPE -> envelopeDrip
+              DeskAnomalyType.FOGGED_SPECTACLES -> spectaclesDrip
+              DeskAnomalyType.RED_STRING -> stringDrip
+              DeskAnomalyType.REEL_TAPE -> tapeDrip
+            }
           DeskAnomalyChip(
             anomaly = anomaly,
-            onClick = { onInteractDeskAnomaly(anomaly.id) },
+            onClick = {
+              onInteractDeskAnomaly(anomaly.id)
+              onEmitThematicDrip("desk_${anomaly.type.id}", dripLine)
+            },
             modifier = Modifier.offset(x = offsetX, y = offsetY),
           )
         }

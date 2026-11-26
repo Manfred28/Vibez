@@ -11,7 +11,6 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
@@ -65,12 +64,13 @@ import com.example.game.RepeatableScarGraft
 import com.example.game.ScarNodeId
 import com.example.game.SpecimenJar
 import com.example.ui.components.ApparatusDeck
-import com.example.ui.components.AudioMuteTogglePill
+import com.example.ui.components.ArcTopChromeBar
 import com.example.ui.components.ChamberCanvas
-import com.example.ui.components.DevToolsTriggerPill
 import com.example.ui.components.DevToolsModal
+import com.example.ui.components.DrippingTransmissionOverlay
 import com.example.ui.components.FragmentArchiveSheet
 import com.example.ui.components.PinnedLedgerBottomBar
+import com.example.ui.components.rememberEventDripChannel
 import com.example.ui.theme.BleakTheme
 import java.text.NumberFormat
 import kotlin.random.Random
@@ -159,12 +159,7 @@ fun OrganRoute(modifier: Modifier = Modifier, viewModel: OrganViewModel? = null)
       GameArc.ARC_2_INVESTIGATION ->
         InvestigatorScreen(
           state = uiState,
-          onInspectCaseFile = resolvedViewModel::inspectCaseFile,
-          onRecruitContact = resolvedViewModel::recruitContact,
-          onPinDeduction = resolvedViewModel::pinDeduction,
-          onInteractDeskAnomaly = resolvedViewModel::interactDeskAnomaly,
-          onConnectNextChapter = resolvedViewModel::connectNextChapter,
-          onEnterArc3 = resolvedViewModel::enterArc3Convergence,
+          actions = resolvedViewModel.investigatorActions,
           onOpenDevTools = { devToolsVisible = true },
           isAudioMuted = isAudioMuted,
           onToggleAudioMute = resolvedViewModel::toggleAudioMuted,
@@ -229,9 +224,6 @@ fun OrganScreen(
 
   var selectedTab by remember { mutableStateOf(OrganDeckTab.APPARATUS) }
   var archiveVisible by remember { mutableStateOf(false) }
-  var latestDripEvent by remember { mutableStateOf<com.example.ui.components.ThematicDripEvent?>(null) }
-  var nextDripId by remember { mutableStateOf(1L) }
-  val eventSpeakerLabel = stringResource(R.string.drip_event_speaker)
   val scrollState = rememberScrollState()
 
   val isFreshReset =
@@ -239,11 +231,11 @@ fun OrganScreen(
       state.cycleLifetimeIchor == 0.0 &&
       state.discoveredDialogues.isEmpty() &&
       state.anomalyInteractions.isEmpty()
-  LaunchedEffect(isFreshReset) {
-    if (isFreshReset) {
-      latestDripEvent = null
-    }
-  }
+  val dripChannel =
+    rememberEventDripChannel(
+      speakerLabel = stringResource(R.string.drip_event_speaker),
+      isFreshReset = isFreshReset,
+    )
 
   LaunchedEffect(state.cycle) {
     if (state.cycle > 0) {
@@ -362,16 +354,7 @@ fun OrganScreen(
           dropPhaseProvider = { dropPhaseState.value },
           onPressValve = onPressValve,
           onInteractAnomaly = onInteractAnomaly,
-          onEmitThematicDrip = { eventKey, text ->
-            val id = nextDripId++
-            latestDripEvent =
-              com.example.ui.components.ThematicDripEvent(
-                id = id,
-                speaker = "// $eventSpeakerLabel",
-                text = text,
-                eventKey = eventKey,
-              )
-          },
+          onEmitThematicDrip = dripChannel::emit,
           modifier = Modifier.height(300.dp),
         )
 
@@ -407,9 +390,9 @@ fun OrganScreen(
       }
 
       // Dual-lane non-blocking side-margin dripping overlay (Right = Story priority, Left = Chamber events)
-      com.example.ui.components.DrippingTransmissionOverlay(
+      DrippingTransmissionOverlay(
         activeDialogue = state.activeDialogue,
-        latestEvent = latestDripEvent,
+        latestEvent = dripChannel.latestEvent,
         modifier = Modifier.fillMaxSize(),
         eventDripRoll = eventDripRoll,
       )
@@ -436,25 +419,16 @@ private fun PhaseTelemetryHeader(
   val colorScheme = MaterialTheme.colorScheme
 
   Column(modifier = modifier.fillMaxWidth()) {
-    Row(
-      modifier = Modifier.fillMaxWidth(),
-      horizontalArrangement = Arrangement.SpaceBetween,
-      verticalAlignment = Alignment.CenterVertically,
-    ) {
-      Text(
-        text = stringResource(R.string.phase_readout, phaseTitle),
-        style = MaterialTheme.typography.labelMedium,
-        color = colorScheme.onSurfaceVariant,
-        modifier = Modifier.weight(1f).testTag("phase_header"),
-      )
-      Row(
-        horizontalArrangement = Arrangement.spacedBy(6.dp),
-        verticalAlignment = Alignment.CenterVertically,
-      ) {
-        AudioMuteTogglePill(isMuted = isAudioMuted, onToggle = onToggleAudioMute)
-        DevToolsTriggerPill(onClick = onOpenDevTools)
-      }
-    }
+    ArcTopChromeBar(
+      title = stringResource(R.string.phase_readout, phaseTitle),
+      titleStyle = MaterialTheme.typography.labelMedium,
+      titleColor = colorScheme.onSurfaceVariant,
+      titleTestTag = "phase_header",
+      isAudioMuted = isAudioMuted,
+      onToggleAudioMute = onToggleAudioMute,
+      onOpenDevTools = onOpenDevTools,
+      emphasizedPills = false,
+    )
 
     val numberFormat = remember { NumberFormat.getIntegerInstance() }
     val nextThreshold = state.nextPhaseThreshold

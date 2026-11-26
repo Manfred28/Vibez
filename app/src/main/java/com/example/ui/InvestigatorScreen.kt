@@ -50,31 +50,29 @@ import com.example.game.InvestigationChapter
 import com.example.game.InvestigatorContact
 import com.example.game.InvestigatorDeckTab
 import com.example.game.OrganGameState
-import com.example.ui.components.AudioMuteTogglePill
+import com.example.ui.components.ArcTopChromeBar
 import com.example.ui.components.DeckTabCell
-import com.example.ui.components.DevToolsTriggerPill
+import com.example.ui.components.DrippingTransmissionOverlay
 import com.example.ui.components.FragmentArchiveSheet
 import com.example.ui.components.InvestigatorDeskCanvas
 import com.example.ui.components.PinnedLedgerBottomBar
 import com.example.ui.components.TabAlertEvaluator
 import com.example.ui.components.formatCompactDecimal
+import com.example.ui.components.rememberEventDripChannel
 import com.example.ui.theme.BleakTheme
 import java.text.NumberFormat
 import kotlin.math.roundToInt
+import kotlin.random.Random
 
 @Composable
 fun InvestigatorScreen(
   state: OrganGameState,
-  onInspectCaseFile: () -> Unit,
-  onRecruitContact: (InvestigatorContact) -> Unit,
-  onPinDeduction: (CaseDeduction) -> Unit,
-  onInteractDeskAnomaly: (Long) -> Unit,
-  onConnectNextChapter: () -> Unit,
-  onEnterArc3: () -> Unit,
+  actions: InvestigatorActions,
   onOpenDevTools: () -> Unit,
   isAudioMuted: Boolean = false,
   onToggleAudioMute: () -> Unit = {},
   modifier: Modifier = Modifier,
+  eventDripRoll: () -> Double = { Random.nextDouble() },
 ) {
   val colorScheme = MaterialTheme.colorScheme
   val atmosphere = BleakTheme.atmosphere
@@ -96,6 +94,16 @@ fun InvestigatorScreen(
   }
   var archiveVisible by remember { mutableStateOf(false) }
   val scrollState = rememberScrollState()
+  val isFreshReset =
+    desk.lifetimeLeads == 0.0 &&
+      desk.completedChapters == 0 &&
+      desk.deskAnomalyInteractions.isEmpty() &&
+      state.discoveredDialogues.isEmpty()
+  val dripChannel =
+    rememberEventDripChannel(
+      speakerLabel = stringResource(R.string.drip_desk_event_speaker),
+      isFreshReset = isFreshReset,
+    )
 
   val infiniteTransition = rememberInfiniteTransition(label = "desk_haunting")
   val breathState =
@@ -146,33 +154,20 @@ fun InvestigatorScreen(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(12.dp),
       ) {
-        // Precinct Case Header + Dev Tool trigger
+        // Precinct Case Header + Shared Top Chrome
         Column(modifier = Modifier.fillMaxWidth()) {
-          Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-          ) {
-            Text(
-              text =
-                if (desk.fileZeroRevealed) stringResource(R.string.arc2_header_file_zero)
-                else stringResource(R.string.arc2_header),
-              style = MaterialTheme.typography.labelMedium,
-              color = colorScheme.onSurfaceVariant,
-              modifier = Modifier.weight(1f).testTag("arc2_phase_header"),
-            )
-            Row(
-              horizontalArrangement = Arrangement.spacedBy(6.dp),
-              verticalAlignment = Alignment.CenterVertically,
-            ) {
-              AudioMuteTogglePill(
-                isMuted = isAudioMuted,
-                onToggle = onToggleAudioMute,
-                emphasized = true,
-              )
-              DevToolsTriggerPill(onClick = onOpenDevTools, emphasized = true)
-            }
-          }
+          ArcTopChromeBar(
+            title =
+              if (desk.fileZeroRevealed) stringResource(R.string.arc2_header_file_zero)
+              else stringResource(R.string.arc2_header),
+            titleStyle = MaterialTheme.typography.labelMedium,
+            titleColor = colorScheme.onSurfaceVariant,
+            titleTestTag = "arc2_phase_header",
+            isAudioMuted = isAudioMuted,
+            onToggleAudioMute = onToggleAudioMute,
+            onOpenDevTools = onOpenDevTools,
+            emphasizedPills = true,
+          )
           Spacer(modifier = Modifier.height(4.dp))
           Text(
             text =
@@ -217,7 +212,7 @@ fun InvestigatorScreen(
                   Modifier.fillMaxWidth()
                     .minimumInteractiveComponentSize()
                     .testTag("enter_arc3_button")
-                    .clickable(role = Role.Button, onClick = onEnterArc3),
+                    .clickable(role = Role.Button, onClick = actions.onEnterArc3),
                 shape = MaterialTheme.shapes.extraSmall,
                 color = colorScheme.errorContainer,
                 border = BorderStroke(1.dp, colorScheme.error),
@@ -238,8 +233,9 @@ fun InvestigatorScreen(
           state = state,
           breathPhaseProvider = { breathState.value },
           dropPhaseProvider = { dropState.value },
-          onInspectCaseFile = onInspectCaseFile,
-          onInteractDeskAnomaly = onInteractDeskAnomaly,
+          onInspectCaseFile = actions.onInspectCaseFile,
+          onInteractDeskAnomaly = actions.onInteractDeskAnomaly,
+          onEmitThematicDrip = dripChannel::emit,
           modifier = Modifier.height(276.dp),
         )
 
@@ -325,7 +321,7 @@ fun InvestigatorScreen(
                       enabled = canAfford,
                       accent = false,
                       testTag = "recruit_${contact.id}",
-                      onClick = { onRecruitContact(contact) },
+                      onClick = { actions.onRecruitContact(contact) },
                     )
                   }
                 }
@@ -360,7 +356,7 @@ fun InvestigatorScreen(
                       enabled = canAfford,
                       accent = owned,
                       testTag = "deduction_${ded.id}",
-                      onClick = { onPinDeduction(ded) },
+                      onClick = { actions.onPinDeduction(ded) },
                     )
                   }
                 }
@@ -391,7 +387,7 @@ fun InvestigatorScreen(
                       enabled = canConnect,
                       accent = completed || isNext,
                       testTag = "chapter_connect_${chapter.number}",
-                      onClick = onConnectNextChapter,
+                      onClick = actions.onConnectNextChapter,
                     )
                   }
                 }
@@ -402,10 +398,11 @@ fun InvestigatorScreen(
         Spacer(modifier = Modifier.height(8.dp))
       }
 
-      com.example.ui.components.DrippingTransmissionOverlay(
+      DrippingTransmissionOverlay(
         activeDialogue = state.activeDialogue,
-        latestEvent = null,
+        latestEvent = dripChannel.latestEvent,
         modifier = Modifier.fillMaxSize(),
+        eventDripRoll = eventDripRoll,
       )
     }
   }

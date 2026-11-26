@@ -238,6 +238,16 @@ class OrganViewModel(
     }
 
   // --- Arc 2 Investigator Actions ---
+  val investigatorActions: InvestigatorActions =
+    InvestigatorActions(
+      onInspectCaseFile = ::inspectCaseFile,
+      onRecruitContact = ::recruitContact,
+      onPinDeduction = ::pinDeduction,
+      onInteractDeskAnomaly = ::interactDeskAnomaly,
+      onConnectNextChapter = ::connectNextChapter,
+      onEnterArc3 = ::enterArc3Convergence,
+    )
+
   fun inspectCaseFile() =
     mutate(persistImmediately = false, actionHint = SoundActionHint.ARC2_STAMP) {
       Arc2InvestigatorEngine.inspectCaseFile(it, catalog)

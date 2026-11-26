@@ -1,6 +1,8 @@
 package com.example
 
 import com.example.audio.AmbientSoundProfile
+import com.example.audio.Arc1FoleyCueBank
+import com.example.audio.Arc2FoleyCueBank
 import com.example.audio.InMemoryAudioEngine
 import com.example.audio.ProceduralFoleySynth
 import com.example.audio.SoundActionHint
@@ -539,5 +541,39 @@ class OrganAudioTest {
       val meanAbs = bodyEnergy.toDouble() / (bodyEnd - bodyStart).coerceAtLeast(1)
       assertTrue("Cue ${cue.id} must sustain fleshy/tearing body past 50ms (meanAbs=$meanAbs)", meanAbs > 700.0)
     }
+  }
+
+  @Test
+  fun modularFoleyCueBanks_partitionAllSoundCuesWithoutOverlapAndMatchFacade() {
+    var arc1Count = 0
+    var arc2Count = 0
+    val phase = 2
+    val pitchFactor = 1.03f
+    val pitch = pitchFactor.toDouble()
+    val pDark = 1.0 - (phase * 0.035)
+
+    for (cue in SoundCue.entries) {
+      val fromArc1 = Arc1FoleyCueBank.synthesize(cue, pitch, pDark, phase)
+      val fromArc2 = Arc2FoleyCueBank.synthesize(cue, pitch)
+      val handledByArc1 = fromArc1 != null
+      val handledByArc2 = fromArc2 != null
+
+      assertTrue(
+        "Cue ${cue.id} must belong to exactly one modular cue bank (arc1=$handledByArc1, arc2=$handledByArc2)",
+        handledByArc1 xor handledByArc2,
+      )
+      if (handledByArc1) arc1Count++ else arc2Count++
+
+      val bankPcm = fromArc1 ?: fromArc2!!
+      val facadePcm = ProceduralFoleySynth.synthesizeCue(cue, phase = phase, pitchFactor = pitchFactor)
+      assertTrue(
+        "ProceduralFoleySynth facade output must be bit-for-bit identical to cue bank for ${cue.id}",
+        bankPcm.contentEquals(facadePcm),
+      )
+    }
+
+    assertEquals(22, arc1Count)
+    assertEquals(7, arc2Count)
+    assertEquals(SoundCue.entries.size, arc1Count + arc2Count)
   }
 }

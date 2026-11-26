@@ -4,7 +4,6 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -31,7 +30,7 @@ import com.example.R
 import com.example.game.ExcisionMilestone
 import com.example.game.GameArc
 import com.example.game.OrganGameState
-import com.example.ui.components.AudioMuteTogglePill
+import com.example.ui.components.ArcTopChromeBar
 import com.example.ui.components.FragmentArchiveSheet
 import com.example.ui.components.PinnedLedgerBottomBar
 
@@ -79,23 +78,15 @@ fun Arc3ConvergenceScreen(
           modifier = Modifier.fillMaxWidth().padding(20.dp),
           verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-          Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-          ) {
-            Text(
-              text = stringResource(R.string.arc3_title),
-              style = MaterialTheme.typography.titleMedium,
-              color = colorScheme.tertiary,
-              modifier = Modifier.weight(1f),
-            )
-            AudioMuteTogglePill(
-              isMuted = isAudioMuted,
-              onToggle = onToggleAudioMute,
-              emphasized = true,
-            )
-          }
+          ArcTopChromeBar(
+            title = stringResource(R.string.arc3_title),
+            titleStyle = MaterialTheme.typography.titleMedium,
+            titleColor = colorScheme.tertiary,
+            isAudioMuted = isAudioMuted,
+            onToggleAudioMute = onToggleAudioMute,
+            onOpenDevTools = null,
+            emphasizedPills = true,
+          )
           Text(
             text = stringResource(R.string.arc3_subtitle),
             style = MaterialTheme.typography.bodyMedium,
