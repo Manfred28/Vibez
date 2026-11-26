@@ -22,9 +22,12 @@ import androidx.compose.ui.test.performScrollTo
 import androidx.test.core.app.ApplicationProvider
 import com.example.data.AssetDialogueRepository
 import com.example.data.OrganStateSerializer
+import com.example.game.ActiveDeskAnomaly
 import com.example.game.ActiveWallAnomaly
 import com.example.game.CreatureType
+import com.example.game.DeskAnomalyType
 import com.example.game.DredgedRelic
+import com.example.game.GameArc
 import com.example.game.OrganBalance
 import com.example.game.OrganGameEngine
 import com.example.game.OrganGameState
@@ -1974,5 +1977,58 @@ class OrganScreenBehaviorTest {
     composeTestRule.mainClock.advanceTimeBy(500)
     composeTestRule.waitForIdle()
     composeTestRule.onNodeWithTag("dripping_event_overlay").assertIsDisplayed()
+  }
+
+  @Test
+  fun arc2PhotographicDeskStagesFeatheredAnomaliesAndExhibitPolaroids_renderWithSlowBoilQuarantine() {
+    val viewModel = createViewModel()
+    viewModel.devSetActiveArc(GameArc.ARC_2_INVESTIGATION)
+    viewModel.devSpawnDeskAnomaly()
+
+    composeTestRule.setContent { OrganRoute(viewModel = viewModel) }
+    composeTestRule.waitForIdle()
+
+    // Case I: renders Case I precinct desk photo and strictly quarantines Case IV/V photos
+    composeTestRule.onNodeWithTag("desk_stage_photo_1", useUnmergedTree = true).assertIsDisplayed()
+    composeTestRule.onNodeWithTag("desk_stage_photo_4", useUnmergedTree = true).assertDoesNotExist()
+    composeTestRule.onNodeWithTag("desk_stage_photo_5", useUnmergedTree = true).assertDoesNotExist()
+
+    // Borderless circular feathered macro Desk Anomaly renders and collects on click
+    val spawned = viewModel.uiState.value.arc2.activeDeskAnomalies.first()
+    assertEquals(DeskAnomalyType.EVIDENCE_ENVELOPE, spawned.type)
+    composeTestRule
+      .onNodeWithTag("desk_anomaly_art_${spawned.type.id}", useUnmergedTree = true)
+      .assertIsDisplayed()
+    composeTestRule
+      .onNodeWithTag("desk_anomaly_${spawned.type.id}_${spawned.id}")
+      .performClick()
+    composeTestRule.waitForIdle()
+    composeTestRule
+      .onNodeWithTag("desk_anomaly_${spawned.type.id}_${spawned.id}")
+      .assertDoesNotExist()
+
+    // BOARD tab renders framed macro Exhibit Polaroid thumbnail
+    composeTestRule.onNodeWithTag("arc2_tab_board").performScrollTo().performClick()
+    composeTestRule.waitForIdle()
+    composeTestRule
+      .onNodeWithTag("art_exhibit_water_stained_petition", useUnmergedTree = true)
+      .performScrollTo()
+      .assertIsDisplayed()
+
+    // DOSSIER tab renders framed macro Exhibit Polaroid thumbnails on Silence exhibit rows
+    composeTestRule.onNodeWithTag("arc2_tab_dossier").performScrollTo().performClick()
+    composeTestRule.waitForIdle()
+    composeTestRule
+      .onNodeWithTag("art_exhibit_unlisted_pay_stub", useUnmergedTree = true)
+      .performScrollTo()
+      .assertIsDisplayed()
+
+    // Escalating to File #00 surfaces Case V weeping-oil hospital tile desk photo and removes Case I
+    composeTestRule.runOnIdle {
+      viewModel.devAssignArc2Resources(caseAngle = 5, completedChapters = 5)
+    }
+    composeTestRule.waitForIdle()
+    composeTestRule.onNodeWithTag("desk_stage_photo_5", useUnmergedTree = true).assertIsDisplayed()
+    composeTestRule.onNodeWithTag("desk_stage_photo_1", useUnmergedTree = true).assertDoesNotExist()
   }
 }

@@ -2,7 +2,7 @@
  * Arc 2 Investigator Desk & Arc 3 Convergence procedural foley cue synthesizer bank.
  */
 
-import { SOUND_CUES } from './cueResolver.js?v=3.13';
+import { SOUND_CUES } from './cueResolver.js?v=3.14';
 
 export function renderArc2Cue(cue, _phase, pitch, now, dsp) {
   const {

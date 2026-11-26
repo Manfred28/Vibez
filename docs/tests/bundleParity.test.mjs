@@ -6,10 +6,15 @@ import path from 'node:path';
 import {
   ANOMALY_ASSET_URLS,
   ASSET_VERSION,
+  DESK_ANOMALY_ASSET_URLS,
+  DESK_STAGE_ASSET_URLS,
   DIALOGUES_ASSET_URL,
+  EXHIBIT_ASSET_URLS,
   JAR_ASSET_URLS,
   WALL_ASSET_URLS,
   anomalyAssetUrl,
+  deskAnomalyAssetUrl,
+  exhibitAssetUrl,
   jarAssetUrl,
   versionedAssetUrl,
 } from '../src/version.js';
@@ -71,6 +76,25 @@ test('GitHub Pages static bundle integrity and Android dialogues.json parity', (
     'assets/img_jar_salt_from_the_grout.jpg',
     'assets/img_jar_a_borrowed_pulse.jpg',
     'assets/img_jar_the_uncounted_hour.jpg',
+    'assets/img_desk_case1.jpg',
+    'assets/img_desk_case2.jpg',
+    'assets/img_desk_case3.jpg',
+    'assets/img_desk_case4.jpg',
+    'assets/img_desk_case5.jpg',
+    'assets/img_desk_anomaly_envelope.jpg',
+    'assets/img_desk_anomaly_spectacles.jpg',
+    'assets/img_desk_anomaly_reel_tape.jpg',
+    'assets/img_desk_anomaly_enamel.jpg',
+    'assets/img_exhibit_water_stained_petition.jpg',
+    'assets/img_exhibit_unlisted_pay_stub.jpg',
+    'assets/img_exhibit_tax_plat_1998.jpg',
+    'assets/img_exhibit_inside_condensation_swab.jpg',
+    'assets/img_exhibit_tuesday_statement_copy.jpg',
+    'assets/img_exhibit_second_chair_polaroid.jpg',
+    'assets/img_exhibit_coat_claim_ticket.jpg',
+    'assets/img_exhibit_reel_four_waveform.jpg',
+    'assets/img_exhibit_intake_thumb_cast.jpg',
+    'assets/img_exhibit_drainage_loop_blueprint.jpg',
     'assets/img_recessed_valve.jpg',
     'assets/img_suture_hand.jpg',
     'assets/img_leech_clerk.jpg',
@@ -83,7 +107,7 @@ test('GitHub Pages static bundle integrity and Android dialogues.json parity', (
     assert.ok(fs.existsSync(abs), `Missing required GitHub Pages file: docs/${rel}`);
   }
 
-  // Verify all 5 wall JPEGs + 4 wall anomaly JPEGs + 6 specimen jar JPEGs match Android byte-for-byte
+  // Verify all 15 Arc 1 + 19 Arc 2 photographic JPEGs match Android byte-for-byte
   for (const imgFile of [
     'img_wall_phase1.jpg',
     'img_wall_fleshy.jpg',
@@ -100,6 +124,25 @@ test('GitHub Pages static bundle integrity and Android dialogues.json parity', (
     'img_jar_salt_from_the_grout.jpg',
     'img_jar_a_borrowed_pulse.jpg',
     'img_jar_the_uncounted_hour.jpg',
+    'img_desk_case1.jpg',
+    'img_desk_case2.jpg',
+    'img_desk_case3.jpg',
+    'img_desk_case4.jpg',
+    'img_desk_case5.jpg',
+    'img_desk_anomaly_envelope.jpg',
+    'img_desk_anomaly_spectacles.jpg',
+    'img_desk_anomaly_reel_tape.jpg',
+    'img_desk_anomaly_enamel.jpg',
+    'img_exhibit_water_stained_petition.jpg',
+    'img_exhibit_unlisted_pay_stub.jpg',
+    'img_exhibit_tax_plat_1998.jpg',
+    'img_exhibit_inside_condensation_swab.jpg',
+    'img_exhibit_tuesday_statement_copy.jpg',
+    'img_exhibit_second_chair_polaroid.jpg',
+    'img_exhibit_coat_claim_ticket.jpg',
+    'img_exhibit_reel_four_waveform.jpg',
+    'img_exhibit_intake_thumb_cast.jpg',
+    'img_exhibit_drainage_loop_blueprint.jpg',
   ]) {
     const webBuf = fs.readFileSync(path.join(docsDir, 'assets', imgFile));
     const androidBuf = fs.readFileSync(
@@ -151,9 +194,20 @@ test('Centralized asset versioning and browser-safe static ESM invariants hold a
   assert.equal(versionedAssetUrl('./assets/test.jpg'), `./assets/test.jpg?v=${ASSET_VERSION}`);
   assert.equal(anomalyAssetUrl('pale_tooth'), `./assets/img_anomaly_pale_tooth.jpg?v=${ASSET_VERSION}`);
   assert.equal(jarAssetUrl('yesterdays_dust'), `./assets/img_jar_yesterdays_dust.jpg?v=${ASSET_VERSION}`);
+  assert.equal(
+    deskAnomalyAssetUrl('evidence_envelope'),
+    `./assets/img_desk_anomaly_envelope.jpg?v=${ASSET_VERSION}`,
+  );
+  assert.equal(
+    exhibitAssetUrl('water_stained_petition'),
+    `./assets/img_exhibit_water_stained_petition.jpg?v=${ASSET_VERSION}`,
+  );
   assert.equal(Object.keys(WALL_ASSET_URLS).length, 5);
   assert.equal(Object.keys(ANOMALY_ASSET_URLS).length, 4);
   assert.equal(Object.keys(JAR_ASSET_URLS).length, 6);
+  assert.equal(Object.keys(DESK_STAGE_ASSET_URLS).length, 5);
+  assert.equal(Object.keys(DESK_ANOMALY_ASSET_URLS).length, 4);
+  assert.equal(Object.keys(EXHIBIT_ASSET_URLS).length, 10);
 
   const srcDir = path.join(docsDir, 'src');
   const jsFiles = listJsFiles(srcDir);
@@ -193,6 +247,9 @@ test('Centralized asset versioning and browser-safe static ESM invariants hold a
     'WALL_ASSET_URLS',
     'ANOMALY_ASSET_URLS',
     'JAR_ASSET_URLS',
+    'DESK_STAGE_ASSET_URLS',
+    'DESK_ANOMALY_ASSET_URLS',
+    'EXHIBIT_ASSET_URLS',
   ]) {
     assert.ok(appSrc.includes(token), `docs/src/app.js must use ${token} from version.js`);
   }

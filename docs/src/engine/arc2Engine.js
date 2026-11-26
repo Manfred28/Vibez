@@ -5,7 +5,7 @@
  * and strictly Slow-Boil-gated Desk Anomalies.
  */
 
-import { GAME_ARCS } from './constants.js?v=3.13';
+import { GAME_ARCS } from './constants.js?v=3.14';
 import {
   ARC2_BALANCE,
   DESK_ANOMALY_TYPES,
@@ -30,8 +30,8 @@ import {
   exhibitById,
   matchCorroborationPair,
   redactionById,
-} from './arc2Models.js?v=3.13';
-import { finalizeProgression } from './progression.js?v=3.13';
+} from './arc2Models.js?v=3.14';
+import { finalizeProgression } from './progression.js?v=3.14';
 
 function pickDeskAnomaly(desk, id, rng = Math.random) {
   const pool = [];

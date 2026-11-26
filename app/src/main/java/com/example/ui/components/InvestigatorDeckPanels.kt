@@ -125,17 +125,70 @@ internal fun InvestigatorDossierPanel(
     dossierExhibits.forEach { exhibit ->
       val pinned = exhibit in desk.pinnedExhibits
       val canUnlock = desk.canUnlockExhibit(exhibit)
-      InvestigatorActionRow(
-        title = "${exhibit.shortLabel} · ${exhibit.title.uppercase()}",
-        subtitle = exhibit.caption,
-        actionLabel =
-          if (pinned) stringResource(R.string.arc2_exhibit_pinned)
-          else stringResource(R.string.arc2_exhibit_unlock, nf.format(exhibit.silenceCost.toLong())),
-        enabled = canUnlock,
-        accent = pinned,
-        testTag = "unlock_exhibit_${exhibit.id}",
-        onClick = { actions.onUnlockExhibit(exhibit) },
-      )
+      Surface(
+        modifier =
+          Modifier.fillMaxWidth()
+            .minimumInteractiveComponentSize()
+            .testTag("unlock_exhibit_${exhibit.id}")
+            .clickable(enabled = canUnlock, role = Role.Button) { actions.onUnlockExhibit(exhibit) },
+        shape = MaterialTheme.shapes.extraSmall,
+        color =
+          when {
+            pinned -> colorScheme.tertiaryContainer.copy(alpha = 0.65f)
+            canUnlock -> colorScheme.surfaceVariant
+            else -> colorScheme.surfaceContainerLowest
+          },
+        border =
+          BorderStroke(
+            width = 1.dp,
+            color =
+              when {
+                pinned -> colorScheme.tertiary
+                canUnlock -> colorScheme.outline
+                else -> colorScheme.outlineVariant
+              },
+          ),
+      ) {
+        Row(
+          modifier = Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 8.dp),
+          horizontalArrangement = Arrangement.spacedBy(10.dp),
+          verticalAlignment = Alignment.CenterVertically,
+        ) {
+          ExhibitPolaroidThumb(
+            exhibit = exhibit,
+            pinned = pinned,
+            wired = false,
+            selected = false,
+            size = 44.dp,
+          )
+          Column(modifier = Modifier.weight(1f)) {
+            Text(
+              text = "${exhibit.shortLabel} · ${exhibit.title.uppercase()}",
+              style = MaterialTheme.typography.labelLarge.copy(fontSize = 11.5.sp),
+              color = if (pinned || canUnlock) colorScheme.onBackground else colorScheme.onSurfaceVariant,
+            )
+            Text(
+              text = exhibit.caption,
+              style = MaterialTheme.typography.bodySmall,
+              color = colorScheme.onSurfaceVariant,
+            )
+          }
+          Surface(
+            shape = MaterialTheme.shapes.extraSmall,
+            color = colorScheme.background.copy(alpha = 0.78f),
+            border = BorderStroke(1.dp, if (canUnlock || pinned) colorScheme.primary else colorScheme.outlineVariant),
+          ) {
+            Text(
+              text =
+                if (pinned) stringResource(R.string.arc2_exhibit_pinned)
+                else stringResource(R.string.arc2_exhibit_unlock, nf.format(exhibit.silenceCost.toLong())),
+              style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.5.sp),
+              color = if (canUnlock || pinned) colorScheme.primary else colorScheme.onSurfaceVariant,
+              modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
+            )
+          }
+        }
+      }
     }
 
     if (desk.isReelScrubUnlocked) {

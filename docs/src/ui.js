@@ -4,7 +4,7 @@
  * under `./ui/` while preserving the exact public export surface.
  */
 
-import { GAME_ARCS } from './engine.js?v=3.13';
+import { GAME_ARCS } from './engine.js?v=3.14';
 import {
   REPEAT_EVENT_DRIP_CHANCE,
   STORY_DRIP_QUEUE_GAP_MS,
@@ -13,7 +13,7 @@ import {
   createDrippingMarginController,
   createStoryDripQueue,
   shouldTriggerEventDrip,
-} from './ui/drippingMargin.js?v=3.13';
+} from './ui/drippingMargin.js?v=3.14';
 import {
   arc1UnlockKeys,
   arc2UnlockKeys,
@@ -21,15 +21,15 @@ import {
   isArc2TabReady,
   shouldAlertArc1Tab,
   shouldAlertArc2Tab,
-} from './ui/tabAlerts.js?v=3.13';
+} from './ui/tabAlerts.js?v=3.14';
 import {
   DEEP_SHELF_JARS,
   FOUNDATIONAL_SHELF_JARS,
   createArc1ChamberUi,
   partitionChamberShelfJars,
-} from './ui/arc1ChamberUi.js?v=3.13';
-import { createArc2InvestigatorUi } from './ui/arc2InvestigatorUi.js?v=3.13';
-import { createSharedChromeUi } from './ui/sharedChromeUi.js?v=3.13';
+} from './ui/arc1ChamberUi.js?v=3.14';
+import { createArc2InvestigatorUi } from './ui/arc2InvestigatorUi.js?v=3.14';
+import { createSharedChromeUi } from './ui/sharedChromeUi.js?v=3.14';
 
 export {
   DEEP_SHELF_JARS,

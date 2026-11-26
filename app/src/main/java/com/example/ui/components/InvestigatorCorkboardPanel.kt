@@ -2,6 +2,7 @@ package com.example.ui.components
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -12,6 +13,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -23,10 +26,14 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
@@ -38,16 +45,17 @@ import com.example.game.CorroborationId
 import com.example.game.ExhibitPair
 
 private val CorkDark = Color(0xFF1A1512)
-private val CrimsonThread = Color(0xFF9E2B2E)
-private val SpeculativeThread = Color(0xFF6E4B4D)
-private val BrassPin = Color(0xFFC29B56)
+private val CorkMid = Color(0xFF231C17)
+private val CrimsonThread = Color(0xFFA82D30)
+private val SpeculativeThread = Color(0xFF836869)
+private val BrassPin = Color(0xFFC8A058)
+private val BrassPinHighlight = Color(0xFFE7CA8C)
 
 /**
- * Interactive placeholder Red-String Corkboard (`BOARD` tab):
- * - Tap one pinned Exhibit Polaroid to select it, then tap a second pinned Exhibit to wire/unwire
- *   a crimson cotton thread between them (up to `maxStringSpools`).
- * - Curated pairs unlock named Corroborations + story beats; non-curated pairs grant a forgiving
- *   +15% Speculative Thread bonus so players can experiment freely without softlocks.
+ * Interactive Photographic Red-String Corkboard (`BOARD` tab):
+ * - Displays live crimson cotton threads & brass pushpins across a dark cork canvas.
+ * - Renders each pinned Exhibit as a tactile evidence Polaroid with its bespoke macro photograph,
+ *   brass pin head, wire badge, and accessible tap-to-wire controls.
  */
 @Composable
 internal fun InvestigatorCorkboardPanel(
@@ -58,7 +66,6 @@ internal fun InvestigatorCorkboardPanel(
   val colorScheme = MaterialTheme.colorScheme
   var selectedExhibit by remember { mutableStateOf<CaseExhibit?>(null) }
 
-  // Clear selection if exhibit somehow no longer pinned (e.g., dev reset)
   if (selectedExhibit != null && selectedExhibit !in desk.pinnedExhibits) {
     selectedExhibit = null
   }
@@ -66,6 +73,7 @@ internal fun InvestigatorCorkboardPanel(
   val pinnedOrdered = remember(desk.pinnedExhibits) {
     CaseExhibit.entries.filter { it in desk.pinnedExhibits }
   }
+  val threadPath = remember { Path() }
 
   Column(
     modifier = modifier.fillMaxWidth().testTag("corkboard_panel"),
@@ -103,42 +111,89 @@ internal fun InvestigatorCorkboardPanel(
       modifier = Modifier.testTag("corkboard_hint_text"),
     )
 
-    // Visual placeholder Corkboard Canvas showing pinned nodes and live crimson threads
+    // Atmospheric Dark Corkboard Thread Map with draped cotton strings and brass pushpins
     Surface(
-      modifier = Modifier.fillMaxWidth().height(128.dp).testTag("corkboard_string_canvas"),
+      modifier = Modifier.fillMaxWidth().height(132.dp).testTag("corkboard_string_canvas"),
       shape = MaterialTheme.shapes.extraSmall,
       color = CorkDark,
       border = BorderStroke(1.dp, colorScheme.outlineVariant),
     ) {
       Canvas(modifier = Modifier.fillMaxSize().padding(12.dp)) {
-        // Subtle corkboard pin grid
+        drawRect(
+          brush =
+            Brush.radialGradient(
+              colors = listOf(CorkMid.copy(alpha = 0.85f), CorkDark),
+              center = Offset(size.width * 0.5f, size.height * 0.45f),
+              radius = size.maxDimension * 0.72f,
+            )
+        )
+        // Subtle cork grain speckles
+        for (g in 0..24) {
+          val gx = ((g * 43 + 17) % 100) / 100f * size.width
+          val gy = ((g * 67 + 11) % 100) / 100f * size.height
+          drawCircle(
+            color = Color(0xFF0E0B09).copy(alpha = 0.45f),
+            radius = 1.1.dp.toPx(),
+            center = Offset(gx, gy),
+          )
+        }
+
         val dash = PathEffect.dashPathEffect(floatArrayOf(8f, 6f), 0f)
         desk.wiredPairs.forEach { pair ->
           val start = Offset(size.width * pair.first.boardX, size.height * pair.first.boardY)
           val end = Offset(size.width * pair.second.boardX, size.height * pair.second.boardY)
+          val sagY = maxOf(start.y, end.y) + 12.dp.toPx()
+          val mid = Offset((start.x + end.x) * 0.5f, sagY.coerceAtMost(size.height - 4.dp.toPx()))
           val isCurated = CorroborationId.matchPair(pair) != null
-          drawLine(
+
+          threadPath.rewind()
+          threadPath.moveTo(start.x, start.y)
+          threadPath.quadraticTo(mid.x, mid.y, end.x, end.y)
+
+          // Drop shadow under taut cotton thread
+          drawPath(
+            path = threadPath,
+            color = Color.Black.copy(alpha = 0.48f),
+            style = Stroke(width = if (isCurated) 3.4.dp.toPx() else 2.2.dp.toPx(), cap = StrokeCap.Round),
+          )
+          drawPath(
+            path = threadPath,
             color = if (isCurated) CrimsonThread else SpeculativeThread,
-            start = start,
-            end = end,
-            strokeWidth = if (isCurated) 2.5.dp.toPx() else 1.5.dp.toPx(),
-            cap = StrokeCap.Round,
-            pathEffect = if (isCurated) null else dash,
+            style =
+              Stroke(
+                width = if (isCurated) 2.2.dp.toPx() else 1.4.dp.toPx(),
+                cap = StrokeCap.Round,
+                pathEffect = if (isCurated) null else dash,
+              ),
           )
         }
+
         pinnedOrdered.forEach { ex ->
           val pt = Offset(size.width * ex.boardX, size.height * ex.boardY)
           val isSelected = ex == selectedExhibit
+          if (isSelected) {
+            drawCircle(
+              color = BrassPinHighlight.copy(alpha = 0.30f),
+              radius = 11.dp.toPx(),
+              center = pt,
+            )
+          }
+          drawCircle(color = Color.Black.copy(alpha = 0.7f), radius = 5.2.dp.toPx(), center = pt + Offset(1.dp.toPx(), 1.5.dp.toPx()))
           drawCircle(
             color = if (isSelected) colorScheme.tertiary else BrassPin,
-            radius = if (isSelected) 6.dp.toPx() else 4.dp.toPx(),
+            radius = if (isSelected) 5.5.dp.toPx() else 4.2.dp.toPx(),
             center = pt,
+          )
+          drawCircle(
+            color = BrassPinHighlight.copy(alpha = 0.78f),
+            radius = 1.4.dp.toPx(),
+            center = pt - Offset(1.dp.toPx(), 1.dp.toPx()),
           )
         }
       }
     }
 
-    // Two-column placeholder Exhibit Polaroid cards (>= 48dp touch targets)
+    // Two-column Photographic Evidence Polaroid Cards (>= 48dp touch targets)
     pinnedOrdered.chunked(2).forEach { rowItems ->
       Row(
         modifier = Modifier.fillMaxWidth(),
@@ -166,52 +221,81 @@ internal fun InvestigatorCorkboardPanel(
             shape = MaterialTheme.shapes.extraSmall,
             color =
               when {
-                isSelected -> colorScheme.tertiaryContainer.copy(alpha = 0.85f)
-                wiredCount > 0 -> colorScheme.surfaceVariant
-                else -> colorScheme.surfaceContainerLowest
+                isSelected -> Color(0xFF281F15).copy(alpha = 0.94f)
+                wiredCount > 0 -> Color(0xFF191D22)
+                else -> Color(0xFF13171B)
               },
             border =
               BorderStroke(
                 width = if (isSelected) 1.5.dp else 1.dp,
                 color =
                   when {
-                    isSelected -> colorScheme.tertiary
+                    isSelected -> BrassPinHighlight
                     wiredCount > 0 -> CrimsonThread
                     else -> colorScheme.outlineVariant
                   },
               ),
           ) {
             Column(
-              modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 8.dp),
-              verticalArrangement = Arrangement.spacedBy(2.dp),
+              modifier = Modifier.fillMaxWidth().padding(8.dp),
+              verticalArrangement = Arrangement.spacedBy(6.dp),
             ) {
               Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
               ) {
-                Text(
-                  text = exhibit.shortLabel,
-                  style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp),
-                  color = colorScheme.primary,
-                )
-                if (wiredCount > 0) {
+                Box(contentAlignment = Alignment.TopCenter) {
+                  ExhibitPolaroidThumb(
+                    exhibit = exhibit,
+                    pinned = true,
+                    wired = wiredCount > 0,
+                    selected = isSelected,
+                    size = 48.dp,
+                  )
+                  // Brass pushpin head seated along top edge of Polaroid
+                  Box(
+                    modifier =
+                      Modifier.padding(top = 2.dp)
+                        .size(6.dp)
+                        .clip(CircleShape)
+                        .background(if (isSelected) colorScheme.tertiary else BrassPin)
+                  )
+                }
+                Column(
+                  modifier = Modifier.weight(1f),
+                  verticalArrangement = Arrangement.spacedBy(2.dp),
+                ) {
+                  Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                  ) {
+                    Text(
+                      text = exhibit.shortLabel,
+                      style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp),
+                      color = colorScheme.primary,
+                    )
+                    if (wiredCount > 0) {
+                      Text(
+                        text = "×$wiredCount",
+                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp),
+                        color = CrimsonThread,
+                      )
+                    }
+                  }
                   Text(
-                    text = "WIRED ×$wiredCount",
-                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 8.5.sp),
-                    color = colorScheme.tertiary,
+                    text = exhibit.title.uppercase(),
+                    style = MaterialTheme.typography.labelMedium.copy(fontSize = 10.5.sp),
+                    color = colorScheme.onBackground,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
                   )
                 }
               }
               Text(
-                text = exhibit.title.uppercase(),
-                style = MaterialTheme.typography.labelMedium.copy(fontSize = 11.sp),
-                color = colorScheme.onBackground,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-              )
-              Text(
                 text = exhibit.caption,
-                style = MaterialTheme.typography.bodySmall.copy(fontSize = 10.sp),
+                style = MaterialTheme.typography.bodySmall.copy(fontSize = 9.5.sp, lineHeight = 13.sp),
                 color = colorScheme.onSurfaceVariant,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
@@ -225,7 +309,6 @@ internal fun InvestigatorCorkboardPanel(
       }
     }
 
-    // Active Wired Threads & Unwire Controls
     if (desk.wiredPairs.isNotEmpty()) {
       Text(
         text = "ACTIVE THREADS",

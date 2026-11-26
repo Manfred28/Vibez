@@ -59,27 +59,30 @@ import {
   triggerReelScrub,
   unlockExhibit,
   unlockScarNode,
-} from './engine.js?v=3.13';
+} from './engine.js?v=3.14';
 import {
   drawChamberBackdrop,
   drawForegroundLampsAndSacrifice,
   drawInvestigatorDeskBackdrop,
   drawLeechClerks,
   drawValveAndHands,
-} from './chamberCanvas.js?v=3.13';
-import { createUiController } from './ui.js?v=3.13';
+} from './chamberCanvas.js?v=3.14';
+import { createUiController } from './ui.js?v=3.14';
 import {
   SOUND_ACTION_HINTS,
   computeAmbientProfile,
   createWebAudioEngine,
   resolveTransitionCues,
-} from './audio.js?v=3.13';
+} from './audio.js?v=3.14';
 import {
   ANOMALY_ASSET_URLS,
+  DESK_ANOMALY_ASSET_URLS,
+  DESK_STAGE_ASSET_URLS,
   DIALOGUES_ASSET_URL,
+  EXHIBIT_ASSET_URLS,
   JAR_ASSET_URLS,
   WALL_ASSET_URLS,
-} from './version.js?v=3.13';
+} from './version.js?v=3.14';
 
 const SAVE_STORAGE_KEY_V2 = 'unnamed_organ_save_v2';
 const SAVE_STORAGE_KEY_V1 = 'unnamed_organ_save_v1';
@@ -159,6 +162,18 @@ async function main() {
     the_uncounted_hour: preloadWallImage(JAR_ASSET_URLS.the_uncounted_hour),
   };
   void jarImages;
+  // Preload 5 progressive Arc 2 nocturnal desk stage backdrops + 4 circular desk anomalies + 10 exhibits
+  const deskImages = {
+    case1: preloadWallImage(DESK_STAGE_ASSET_URLS.case1),
+    case2: preloadWallImage(DESK_STAGE_ASSET_URLS.case2),
+    case3: preloadWallImage(DESK_STAGE_ASSET_URLS.case3),
+    case4: preloadWallImage(DESK_STAGE_ASSET_URLS.case4),
+    case5: preloadWallImage(DESK_STAGE_ASSET_URLS.case5),
+  };
+  const deskAnomalyImages = Object.values(DESK_ANOMALY_ASSET_URLS).map(preloadWallImage);
+  const exhibitImages = Object.values(EXHIBIT_ASSET_URLS).map(preloadWallImage);
+  void deskAnomalyImages;
+  void exhibitImages;
 
   const backdropCanvas = document.getElementById('chamber-backdrop-canvas');
   const lampsForegroundCanvas = document.getElementById('lamps-foreground-canvas');
@@ -758,7 +773,7 @@ async function main() {
         drawLeechClerks(leechCanvas, leechCount, breath, leechPatrolPhase);
         ui.renderAnimatedGlyphs(breath);
       } else if (state.activeArc === GAME_ARCS.ARC_2_INVESTIGATION) {
-        drawInvestigatorDeskBackdrop(deskCanvas, state, breath, dropPhase);
+        drawInvestigatorDeskBackdrop(deskCanvas, deskImages, state, breath, dropPhase);
         ui.renderAnimatedDeskGlyphs(breath);
       }
     }

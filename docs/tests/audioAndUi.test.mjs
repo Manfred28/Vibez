@@ -51,8 +51,20 @@ import {
   resolveTransitionCues,
   writeMutedPreference,
 } from '../src/audio.js';
-import { computeWallLayerAlphas, getWeepingLampLayout } from '../src/chamberCanvas.js';
-import { ASSET_VERSION, ANOMALY_ASSET_URLS, JAR_ASSET_URLS, WALL_ASSET_URLS } from '../src/version.js';
+import {
+  computeDeskLayerAlphas,
+  computeWallLayerAlphas,
+  getWeepingLampLayout,
+} from '../src/chamberCanvas.js';
+import {
+  ASSET_VERSION,
+  ANOMALY_ASSET_URLS,
+  DESK_ANOMALY_ASSET_URLS,
+  DESK_STAGE_ASSET_URLS,
+  EXHIBIT_ASSET_URLS,
+  JAR_ASSET_URLS,
+  WALL_ASSET_URLS,
+} from '../src/version.js';
 import { readDocsFile, realCatalog } from './testHelpers.mjs';
 
 test('.drip-card multi-layer parallax CSS, randomized delay intervals, and safe animationend handling', () => {
@@ -757,4 +769,74 @@ test('Web story drip FIFO queue never dismisses ongoing drips and matches Androi
   assert.ok(storyDripBlock.includes('STORY_DRIP_QUEUE_GAP_MS'));
   assert.ok(dripSrc.includes('if (isStoryDripBusy()) return false;'));
   assert.ok(dripSrc.includes('storyDripQueue.clear();'));
+});
+
+test('Web Arc 2 5-stage photographic desk Slow-Boil quarantine, feathered desk anomalies, and Exhibit Polaroids match Android 1:1', () => {
+  // 1. Slow-Boil Quarantine: Cases I–III strictly keep case4 === 0 && case5 === 0 (Lamp On & Lamp Off)
+  for (const caseAngle of [1, 2, 3]) {
+    for (const lampOn of [true, false]) {
+      const layers = computeDeskLayerAlphas(caseAngle, 0.95, lampOn, false);
+      assert.equal(layers.case4, 0, `Case ${caseAngle} (lampOn=${lampOn}) must quarantine Case IV`);
+      assert.equal(layers.case5, 0, `Case ${caseAngle} (lampOn=${lampOn}) must quarantine Case V`);
+    }
+  }
+  assert.equal(computeDeskLayerAlphas(1, 0, true, false).case1, 0.9);
+  assert.equal(computeDeskLayerAlphas(2, 0.3, true, false).case2, 0.88);
+  assert.equal(computeDeskLayerAlphas(3, 0.5, false, false).case3, 0.88);
+
+  // Case IV Lamp On keeps case5 === 0; Lamp Off at high haunt subtly surfaces case5
+  const c4On = computeDeskLayerAlphas(4, 0.9, true, false);
+  assert.equal(c4On.case4, 0.78);
+  assert.equal(c4On.case5, 0);
+  const c4OffHigh = computeDeskLayerAlphas(4, 0.8, false, false);
+  assert.equal(c4OffHigh.case4, 0.92);
+  assert.equal(c4OffHigh.case5, 0.24);
+
+  // Case V and File #00 escalate Case V backdrop while clearing early stages
+  const c5On = computeDeskLayerAlphas(5, 0.9, true, false);
+  assert.equal(c5On.case1, 0);
+  assert.equal(c5On.case5, 0.82);
+  const fileZero = computeDeskLayerAlphas(5, 1.0, false, true);
+  assert.equal(fileZero.case1, 0);
+  assert.equal(fileZero.case4, 0.14);
+  assert.equal(fileZero.case5, 0.94);
+
+  // 2. Centralized Arc 2 photographic asset URLs
+  assert.equal(Object.keys(DESK_STAGE_ASSET_URLS).length, 5);
+  assert.equal(Object.keys(DESK_ANOMALY_ASSET_URLS).length, 4);
+  assert.equal(Object.keys(EXHIBIT_ASSET_URLS).length, 10);
+  for (const url of [
+    ...Object.values(DESK_STAGE_ASSET_URLS),
+    ...Object.values(DESK_ANOMALY_ASSET_URLS),
+    ...Object.values(EXHIBIT_ASSET_URLS),
+  ]) {
+    assert.ok(url.endsWith(`.jpg?v=${ASSET_VERSION}`), `Arc 2 asset URL ${url} must use ASSET_VERSION`);
+  }
+
+  // 3. CSS & UI parity for circular feathered Desk Anomalies, Corkboard Polaroids, and reduced motion
+  const css = readDocsFile('styles.css');
+  const arc2UiSrc = readDocsFile('src/ui/arc2InvestigatorUi.js');
+  const deskCanvasSrc = readDocsFile('src/canvas/arc2DeskCanvas.js');
+
+  assert.ok(css.includes('@keyframes desk-anomaly-breathe'));
+  assert.ok(css.includes('@keyframes desk-anomaly-pulse'));
+  assert.ok(css.includes('.anomaly-node--desk'));
+  assert.ok(css.includes('.exhibit-polaroid-frame'));
+  assert.ok(css.includes('.exhibit-pin-head'));
+  assert.ok(css.includes('.exhibit-dossier-frame'));
+
+  const reducedMotionBlock = css.slice(css.indexOf('@media (prefers-reduced-motion: reduce)'));
+  assert.ok(
+    reducedMotionBlock.includes('.anomaly-node--desk') &&
+      reducedMotionBlock.includes('animation: none;'),
+    'Reduced-motion media query must disable Arc 2 desk anomaly animation',
+  );
+
+  assert.ok(arc2UiSrc.includes('anomaly-node anomaly-node--desk anomaly-node--${anomaly.type}'));
+  assert.ok(arc2UiSrc.includes("img.className = 'anomaly-photo'"));
+  assert.ok(arc2UiSrc.includes('deskAnomalyAssetUrl(anomaly.type)'));
+  assert.ok(arc2UiSrc.includes('exhibitAssetUrl(ex.id)'));
+  assert.ok(arc2UiSrc.includes('exhibit-polaroid-frame'));
+  assert.ok(arc2UiSrc.includes('exhibit-dossier-frame'));
+  assert.ok(deskCanvasSrc.includes('computeDeskLayerAlphas(') && deskCanvasSrc.includes('drawCoverImage('));
 });

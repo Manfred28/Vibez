@@ -1,14 +1,14 @@
 /**
- * Arc 2 Investigator Desk DOM renderer (placeholder styling):
- * Diegetic Case Angle header, Lamp On/Off pull-chain, Desk Anomalies, File #00 reveal,
- * and 4-tab deck: CONTACTS (with Bulk Warrant), BOARD (interactive Red-String Corkboard),
- * DOSSIER (Silence Exhibits, Reel Scrubbing, 4 Redactions), and REVISION (Dead-End Pivot).
+ * Arc 2 Investigator Desk DOM renderer (bespoke photographic edition):
+ * Diegetic Case Angle header, Brass Lamp On/Off pull-chain, circular feathered macro Desk Anomalies,
+ * File #00 reveal, and 4-tab deck: CONTACTS (with Bulk Warrant), BOARD (interactive photographic
+ * Red-String Corkboard with Polaroids & brass pushpins), DOSSIER (Silence Exhibits with macro thumbs,
+ * Acoustic Reel Scrubbing, 4 Redactions), and REVISION (Dead-End Pivot).
  */
 
 import {
   AUDIT_REDACTIONS,
   CASE_EXHIBITS,
-  CORROBORATIONS,
   DESK_ANOMALY_TYPES,
   INVESTIGATOR_CONTACTS,
   arc2ActiveCorroborations,
@@ -38,9 +38,9 @@ import {
   formatCompactDecimal,
   formatInteger,
   matchCorroborationPair,
-} from '../engine.js?v=3.13';
-import { drawDeskAnomalyGlyph } from '../chamberCanvas.js?v=3.13';
-import { arc2UnlockKeys, markTabSeen, shouldAlertArc2Tab } from './tabAlerts.js?v=3.13';
+} from '../engine.js?v=3.14';
+import { deskAnomalyAssetUrl, exhibitAssetUrl } from '../version.js?v=3.14';
+import { arc2UnlockKeys, markTabSeen, shouldAlertArc2Tab } from './tabAlerts.js?v=3.14';
 
 export function createArc2InvestigatorUi(els, handlers) {
   let selectedArc2Tab = 'contacts';
@@ -48,7 +48,7 @@ export function createArc2InvestigatorUi(els, handlers) {
   let lastArc2DeckSignature = '';
   const seenArc2Keys = new Map();
   const arc2TabButtons = new Map();
-  const deskAnomalyCanvasMap = new Map();
+  const deskAnomalyNodeMap = new Map();
   let arc2DeckRefs = null;
 
   function syncDeskAnomalies(state) {
@@ -57,38 +57,45 @@ export function createArc2InvestigatorUi(els, handlers) {
     for (const child of Array.from(els.deskAnomalyLayer.children)) {
       const id = child.dataset.anomalyId;
       if (!activeIds.has(id)) {
-        deskAnomalyCanvasMap.delete(id);
+        deskAnomalyNodeMap.delete(id);
         child.remove();
       }
     }
 
     for (const anomaly of list) {
       const key = String(anomaly.id);
-      if (deskAnomalyCanvasMap.has(key)) continue;
+      if (deskAnomalyNodeMap.has(key)) continue;
       const meta = Object.values(DESK_ANOMALY_TYPES).find((t) => t.id === anomaly.type);
       if (!meta) continue;
 
       const btn = document.createElement('button');
       btn.type = 'button';
-      btn.className = 'anomaly-node';
+      btn.className = `anomaly-node anomaly-node--desk anomaly-node--${anomaly.type}`;
       btn.dataset.anomalyId = key;
-      btn.style.left = `${(anomaly.xFraction * 100).toFixed(1)}%`;
-      btn.style.top = `${(anomaly.yFraction * 100).toFixed(1)}%`;
+      btn.dataset.anomalyType = anomaly.type;
+      const clampedX = Math.max(12, Math.min(88, anomaly.xFraction * 100));
+      const clampedY = Math.max(18, Math.min(84, anomaly.yFraction * 100));
+      btn.style.left = `${clampedX.toFixed(1)}%`;
+      btn.style.top = `${clampedY.toFixed(1)}%`;
+      const phaseOffsetSec = -((Math.abs(Number(anomaly.id) || 1) * 0.93) % 4.6);
+      btn.style.setProperty('--breath-delay', `${phaseOffsetSec.toFixed(2)}s`);
       btn.setAttribute('aria-label', meta.ariaLabel);
 
-      const canvas = document.createElement('canvas');
-      canvas.className = 'anomaly-glyph';
-      canvas.width = 60;
-      canvas.height = 60;
+      const img = document.createElement('img');
+      img.className = 'anomaly-photo';
+      img.src = deskAnomalyAssetUrl(anomaly.type);
+      img.alt = '';
+      img.draggable = false;
+      img.setAttribute('aria-hidden', 'true');
 
       const label = document.createElement('span');
       label.className = 'anomaly-label';
       label.textContent = meta.label;
 
-      btn.append(canvas, label);
+      btn.append(img, label);
       btn.addEventListener('click', () => handlers.onInteractDeskAnomaly(anomaly.id));
       els.deskAnomalyLayer.appendChild(btn);
-      deskAnomalyCanvasMap.set(key, { canvas, type: anomaly.type });
+      deskAnomalyNodeMap.set(key, { btn, type: anomaly.type });
     }
   }
 
@@ -118,22 +125,37 @@ export function createArc2InvestigatorUi(els, handlers) {
       const cr = card.getBoundingClientRect();
       cards.set(card.dataset.exhibitId, {
         x: cr.left - rect.left + cr.width * 0.5,
-        y: cr.top - rect.top + cr.height * 0.25,
+        y: cr.top - rect.top + 11,
       });
     }
 
+    ctx.lineCap = 'round';
     for (const pairKey of wiredPairs) {
       const [aId, bId] = pairKey.split('|');
       const a = cards.get(aId);
       const b = cards.get(bId);
       if (!a || !b) continue;
       const isCurated = Boolean(matchCorroborationPair(pairKey));
-      ctx.strokeStyle = isCurated ? '#a54343' : 'rgba(200, 203, 195, 0.48)';
+      const midX = (a.x + b.x) * 0.5;
+      const midY = Math.max(a.y, b.y) + 16;
+
+      // Soft shadow beneath taut cotton thread
+      ctx.save();
+      ctx.strokeStyle = 'rgba(0, 0, 0, 0.52)';
+      ctx.lineWidth = isCurated ? 3.6 : 2.4;
+      ctx.beginPath();
+      ctx.moveTo(a.x, a.y + 1.5);
+      ctx.quadraticCurveTo(midX, midY + 1.5, b.x, b.y + 1.5);
+      ctx.stroke();
+
+      ctx.strokeStyle = isCurated ? '#a82d30' : 'rgba(180, 165, 160, 0.55)';
       ctx.lineWidth = isCurated ? 2.1 : 1.4;
+      if (!isCurated) ctx.setLineDash([6, 5]);
       ctx.beginPath();
       ctx.moveTo(a.x, a.y);
-      ctx.quadraticCurveTo((a.x + b.x) * 0.5, Math.max(a.y, b.y) + 14, b.x, b.y);
+      ctx.quadraticCurveTo(midX, midY, b.x, b.y);
       ctx.stroke();
+      ctx.restore();
     }
   }
 
@@ -172,12 +194,41 @@ export function createArc2InvestigatorUi(els, handlers) {
       card.className = 'exhibit-card';
       card.dataset.exhibitId = ex.id;
       if (selectedExhibitId === ex.id) card.classList.add('is-selected');
-      const isWired = wiredPairs.some((p) => p.split('|').includes(ex.id));
-      if (isWired) card.classList.add('is-wired');
-      card.innerHTML = `
-        <span class="exhibit-code">${ex.shortLabel}</span>
-        <span class="exhibit-title">${ex.title}</span>
-      `;
+      const wireCount = wiredPairs.filter((p) => p.split('|').includes(ex.id)).length;
+      if (wireCount > 0) card.classList.add('is-wired');
+
+      const pinHead = document.createElement('span');
+      pinHead.className = 'exhibit-pin-head';
+      pinHead.setAttribute('aria-hidden', 'true');
+
+      const frame = document.createElement('span');
+      frame.className = 'exhibit-polaroid-frame';
+      const img = document.createElement('img');
+      img.className = 'exhibit-polaroid-img';
+      img.src = exhibitAssetUrl(ex.id);
+      img.alt = ex.title;
+      img.loading = 'lazy';
+      img.draggable = false;
+      frame.appendChild(img);
+
+      const metaRow = document.createElement('span');
+      metaRow.className = 'exhibit-meta-row';
+      const code = document.createElement('span');
+      code.className = 'exhibit-code';
+      code.textContent = ex.shortLabel;
+      metaRow.appendChild(code);
+      if (wireCount > 0) {
+        const wireBadge = document.createElement('span');
+        wireBadge.className = 'exhibit-wire-badge';
+        wireBadge.textContent = `×${wireCount}`;
+        metaRow.appendChild(wireBadge);
+      }
+
+      const title = document.createElement('span');
+      title.className = 'exhibit-title';
+      title.textContent = ex.title;
+
+      card.append(pinHead, frame, metaRow, title);
       card.addEventListener('click', () => {
         if (!selectedExhibitId) {
           selectedExhibitId = ex.id;
@@ -354,16 +405,32 @@ export function createArc2InvestigatorUi(els, handlers) {
           btn.type = 'button';
           btn.className = 'deck-row';
           btn.dataset.exhibitUnlockId = ex.id;
-          btn.innerHTML = `
-            <span class="deck-row-text">
-              <span class="deck-row-title">${ex.shortLabel} · ${ex.title.toUpperCase()}</span>
-              <span class="deck-row-sub">${ex.caption}</span>
-            </span>
-            <span class="deck-row-pill" data-role="pill"></span>
+
+          const thumbFrame = document.createElement('span');
+          thumbFrame.className = 'exhibit-dossier-frame';
+          const thumbImg = document.createElement('img');
+          thumbImg.className = 'exhibit-dossier-img';
+          thumbImg.src = exhibitAssetUrl(ex.id);
+          thumbImg.alt = ex.title;
+          thumbImg.loading = 'lazy';
+          thumbImg.draggable = false;
+          thumbFrame.appendChild(thumbImg);
+
+          const textWrap = document.createElement('span');
+          textWrap.className = 'deck-row-text';
+          textWrap.innerHTML = `
+            <span class="deck-row-title">${ex.shortLabel} · ${ex.title.toUpperCase()}</span>
+            <span class="deck-row-sub">${ex.caption}</span>
           `;
+
+          const pill = document.createElement('span');
+          pill.className = 'deck-row-pill';
+          pill.dataset.role = 'pill';
+
+          btn.append(thumbFrame, textWrap, pill);
           btn.addEventListener('click', () => handlers.onUnlockExhibit(ex.id));
           els.arc2DeckContent.appendChild(btn);
-          exhibitRows.push({ ex, btn, pillEl: btn.querySelector('[data-role="pill"]') });
+          exhibitRows.push({ ex, btn, thumbFrame, pillEl: pill });
         }
 
         let scrubBtn = null;
@@ -462,10 +529,13 @@ export function createArc2InvestigatorUi(els, handlers) {
       }
     } else if (arc2DeckRefs.tab === 'dossier') {
       const pinned = new Set(desk.pinnedExhibits ?? []);
-      for (const { ex, btn, pillEl } of arc2DeckRefs.exhibitRows) {
+      for (const { ex, btn, thumbFrame, pillEl } of arc2DeckRefs.exhibitRows) {
         const owned = pinned.has(ex.id);
-        btn.disabled = owned || !arc2CanUnlockExhibit(desk, ex);
+        const canUnlock = arc2CanUnlockExhibit(desk, ex);
+        btn.disabled = owned || !canUnlock;
         btn.classList.toggle('deck-row--accent', owned);
+        thumbFrame.classList.toggle('is-pinned', owned);
+        thumbFrame.classList.toggle('is-affordable', !owned && canUnlock);
         pillEl.textContent = owned ? 'PINNED' : `PIN · ${formatInteger(ex.silenceCost)} SILENCE`;
       }
       if (arc2DeckRefs.scrubBtn) {
@@ -617,10 +687,8 @@ export function createArc2InvestigatorUi(els, handlers) {
       syncDeskAnomalies(state);
       renderArc2Deck(state);
     },
-    renderAnimatedDeskGlyphs(breath) {
-      for (const { canvas, type } of deskAnomalyCanvasMap.values()) {
-        drawDeskAnomalyGlyph(canvas, type, breath);
-      }
+    renderAnimatedDeskGlyphs() {
+      // Desk anomalies now use GPU-accelerated circular feathered macro photos + CSS breathing keyframes
     },
     resetViewState() {
       selectedArc2Tab = 'contacts';

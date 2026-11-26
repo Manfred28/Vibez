@@ -37,6 +37,11 @@
     <string name="art_leech_clerk_cd">Blind segmented Leech-Clerk specimen</string>
     <string name="art_weeping_lamp_cd">Suspended glass Weeping Lamp specimen</string>
     <string name="art_sump_siphon_cd">Ribbed leather Sump-Siphon drawing dark runoff from the floor drain</string>
+    <string name="art_desk_case1_cd">Rainy late-night municipal precinct desk beneath warm brass lamp light</string>
+    <string name="art_desk_case2_cd">Fogged precinct desk window with condensation inside the glass and empty visitor chair</string>
+    <string name="art_desk_case3_cd">Basement municipal archive desk with slack magnetic reel-to-reel tape spools</string>
+    <string name="art_desk_case4_cd">Rain-soaked desk blotter over drainage blueprints curling to expose cold hairline grout</string>
+    <string name="art_desk_case5_cd">Investigator desk peeling back over wet institutional tile with lamp hood weeping grey oil</string>
 
     <!-- Wall anomaly interactive objects & thematic drip lines -->
     <string name="anomaly_tooth_label">PULL</string>
@@ -47,6 +52,15 @@
     <string name="anomaly_nodule_cd">Prod swollen nodule pulsing along fissure</string>
     <string name="anomaly_rib_label">PRY</string>
     <string name="anomaly_rib_cd">Pry cracked calcified rib parting the chamber wall</string>
+
+    <string name="desk_anomaly_envelope_label">UNSEAL</string>
+    <string name="desk_anomaly_envelope_cd">Unseal water-stained municipal evidence envelope</string>
+    <string name="desk_anomaly_spectacles_label">WIPE</string>
+    <string name="desk_anomaly_spectacles_cd">Wipe condensation from fogged spectacles</string>
+    <string name="desk_anomaly_tape_label">PLAY</string>
+    <string name="desk_anomaly_tape_cd">Play spooling magnetic dictation reel tape</string>
+    <string name="desk_anomaly_enamel_label">CATALOG</string>
+    <string name="desk_anomaly_enamel_cd">Catalog loose enamel exhibit in steel dish</string>
 
     <string name="drip_event_speaker">CHAMBER</string>
     <string name="drip_anomaly_tooth">Enamel gives way; the iron valve drinks deeper.</string>

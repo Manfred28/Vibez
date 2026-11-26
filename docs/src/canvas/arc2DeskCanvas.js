@@ -1,91 +1,175 @@
 /**
- * Arc 2 Investigator Desk backdrop & desk anomaly glyph Canvas renderers.
- * Enforces the 4-Act Slow Boil visual quarantine:
- * - Cases I–III: cold municipal noir & eerie haunting (Lamp On amber vs Lamp Off moonlight,
- *   second-chair silhouette in Cases II–IV Lamp Off) with ZERO grotesque hospital-room bleed.
- * - Case IV Lamp Off: faint blotter grout hint.
- * - Case V+ / File #00: persistent hospital tile grout, grey oil weep, corner scratches, and blotter curl.
+ * Arc 2 Investigator Desk photographic Canvas renderer & Slow-Boil cross-fade helper.
+ * Mirrors Android `InvestigatorArtwork.kt` + `InvestigatorDeskCanvas.kt` 1:1:
+ * - Cases I–III: strictly Slow-Boil quarantined (zero Case IV/V bleed or grout).
+ * - Case IV Lamp Off: faint blotter grout hint + subtle Case V shadow bleed at high haunt.
+ * - Case V+ / File #00: persistent hospital tile grout, weeping grey oil drop, corner scratches,
+ *   and peeled blotter corner.
  */
 
-import { DESK_PALETTE, PALETTE, rgba, syncCanvasSize } from './canvasShared.js?v=3.13';
-import { arc2HauntDepth } from '../engine/arc2Models.js?v=3.13';
+import {
+  DESK_PALETTE,
+  PALETTE,
+  drawCoverImage,
+  rgba,
+  syncCanvasSize,
+} from './canvasShared.js?v=3.14';
+import { arc2HauntDepth } from '../engine/arc2Models.js?v=3.14';
 
-export function drawInvestigatorDeskBackdrop(canvas, state, breath, dropPhase = breath) {
+export function computeDeskLayerAlphas(
+  caseAngle,
+  hauntDepth = 0,
+  lampOn = true,
+  fileZeroRevealed = false,
+) {
+  const clampedCase = Math.max(1, Math.min(5, Math.floor(caseAngle || 1)));
+  const haunt = Math.max(0, Math.min(1, Number(hauntDepth || 0)));
+  if (fileZeroRevealed) {
+    return { case1: 0, case2: 0, case3: 0, case4: 0.14, case5: 0.94 };
+  }
+  switch (clampedCase) {
+    case 1:
+      return { case1: 0.9, case2: 0, case3: 0, case4: 0, case5: 0 };
+    case 2:
+      return { case1: 0.22, case2: 0.88, case3: 0, case4: 0, case5: 0 };
+    case 3:
+      return { case1: 0, case2: 0.2, case3: 0.88, case4: 0, case5: 0 };
+    case 4:
+      return {
+        case1: 0,
+        case2: 0,
+        case3: 0.18,
+        case4: lampOn ? 0.78 : 0.92,
+        case5: !lampOn && haunt >= 0.72 ? 0.24 : 0,
+      };
+    default:
+      return {
+        case1: 0,
+        case2: 0,
+        case3: 0,
+        case4: 0.26,
+        case5: lampOn ? 0.82 : 0.92,
+      };
+  }
+}
+
+export function drawInvestigatorDeskBackdrop(
+  canvas,
+  deskImagesOrState,
+  stateOrBreath,
+  breathOrDrop,
+  dropPhaseArg,
+) {
+  // Support both `(canvas, deskImages, state, breath, dropPhase)` and legacy `(canvas, state, breath, dropPhase)`
+  const hasDeskImages =
+    deskImagesOrState &&
+    typeof deskImagesOrState === 'object' &&
+    ('case1' in deskImagesOrState || 'case5' in deskImagesOrState);
+  const deskImages = hasDeskImages ? deskImagesOrState : null;
+  const state = hasDeskImages ? stateOrBreath : deskImagesOrState;
+  const breath = hasDeskImages ? (breathOrDrop ?? 0) : (stateOrBreath ?? 0);
+  const dropPhase = hasDeskImages ? (dropPhaseArg ?? breath) : (breathOrDrop ?? breath);
+
   const { ctx, width, height } = syncCanvasSize(canvas);
   ctx.clearRect(0, 0, width, height);
 
-  const desk = state.arc2 ?? {};
+  const desk = state?.arc2 ?? {};
   const lampOn = desk.lampOn !== false;
   const caseAngle = desk.caseAngle ?? 1;
   const haunt = arc2HauntDepth(desk);
   const fileZero = Boolean(desk.fileZeroRevealed);
 
-  // 1. Office desk slate backdrop (warmer shadows with Lamp On, chilled moonlight with Lamp Off)
-  const bg = ctx.createLinearGradient(0, 0, 0, height);
-  bg.addColorStop(0, lampOn ? DESK_PALETTE.slateVoid : '#07090d');
-  bg.addColorStop(0.45, lampOn ? DESK_PALETTE.deskDark : '#0b0f17');
-  bg.addColorStop(1, lampOn ? DESK_PALETTE.slateVoid : '#06080c');
-  ctx.fillStyle = bg;
+  // 1. Base nocturnal office slate underneath photography
+  ctx.fillStyle = lampOn ? DESK_PALETTE.slateVoid : '#06080c';
   ctx.fillRect(0, 0, width, height);
 
-  // 2. Overhead desk lamp glow (Lamp On) OR cold window moonlight wash (Lamp Off)
-  const lampX = width * 0.5;
-  const lampY = 18;
+  // 2. Five-stage progressive photographic desk backdrop cross-fade (Slow-Boil quarantined)
+  const layers = computeDeskLayerAlphas(caseAngle, haunt, lampOn, fileZero);
+  if (deskImages) {
+    if (layers.case1 > 0) {
+      drawCoverImage(ctx, deskImages.case1, width, height, layers.case1, 1);
+    }
+    if (layers.case2 > 0) {
+      drawCoverImage(ctx, deskImages.case2, width, height, layers.case2, 1);
+    }
+    if (layers.case3 > 0) {
+      drawCoverImage(ctx, deskImages.case3, width, height, layers.case3, 1);
+    }
+    if (layers.case4 > 0) {
+      drawCoverImage(ctx, deskImages.case4, width, height, layers.case4, 1);
+    }
+    if (layers.case5 > 0) {
+      drawCoverImage(ctx, deskImages.case5, width, height, layers.case5, 1.012 + breath * 0.014);
+    }
+  }
+
+  // 3. Atmospheric Lamp On / Lamp Off vignette & central readability recess
+  const veil = ctx.createLinearGradient(0, 0, 0, height);
+  veil.addColorStop(0, rgba('#06090d', lampOn ? 0.56 : 0.72));
+  veil.addColorStop(0.5, rgba('#070a0e', lampOn ? 0.24 : 0.44));
+  veil.addColorStop(1, rgba('#06080b', lampOn ? 0.58 : 0.72));
+  ctx.fillStyle = veil;
+  ctx.fillRect(0, 0, width, height);
+
+  const hudShadow = ctx.createRadialGradient(
+    width * 0.5,
+    height * 0.28,
+    0,
+    width * 0.5,
+    height * 0.28,
+    Math.min(width, height) * 0.54,
+  );
+  hudShadow.addColorStop(0, rgba('#06090d', 0.52));
+  hudShadow.addColorStop(1, 'transparent');
+  ctx.fillStyle = hudShadow;
+  ctx.fillRect(0, 0, width, height);
+
+  // 4. Overhead tungsten lamp cone (Lamp On) OR cold moonlit slate wash (Lamp Off)
+  const lampSway = (breath - 0.5) * 8;
+  const lampX = width * 0.5 + lampSway;
   if (lampOn) {
-    const cone = ctx.createRadialGradient(lampX, lampY + 26, 4, lampX, lampY + 26, width * 0.64);
-    cone.addColorStop(0, rgba(DESK_PALETTE.tungstenAmber, 0.25));
-    cone.addColorStop(0.55, rgba(DESK_PALETTE.tungstenAmber, 0.08));
+    const cone = ctx.createRadialGradient(lampX, height * 0.42, 4, lampX, height * 0.42, width * 0.62);
+    cone.addColorStop(0, rgba(DESK_PALETTE.tungstenAmber, 0.24 + breath * 0.04));
+    cone.addColorStop(0.55, rgba(DESK_PALETTE.tungstenAmber, 0.06));
     cone.addColorStop(1, 'transparent');
     ctx.fillStyle = cone;
     ctx.fillRect(0, 0, width, height);
   } else {
     const moon = ctx.createRadialGradient(
       width * 0.16,
-      height * 0.14,
+      height * 0.18,
       6,
       width * 0.16,
-      height * 0.14,
-      width * 0.72,
+      height * 0.18,
+      width * 0.76,
     );
     moon.addColorStop(0, rgba('#7c91ad', 0.16 + breath * 0.04));
-    moon.addColorStop(0.55, rgba('#52647d', 0.06));
+    moon.addColorStop(0.55, rgba('#465a74', 0.07));
     moon.addColorStop(1, 'transparent');
     ctx.fillStyle = moon;
     ctx.fillRect(0, 0, width, height);
   }
 
-  // 3. Rain streaks on dark precinct window
-  ctx.strokeStyle = rgba(DESK_PALETTE.paperBone, lampOn ? 0.1 : 0.18);
+  // 5. Cold rain streaks across dark precinct glass
+  ctx.strokeStyle = rgba(DESK_PALETTE.paperBone, lampOn ? 0.11 : 0.21);
   ctx.lineWidth = 1;
-  for (let i = 0; i < 14; i += 1) {
-    const rx = width * ((i * 0.077 + 0.03) % 1.0);
-    const offset = ((dropPhase + i * 0.19) % 1.0) * height;
+  ctx.lineCap = 'round';
+  for (let i = 0; i < 12; i += 1) {
+    const rx = width * ((i * 0.082 + 0.04) % 1.0);
+    const offset = ((dropPhase + i * 0.19) % 1.0) * (height * 0.52);
     ctx.beginPath();
-    ctx.moveTo(rx, offset - 18);
-    ctx.lineTo(rx - 4, offset + 12);
+    ctx.moveTo(rx, offset);
+    ctx.lineTo(rx - 2.5, offset + 15);
     ctx.stroke();
   }
 
-  // 4. Case II–IV Lamp Off eerie haunting: faint silhouette of the second chair facing the desk
-  if (!lampOn && caseAngle >= 2 && caseAngle <= 4) {
-    ctx.fillStyle = rgba('#04060a', 0.36 + breath * 0.08);
-    ctx.fillRect(width * 0.08, height * 0.3, width * 0.14, height * 0.42);
-    ctx.strokeStyle = rgba('#7c91ad', 0.14);
-    ctx.lineWidth = 1;
-    ctx.strokeRect(width * 0.08, height * 0.3, width * 0.14, height * 0.42);
-  }
-
-  // 5. Slow-Boil-quarantined Room Bleed:
-  //    ZERO grout in Cases I–III. Faint hint in Case IV Lamp Off. Persistent tile & oil weep in Case V+.
+  // 6. Slow-Boil-quarantined Room Bleed hairline grout (ZERO in Cases I–III)
   const showGrout = fileZero || caseAngle >= 5 || (caseAngle === 4 && !lampOn);
   if (showGrout) {
-    const groutAlpha = fileZero
-      ? 0.32
-      : caseAngle >= 5
-        ? 0.22 + (haunt - 0.85) * 0.5
-        : 0.11 + breath * 0.03;
-    const tileStep = 36;
-    ctx.strokeStyle = rgba(PALETTE.driedClot, Math.max(0.05, Math.min(0.36, groutAlpha)));
+    const bleedStrength = Math.max(0.15, Math.min(1, (haunt - 0.55) / 0.45));
+    const groutAlpha = Math.max(0.05, Math.min(0.26, bleedStrength * (lampOn ? 0.14 : 0.24)));
+    const tileStep = 38;
+    ctx.strokeStyle = rgba(PALETTE.driedClot, groutAlpha);
     ctx.lineWidth = 1;
     for (let x = tileStep; x < width; x += tileStep) {
       ctx.beginPath();
@@ -101,140 +185,50 @@ export function drawInvestigatorDeskBackdrop(canvas, state, breath, dropPhase = 
     }
   }
 
-  // 6. Leather desk blotter (curls back on File #00 reveal)
-  const pad = 16;
-  const blotterTop = height * 0.36;
-  const blotterH = height * 0.56;
-  ctx.fillStyle = rgba(DESK_PALETTE.deskSurface, lampOn ? 0.78 : 0.64);
-  ctx.strokeStyle = rgba(DESK_PALETTE.rainSlate, 0.9);
-  ctx.lineWidth = 1;
-  ctx.fillRect(pad, blotterTop, width - pad * 2, blotterH);
-  ctx.strokeRect(pad, blotterTop, width - pad * 2, blotterH);
-
-  if (fileZero) {
-    // Peeled lower-right blotter corner revealing damp grey tile underneath
-    ctx.fillStyle = rgba(PALETTE.driedClot, 0.28);
+  // 7. Case V+ ONLY: slow weeping grey oil bead + corner reflection scratches
+  if (caseAngle >= 5 || fileZero) {
+    const dropY = 16 + (dropPhase % 1.0) * (height * 0.46);
+    const dropAlpha = (1 - (dropPhase % 1.0)) * 0.72;
+    ctx.fillStyle = rgba(PALETTE.paleLichen, dropAlpha);
     ctx.beginPath();
-    ctx.moveTo(width - pad, blotterTop + blotterH);
-    ctx.lineTo(width - pad - 44, blotterTop + blotterH);
-    ctx.lineTo(width - pad, blotterTop + blotterH - 44);
+    ctx.arc(lampX, dropY, 2.4, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.strokeStyle = rgba(PALETTE.driedClot, 0.26 + breath * 0.14);
+    ctx.lineWidth = 1.2;
+    for (let s = 0; s < 4; s += 1) {
+      const sx = width * 0.8 + s * 6;
+      ctx.beginPath();
+      ctx.moveTo(sx, 14);
+      ctx.lineTo(sx - 5, 40 + (s % 2) * 8);
+      ctx.stroke();
+    }
+  }
+
+  // 8. File #00 blotter peel-back accent corner
+  if (fileZero) {
+    ctx.fillStyle = rgba(PALETTE.clotShadow, 0.64);
+    ctx.strokeStyle = PALETTE.driedClot;
+    ctx.lineWidth = 1.3;
+    ctx.beginPath();
+    ctx.moveTo(0, height);
+    ctx.lineTo(width * 0.22, height);
+    ctx.lineTo(0, height * 0.74);
     ctx.closePath();
     ctx.fill();
-  }
-
-  // 7. Suspended brass lamp hood + pull-chain + after-hours condensation bead
-  ctx.fillStyle = DESK_PALETTE.rainSlate;
-  ctx.beginPath();
-  ctx.moveTo(lampX - 24, lampY + 6);
-  ctx.lineTo(lampX + 24, lampY + 6);
-  ctx.lineTo(lampX + 12, lampY - 8);
-  ctx.lineTo(lampX - 12, lampY - 8);
-  ctx.closePath();
-  ctx.fill();
-
-  if (!lampOn) {
-    const fall = Math.pow(dropPhase % 1.0, 2);
-    const dy = lampY + 8 + fall * 38;
-    ctx.fillStyle = rgba(PALETTE.paleLichen, Math.max(0.14, 0.86 - fall * 0.72));
-    ctx.beginPath();
-    ctx.arc(lampX, dy, 2.3, 0, Math.PI * 2);
-    ctx.fill();
-  }
-
-  // 8. Case V+ ONLY: grey oil weep & subtle corner scratch echoes
-  if (caseAngle >= 5 || fileZero) {
-    const marks = Math.min(state.scarTissue > 0 ? state.scarTissue : 3, 5);
-    ctx.strokeStyle = rgba(DESK_PALETTE.paperBone, 0.22);
-    ctx.lineWidth = 1.2;
-    for (let i = 0; i < marks; i += 1) {
-      const y = 26 + i * 11 + breath * 1.5;
-      ctx.beginPath();
-      ctx.moveTo(width - 42, y);
-      ctx.lineTo(width - 14, y + 4);
-      ctx.stroke();
-    }
-  }
-
-  // 9. Faint red-string corner threads scaling with wired corkboard pairs
-  const wiredCount = desk.wiredPairs?.length ?? 0;
-  if (wiredCount > 0) {
-    ctx.strokeStyle = rgba(DESK_PALETTE.caseRed, 0.45);
-    ctx.lineWidth = 1.2;
-    const pins = [
-      [width * 0.14, height * 0.2],
-      [width * 0.84, height * 0.24],
-      [width * 0.2, height * 0.84],
-      [width * 0.82, height * 0.8],
-      [width * 0.5, height * 0.14],
-    ];
-    for (let i = 0; i < Math.min(wiredCount, pins.length - 1); i += 1) {
-      ctx.beginPath();
-      ctx.moveTo(pins[i][0], pins[i][1]);
-      ctx.lineTo(pins[i + 1][0], pins[i + 1][1]);
-      ctx.stroke();
-    }
+    ctx.stroke();
   }
 }
 
+// Legacy stub preserved for backward compatibility with canvas exports
 export function drawDeskAnomalyGlyph(canvas, type, breath) {
+  if (!canvas) return;
   const { ctx, width, height } = syncCanvasSize(canvas);
   ctx.clearRect(0, 0, width, height);
   const cx = width * 0.5;
   const cy = height * 0.5;
-
-  if (type === 'evidence_envelope') {
-    ctx.fillStyle = rgba(DESK_PALETTE.tungstenAmber, 0.24);
-    ctx.strokeStyle = DESK_PALETTE.tungstenAmber;
-    ctx.lineWidth = 1.3;
-    ctx.fillRect(cx - 11, cy - 8, 22, 16);
-    ctx.strokeRect(cx - 11, cy - 8, 22, 16);
-    ctx.beginPath();
-    ctx.moveTo(cx - 11, cy - 8);
-    ctx.lineTo(cx, cy + 1);
-    ctx.lineTo(cx + 11, cy - 8);
-    ctx.stroke();
-  } else if (type === 'fogged_spectacles') {
-    ctx.strokeStyle = DESK_PALETTE.paperBone;
-    ctx.fillStyle = rgba(PALETTE.paleLichen, 0.22 + breath * 0.16);
-    ctx.lineWidth = 1.4;
-    ctx.beginPath();
-    ctx.arc(cx - 6, cy, 5.5, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.arc(cx + 6, cy, 5.5, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.moveTo(cx - 0.5, cy);
-    ctx.lineTo(cx + 0.5, cy);
-    ctx.stroke();
-  } else if (type === 'reel_tape') {
-    ctx.strokeStyle = DESK_PALETTE.paperBone;
-    ctx.lineWidth = 1.3;
-    ctx.beginPath();
-    ctx.arc(cx - 6, cy, 5.5, 0, Math.PI * 2);
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.arc(cx + 6, cy, 5.5, 0, Math.PI * 2);
-    ctx.stroke();
-    ctx.strokeStyle = DESK_PALETTE.caseRed;
-    ctx.beginPath();
-    ctx.moveTo(cx - 6, cy + 5.5);
-    ctx.lineTo(cx + 6, cy + 5.5);
-    ctx.stroke();
-  } else {
-    // enamel_exhibit (Case IV+ molar/enamel evidence pouch)
-    ctx.fillStyle = rgba(DESK_PALETTE.paperBone, 0.2 + breath * 0.12);
-    ctx.strokeStyle = DESK_PALETTE.caseRed;
-    ctx.lineWidth = 1.4;
-    ctx.beginPath();
-    ctx.roundRect(cx - 8, cy - 9, 16, 18, 4);
-    ctx.fill();
-    ctx.stroke();
-    ctx.fillStyle = DESK_PALETTE.paperBone;
-    ctx.beginPath();
-    ctx.ellipse(cx, cy, 4.2, 5.5, 0.2, 0, Math.PI * 2);
-    ctx.fill();
-  }
+  ctx.fillStyle = rgba(DESK_PALETTE.tungstenAmber, 0.2 + (breath || 0) * 0.1);
+  ctx.beginPath();
+  ctx.arc(cx, cy, Math.min(width, height) * 0.3, 0, Math.PI * 2);
+  ctx.fill();
 }

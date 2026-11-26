@@ -9,10 +9,16 @@ import com.example.data.OrganStateSerializer
 import com.example.data.SharedPreferencesOrganSaveRepository
 import com.example.game.CaseExhibit
 import com.example.game.CorroborationId
+import com.example.game.DeskAnomalyType
 import com.example.game.OrganBalance
 import com.example.game.OrganDevEngine
 import com.example.game.OrganGameEngine
 import com.example.game.ScarNodeId
+import com.example.ui.components.caseExhibitDrawableRes
+import com.example.ui.components.computeDeskAnomalyBreathScale
+import com.example.ui.components.computeDeskLayerAlphas
+import com.example.ui.components.deskAnomalyDrawableRes
+import com.example.ui.components.deskStageDrawableRes
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -362,6 +368,84 @@ class DialogueAssetValidationTest {
         "Phase 1 drawable resource $resId must load cleanly",
         ContextCompat.getDrawable(context, resId),
       )
+    }
+  }
+
+  @Test
+  fun arc2BespokePhotographicAssets_allNineteenLoadCleanlyAndSlowBoilAlphasEnforceQuarantine() {
+    val context = ApplicationProvider.getApplicationContext<Context>()
+
+    // 1. All 5 progressive nocturnal desk stages load cleanly
+    for (stage in 1..5) {
+      val resId = deskStageDrawableRes(stage)
+      assertNotNull(
+        "Arc 2 desk stage $stage drawable must load cleanly",
+        ContextCompat.getDrawable(context, resId),
+      )
+    }
+
+    // 2. All 4 circular macro desk anomaly drawables load cleanly
+    for (type in DeskAnomalyType.entries) {
+      assertNotNull(
+        "Arc 2 desk anomaly ${type.id} drawable must load cleanly",
+        ContextCompat.getDrawable(context, deskAnomalyDrawableRes(type)),
+      )
+    }
+
+    // 3. All 10 Corkboard / Dossier Exhibit Polaroid drawables load cleanly
+    assertEquals(10, CaseExhibit.entries.size)
+    for (exhibit in CaseExhibit.entries) {
+      assertNotNull(
+        "Arc 2 exhibit ${exhibit.id} drawable must load cleanly",
+        ContextCompat.getDrawable(context, caseExhibitDrawableRes(exhibit)),
+      )
+    }
+
+    // 4. Slow-Boil Quarantine: Cases I–III strictly keep Case IV & Case V at 0f regardless of Lamp or Haunt
+    for (caseAngle in 1..3) {
+      for (lampOn in listOf(true, false)) {
+        val alphas =
+          computeDeskLayerAlphas(
+            caseAngle = caseAngle,
+            hauntDepth = 0.95f,
+            lampOn = lampOn,
+            fileZeroRevealed = false,
+          )
+        assertEquals("Case $caseAngle (lampOn=$lampOn) must quarantine Case IV backdrop", 0f, alphas.case4, 0.0001f)
+        assertEquals("Case $caseAngle (lampOn=$lampOn) must quarantine Case V backdrop", 0f, alphas.case5, 0.0001f)
+      }
+    }
+
+    // Case IV Lamp On shows Case IV only (no Case V); Lamp Off at high haunt subtly reveals Case V
+    val c4On = computeDeskLayerAlphas(4, 0.90f, lampOn = true, fileZeroRevealed = false)
+    assertEquals(0.78f, c4On.case4, 0.0001f)
+    assertEquals(0f, c4On.case5, 0.0001f)
+
+    val c4OffLow = computeDeskLayerAlphas(4, 0.50f, lampOn = false, fileZeroRevealed = false)
+    assertEquals(0.92f, c4OffLow.case4, 0.0001f)
+    assertEquals(0f, c4OffLow.case5, 0.0001f)
+
+    val c4OffHigh = computeDeskLayerAlphas(4, 0.80f, lampOn = false, fileZeroRevealed = false)
+    assertEquals(0.92f, c4OffHigh.case4, 0.0001f)
+    assertEquals(0.24f, c4OffHigh.case5, 0.0001f)
+
+    // Case V & File #00 escalate Case V backdrop while clearing early precinct stages
+    val c5On = computeDeskLayerAlphas(5, 0.90f, lampOn = true, fileZeroRevealed = false)
+    assertEquals(0f, c5On.case1, 0.0001f)
+    assertEquals(0.82f, c5On.case5, 0.0001f)
+
+    val fileZero = computeDeskLayerAlphas(5, 1.0f, lampOn = false, fileZeroRevealed = true)
+    assertEquals(0f, fileZero.case1, 0.0001f)
+    assertEquals(0.14f, fileZero.case4, 0.0001f)
+    assertEquals(0.94f, fileZero.case5, 0.0001f)
+
+    // 5. Desk anomaly haunted breathing stays within subtle organic bounds across all 4 types
+    for (type in DeskAnomalyType.entries) {
+      for (phaseStep in 0..10) {
+        val (sx, sy) = computeDeskAnomalyBreathScale(42L, type, phaseStep / 10f)
+        assertTrue("scaleX=$sx out of organic bounds for ${type.id}", sx in 0.97f..1.06f)
+        assertTrue("scaleY=$sy out of organic bounds for ${type.id}", sy in 0.97f..1.06f)
+      }
     }
   }
 
