@@ -351,7 +351,13 @@ class OrganScreenBehaviorTest {
     composeTestRule.waitForIdle()
     composeTestRule.onNodeWithTag("next_scar_status").performScrollTo().assertIsDisplayed()
     composeTestRule.onNodeWithTag("next_scar_progress_bar").performScrollTo().assertIsDisplayed()
-    composeTestRule.onNodeWithTag("excision_reward_text").performScrollTo().assertIsDisplayed()
+    val expectedFirstExcisionScars = viewModel.uiState.value.pendingScarTissue
+    assertTrue("First excision must grant at least 3 Scar Tissue", expectedFirstExcisionScars >= 3L)
+    composeTestRule
+      .onNodeWithTag("excision_reward_text")
+      .performScrollTo()
+      .assertIsDisplayed()
+      .assertTextEquals("HARVEST YIELD: +$expectedFirstExcisionScars SCAR TISSUE")
 
     composeTestRule.onNodeWithTag("excision_arm_button").performScrollTo().performClick()
     composeTestRule.waitForIdle()
@@ -362,7 +368,7 @@ class OrganScreenBehaviorTest {
     // Verify full Cycle 1 post-reset state: top header stays decluttered (no prestige_passive_banner),
     // and relocated cycle/resonance telemetry renders inside Excision tab
     assertEquals(1, viewModel.uiState.value.cycle)
-    assertTrue(viewModel.uiState.value.scarTissue >= 1L)
+    assertEquals(expectedFirstExcisionScars, viewModel.uiState.value.scarTissue)
 
     composeTestRule
       .onNodeWithTag("phase_header")

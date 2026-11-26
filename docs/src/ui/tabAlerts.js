@@ -28,7 +28,7 @@ import {
   isRepeatableGraftsUnlocked,
   isScarTreeUnlocked,
   nextExcisionMilestone,
-} from '../engine.js?v=3.11';
+} from '../engine.js?v=3.12';
 
 export function markTabSeen(seenMap, tab, keys) {
   let bucket = seenMap.get(tab);

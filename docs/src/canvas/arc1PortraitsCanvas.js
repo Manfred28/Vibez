@@ -2,7 +2,7 @@
  * Arc 1 specimen portraits, wall anomaly fallback glyphs, and deck action artwork medallions.
  */
 
-import { PALETTE, rgba, syncCanvasSize } from './canvasShared.js?v=3.11';
+import { PALETTE, rgba, syncCanvasSize } from './canvasShared.js?v=3.12';
 
 export function drawWeepingLampPortrait(canvas, isWeeping) {
   const { ctx, width, height } = syncCanvasSize(canvas);

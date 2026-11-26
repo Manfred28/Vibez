@@ -66,6 +66,7 @@ body[data-phase='4'] {
 *::before,
 *::after {
   box-sizing: border-box;
+  touch-action: manipulation;
 }
 
 html,
@@ -77,6 +78,8 @@ body {
   color: var(--bleached-bone);
   font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
   overflow-x: hidden;
 }
 
@@ -107,6 +110,11 @@ button {
   font-family: inherit;
   color: inherit;
   cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 button:disabled {
@@ -709,6 +717,7 @@ button:focus-visible {
   font-weight: 500;
   color: rgba(200, 203, 195, 0.88);
   line-height: 1.05;
+  pointer-events: none;
 }
 
 .valve-yield-text--compact {
@@ -721,6 +730,7 @@ button:focus-visible {
   font-size: 11px;
   letter-spacing: 1.8px;
   color: rgba(200, 203, 195, 0.70);
+  pointer-events: none;
 }
 
 .residue-layer {
@@ -1995,12 +2005,14 @@ body[data-arc='arc_2'] {
   font-size: 20px;
   letter-spacing: 1px;
   color: var(--pale-lichen);
+  pointer-events: none;
 }
 
 .desk-stamp-sub {
   font-size: 10px;
   letter-spacing: 1.4px;
   color: var(--bleached-bone);
+  pointer-events: none;
 }
 
 .file-zero-card {
@@ -2151,6 +2163,12 @@ body[data-arc='arc_2'] {
   color: var(--bleached-bone);
   font-family: inherit;
   font-size: 12px;
+}
+
+@media (pointer: coarse) {
+  .dev-field input {
+    font-size: 16px;
+  }
 }
 
 /* ==================== ACTION ARTWORK MEDALLIONS, COOLDOWNS & RELIC INSPECTION ==================== */

@@ -829,9 +829,17 @@ data class OrganGameState(
       return ((cycleLifetimeIchor - prevMass.toDouble()) / span).toFloat().coerceIn(0f, 1f)
     }
 
-  /** Total Scar Tissue granted if excising right now (pure smooth harvest curve, zero milestone bonus). */
+  /**
+   * Total Scar Tissue granted if excising right now: smooth harvest curve plus any first-clear
+   * milestone bonus on the next sequential Excision (+1 on First Severance -> 3 Scars at 210k).
+   */
   val pendingScarTissue: Long
-    get() = currentBaseScarHarvest
+    get() {
+      if (!canExcise) return 0L
+      val milestoneBonus =
+        if (canClearNextMilestone) nextExcisionMilestone?.firstClearScarBonus ?: 0L else 0L
+      return currentBaseScarHarvest + milestoneBonus
+    }
 }
 
 object OrganBalance {

@@ -243,7 +243,7 @@ test('wall anomalies, specimen jars, grafting, Excision I, and Cycle 1+ prestige
   const midP4 = pressValve({ ...pried, ichor: 144999, cycleLifetimeIchor: 144999 }, realCatalog);
   assert.equal(midP4.activeDialogue?.id, 'dlg_p4_mid_hollow');
 
-  // Excision I -> Cycle 1 grants 2 Scars along smooth power curve (zero milestone bonus)
+  // Excision I -> Cycle 1 grants 3 Scars (2 curve + 1 First Severance bonus)
   const excisionReady = {
     ...midP4,
     ichor: 215000,
@@ -251,15 +251,20 @@ test('wall anomalies, specimen jars, grafting, Excision I, and Cycle 1+ prestige
     phase: 4,
   };
   assert.equal(canExcise(excisionReady), true);
-  assert.equal(pendingScarTissue(excisionReady), 2);
+  assert.equal(pendingScarTissue(excisionReady), 3);
 
   const cycle1 = performExcision(excisionReady, realCatalog);
   assert.equal(cycle1.cycle, 1);
   assert.equal(cycle1.highestExcisionMilestone, 1);
-  assert.equal(cycle1.scarTissue, 2);
-  assert.equal(cycle1.availableScarTissue, 2);
-  const expectedScarMult = 1.0 + 1 * ORGAN_BALANCE.MILESTONE_ICHOR_RESONANCE + Math.sqrt(2) * ORGAN_BALANCE.SCAR_RESONANCE_SQRT_FACTOR;
-  const expectedStillMult = 1.0 + 1 * ORGAN_BALANCE.MILESTONE_STILLNESS_RESONANCE + Math.sqrt(2) * ORGAN_BALANCE.SCAR_STILLNESS_SQRT_FACTOR;
+  assert.equal(cycle1.scarTissue, 3);
+  assert.equal(cycle1.availableScarTissue, 3);
+  // Subsequent early harvest at 215k after M1 is cleared yields 2 Scars (no repeat bonus)
+  assert.equal(
+    pendingScarTissue({ ...cycle1, ichor: 215000, cycleLifetimeIchor: 215000, phase: 4 }),
+    2,
+  );
+  const expectedScarMult = 1.0 + 1 * ORGAN_BALANCE.MILESTONE_ICHOR_RESONANCE + Math.sqrt(3) * ORGAN_BALANCE.SCAR_RESONANCE_SQRT_FACTOR;
+  const expectedStillMult = 1.0 + 1 * ORGAN_BALANCE.MILESTONE_STILLNESS_RESONANCE + Math.sqrt(3) * ORGAN_BALANCE.SCAR_STILLNESS_SQRT_FACTOR;
   assert.ok(Math.abs(scarMultiplier(cycle1) - expectedScarMult) < 0.0001);
   assert.ok(Math.abs(scarStillnessMultiplier(cycle1) - expectedStillMult) < 0.0001);
   assert.equal(cycle1.activeDialogue?.id, 'dlg_cycle_1_excision');
@@ -550,6 +555,8 @@ test('6-tier Specimen Jars, Next Scar quadratic progress, and cooldown serializa
   assert.equal(nextBaseScarMassThreshold(s0), 210000);
   assert.ok(Math.abs(nextScarProgress({ ...s0, cycleLifetimeIchor: 105000 }) - 0.5) < 0.001);
   assert.equal(currentBaseScarHarvest({ ...s0, cycleLifetimeIchor: 210000 }), 2);
+  assert.equal(pendingScarTissue({ ...s0, cycleLifetimeIchor: 210000 }), 3);
+  assert.equal(pendingScarTissue({ ...s0, highestExcisionMilestone: 1, cycleLifetimeIchor: 210000 }), 2);
   assert.equal(currentBaseScarHarvest({ ...s0, cycleLifetimeIchor: 1800000 }), 3);
   assert.equal(currentBaseScarHarvest({ ...s0, cycleLifetimeIchor: 16000000 }), 7);
   assert.equal(currentBaseScarHarvest({ ...s0, cycleLifetimeIchor: 140000000 }), 14);
@@ -634,10 +641,11 @@ test('6-tier Specimen Jars, Next Scar quadratic progress, and cooldown serializa
   assert.equal(repeatableRank(restored, 'scar_harvest_hook'), 1);
 });
 
-test('Anti-skip sequential cap, zero milestone bonus Scars, M5 Arc 2 gate, 16-node Scar Tree, and 3 Repeatable Grafts match Android 1:1', () => {
+test('Anti-skip sequential cap, First Severance +1 Scar bonus (M2..M6 zero), M5 Arc 2 gate, 16-node Scar Tree, and 3 Repeatable Grafts match Android 1:1', () => {
   assert.equal(SCAR_NODES.length, 16);
   assert.equal(REPEATABLE_SCAR_GRAFTS.length, 3);
-  assert.ok(EXCISION_MILESTONES.every((m) => m.firstClearScarBonus === 0));
+  assert.equal(EXCISION_MILESTONES[0].firstClearScarBonus, 1);
+  assert.ok(EXCISION_MILESTONES.slice(1).every((m) => m.firstClearScarBonus === 0));
 
   // Hard anti-skip cap: 999B Ichor at M0 advances strictly to M1 and blocks Arc 2 Breach
   const massiveM0 = {
@@ -651,6 +659,8 @@ test('Anti-skip sequential cap, zero milestone bonus Scars, M5 Arc 2 gate, 16-no
   assert.equal(canBreachToArc2(massiveM0), false);
   const afterM0 = performExcision(massiveM0, realCatalog);
   assert.equal(afterM0.highestExcisionMilestone, 1);
+  assert.equal(afterM0.scarTissue, currentBaseScarHarvest(massiveM0) + 1);
+  assert.equal(afterM0.scarTissue, pendingScarTissue(massiveM0));
 
   // M4 with 200B still cannot Breach Arc 2 and advances strictly to M5
   const massiveM4 = {

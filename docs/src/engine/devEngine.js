@@ -2,10 +2,10 @@
  * Clinical Dev Console state helpers (direct jumps, resource grants, anomaly triggers, and wipe).
  */
 
-import { GAME_ARCS, SCAR_NODES } from './constants.js?v=3.11';
-import { finalizeProgression, initialState } from './progression.js?v=3.11';
-import { spawnImmediateWallAnomaly } from './arc1Engine.js?v=3.11';
-import { spawnImmediateDeskAnomaly } from './arc2Engine.js?v=3.11';
+import { GAME_ARCS, SCAR_NODES } from './constants.js?v=3.12';
+import { finalizeProgression, initialState } from './progression.js?v=3.12';
+import { spawnImmediateWallAnomaly } from './arc1Engine.js?v=3.12';
+import { spawnImmediateDeskAnomaly } from './arc2Engine.js?v=3.12';
 
 export function devSetActiveArc(state, arcId, catalog) {
   const adjusted = { ...state, activeArc: arcId };

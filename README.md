@@ -1,7 +1,7 @@
 # Tap Counter — *The Tending of the Unnamed Organ*
 
 A surreal, grotesque incremental game built as a **dual-platform project**:
-1. **Playable Webapp on GitHub Pages (`/docs`)** — zero-build static HTML5/Canvas/ES-Module edition ready to host directly on a GitHub Pages landing page, with `localStorage` autosave and keyboard (`Space`) + pointer/touch support.
+1. **Playable Webapp on GitHub Pages (`/docs`)** — zero-build static HTML5/Canvas/ES-Module edition ready to host directly on a GitHub Pages landing page, with `localStorage` autosave and pointer/touch support.
 2. **Native Android App (`/app`)** — Kotlin + Jetpack Compose (Material 3) mobile edition.
 
 Both platforms share the exact same **Escalation Curve (Phases 0–4)**, ~15-minute Cycle 0 → First Excision pacing, wet-lab **Organism Specimen Dossier Cards**, living anatomical chamber visuals (**Suture-Hands**, **Leech-Clerks**, **Weeping Lamps**, **Grafted Choir-Tendrils**), interactive wall anomalies, and progress-bound fragments in `dialogues.json`.

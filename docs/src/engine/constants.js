@@ -15,7 +15,7 @@ export const EXCISION_MILESTONES = Object.freeze([
   Object.freeze({
     number: 1,
     massThreshold: 210000,
-    firstClearScarBonus: 0,
+    firstClearScarBonus: 1,
     code: 'FIRST SEVERANCE',
     unlockSummary: 'Unlocks the 5-tier Scar Tissue Surgical Skill Tree & Layered Grafts.',
   }),

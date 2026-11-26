@@ -2,7 +2,7 @@
  * Arc 2 Investigator Desk backdrop & desk anomaly glyph Canvas renderers.
  */
 
-import { DESK_PALETTE, PALETTE, rgba, syncCanvasSize } from './canvasShared.js?v=3.11';
+import { DESK_PALETTE, PALETTE, rgba, syncCanvasSize } from './canvasShared.js?v=3.12';
 
 export function drawInvestigatorDeskBackdrop(canvas, state, breath, dropPhase = breath) {
   const { ctx, width, height } = syncCanvasSize(canvas);

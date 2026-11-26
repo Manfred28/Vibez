@@ -15,7 +15,7 @@ import {
   jarById,
   repeatableGraftById,
   scarNodeById,
-} from './constants.js?v=3.11';
+} from './constants.js?v=3.12';
 
 export function hasNode(state, nodeId) {
   return Array.isArray(state.unlockedScarNodes) && state.unlockedScarNodes.includes(nodeId);
@@ -699,5 +699,9 @@ export function nextScarProgress(state) {
 }
 
 export function pendingScarTissue(state) {
-  return currentBaseScarHarvest(state);
+  if (!canExcise(state)) return 0;
+  const milestoneBonus = canClearNextMilestone(state)
+    ? (nextExcisionMilestone(state)?.firstClearScarBonus ?? 0)
+    : 0;
+  return currentBaseScarHarvest(state) + milestoneBonus;
 }

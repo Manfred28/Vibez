@@ -50,27 +50,27 @@ import {
   tick,
   toggleDrainSeal,
   unlockScarNode,
-} from './engine.js?v=3.11';
+} from './engine.js?v=3.12';
 import {
   drawChamberBackdrop,
   drawForegroundLampsAndSacrifice,
   drawInvestigatorDeskBackdrop,
   drawLeechClerks,
   drawValveAndHands,
-} from './chamberCanvas.js?v=3.11';
-import { createUiController } from './ui.js?v=3.11';
+} from './chamberCanvas.js?v=3.12';
+import { createUiController } from './ui.js?v=3.12';
 import {
   SOUND_ACTION_HINTS,
   computeAmbientProfile,
   createWebAudioEngine,
   resolveTransitionCues,
-} from './audio.js?v=3.11';
+} from './audio.js?v=3.12';
 import {
   ANOMALY_ASSET_URLS,
   DIALOGUES_ASSET_URL,
   JAR_ASSET_URLS,
   WALL_ASSET_URLS,
-} from './version.js?v=3.11';
+} from './version.js?v=3.12';
 
 const SAVE_STORAGE_KEY_V2 = 'unnamed_organ_save_v2';
 const SAVE_STORAGE_KEY_V1 = 'unnamed_organ_save_v1';
@@ -410,8 +410,16 @@ async function main() {
     ui.spawnArc2Residue(yieldLabel);
   }
 
+  function preventSpaceButtonActivation(event) {
+    if (event.code === 'Space' || event.key === ' ') {
+      event.preventDefault();
+    }
+  }
+
   valveBtn.addEventListener('click', triggerValvePress);
+  valveBtn.addEventListener('keydown', preventSpaceButtonActivation);
   inspectCaseBtn.addEventListener('click', triggerCaseInspect);
+  inspectCaseBtn.addEventListener('keydown', preventSpaceButtonActivation);
   enterArc3Btn.addEventListener('click', () =>
     applyState(enterArc3Convergence(state, catalog), { action: SOUND_ACTION_HINTS.ARC3_ENTER }),
   );
@@ -550,28 +558,35 @@ async function main() {
     resetModal.hidden = true;
   });
 
-  // Keyboard support
+  // Prevent accidental double-tap / gesture zoom during rapid tapping on iOS Safari
+  document.addEventListener(
+    'dblclick',
+    (event) => {
+      event.preventDefault();
+    },
+    { passive: false },
+  );
+  document.addEventListener(
+    'gesturestart',
+    (event) => {
+      event.preventDefault();
+    },
+    { passive: false },
+  );
+  document.addEventListener(
+    'gesturechange',
+    (event) => {
+      event.preventDefault();
+    },
+    { passive: false },
+  );
+
+  // Keyboard support (Escape closes modals; Space is intentionally not bound to clicking)
   window.addEventListener('keydown', (event) => {
     if (event.key === 'Escape') {
       ui.closeArchive();
       resetModal.hidden = true;
       devModal.hidden = true;
-      return;
-    }
-    if (event.code === 'Space' && archiveModal.hidden && resetModal.hidden && devModal.hidden) {
-      const tag = document.activeElement?.tagName;
-      if (tag !== 'BUTTON' && tag !== 'INPUT' && tag !== 'TEXTAREA') {
-        event.preventDefault();
-        if (state.activeArc === GAME_ARCS.ARC_1_CHAMBER) {
-          valveBtn.classList.add('is-pressed');
-          triggerValvePress();
-          window.setTimeout(() => valveBtn.classList.remove('is-pressed'), 95);
-        } else if (state.activeArc === GAME_ARCS.ARC_2_INVESTIGATION) {
-          inspectCaseBtn.classList.add('is-pressed');
-          triggerCaseInspect();
-          window.setTimeout(() => inspectCaseBtn.classList.remove('is-pressed'), 95);
-        }
-      }
     }
   });
 

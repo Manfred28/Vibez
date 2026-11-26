@@ -219,3 +219,55 @@ test('Centralized asset versioning and browser-safe static ESM invariants hold a
     }
   }
 });
+
+test('Webapp disables Spacebar clicking and guards iOS Safari against rapid-tap zoom', () => {
+  const html = readDocsFile('index.html');
+  assert.ok(
+    !html.includes('SPACE TO ACT'),
+    'Footer hint must not advertise Spacebar clicking after removal',
+  );
+  assert.ok(
+    html.includes('maximum-scale=1, user-scalable=no'),
+    'Viewport meta must lock zoom to prevent iOS double-tap zoom on rapid clicks',
+  );
+
+  const appSrc = readDocsFile('src/app.js');
+  assert.ok(
+    !appSrc.includes("event.code === 'Space' && !event.repeat") &&
+      !appSrc.includes("if (event.code === 'Space') {\n    if (event.target"),
+    'Global keydown handler must not map Space to clicking',
+  );
+  assert.ok(
+    appSrc.includes('preventSpaceButtonActivation'),
+    'Primary click buttons must suppress Space key activation when focused',
+  );
+  assert.match(
+    appSrc,
+    /document\.addEventListener\(\s*'dblclick'/,
+    'app.js must cancel dblclick default zoom behavior for iOS WebKit',
+  );
+  assert.match(
+    appSrc,
+    /document\.addEventListener\(\s*'gesturestart'/,
+    'app.js must cancel iOS Safari gesturestart pinch/double-tap zoom',
+  );
+
+  const css = readDocsFile('styles.css');
+  assert.ok(
+    css.includes('touch-action: manipulation;'),
+    'styles.css must set touch-action: manipulation globally and on buttons',
+  );
+  assert.ok(
+    css.includes('-webkit-touch-callout: none;'),
+    'styles.css must disable iOS touch callout on buttons',
+  );
+  assert.ok(
+    css.includes('.valve-yield-text') && css.includes('pointer-events: none;'),
+    'Valve and stamp text overlays must use pointer-events: none so rapid taps hit the button cleanly',
+  );
+  assert.ok(
+    css.includes('@media (pointer: coarse)') && css.includes('font-size: 16px;'),
+    'Coarse-pointer inputs must stay >= 16px to avoid iOS Safari focus-zoom',
+  );
+});
+

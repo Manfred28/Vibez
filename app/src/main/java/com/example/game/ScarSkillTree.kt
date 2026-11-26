@@ -9,8 +9,9 @@ enum class GameArc(val id: String) {
 
 /**
  * Six distinct Excision milestones spanning Arc 1. Each milestone requires permanent Scar Tissue
- * surgical upgrades to breach cleanly, advances strictly +1 per Excision, and awards zero free
- * bonus Scars so every Scar is earned along the smooth harvest curve.
+ * surgical upgrades to breach cleanly and advances strictly +1 per Excision. First Severance (M1)
+ * awards a +1 first-clear Scar bonus (yielding 3 Scars at 210k), while M2..M6 award zero bonus
+ * Scars so later Scars are earned along the smooth harvest curve.
  */
 enum class ExcisionMilestone(
   val number: Int,
@@ -21,7 +22,7 @@ enum class ExcisionMilestone(
   FIRST_SEVERANCE(
     number = 1,
     massThreshold = 210_000L,
-    firstClearScarBonus = 0L,
+    firstClearScarBonus = 1L,
     code = "FIRST SEVERANCE",
   ),
   SUNKEN_DRAIN(

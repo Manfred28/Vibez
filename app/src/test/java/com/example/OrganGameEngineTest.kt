@@ -481,14 +481,14 @@ class OrganGameEngineTest {
         anomalyInteractions = mapOf(WallAnomalyType.PALE_TOOTH to 3),
       )
     assertTrue(ready.canExcise)
-    // Excision I first clear yields 2 Scars along smooth power curve (zero milestone bonus)
-    assertEquals(2L, ready.pendingScarTissue)
+    // Excision I first clear yields 3 Scars (2 curve + 1 First Severance bonus)
+    assertEquals(3L, ready.pendingScarTissue)
 
     val postReset = OrganGameEngine.performExcision(ready, catalog)
     assertEquals(1, postReset.cycle)
     assertEquals(1, postReset.highestExcisionMilestone)
-    assertEquals(2L, postReset.scarTissue)
-    assertEquals(2L, postReset.availableScarTissue)
+    assertEquals(3L, postReset.scarTissue)
+    assertEquals(3L, postReset.availableScarTissue)
     assertEquals(0L, postReset.ichorDisplay)
     assertEquals(0L, postReset.stillnessDisplay)
     assertEquals(0, postReset.phase)
@@ -496,9 +496,11 @@ class OrganGameEngineTest {
     assertEquals(0, postReset.graftedTendrils)
     assertTrue(postReset.ownedJars.isEmpty())
     assertTrue(postReset.anomalyInteractions.isEmpty())
-    // Root-softcapped passive resonance: 1 + 1*0.20 + sqrt(2)*0.25 and 1 + 1*0.15 + sqrt(2)*0.18
-    val expectedScarMult = 1.0 + 1 * OrganBalance.MILESTONE_ICHOR_RESONANCE + sqrt(2.0) * OrganBalance.SCAR_RESONANCE_SQRT_FACTOR
-    val expectedStillMult = 1.0 + 1 * OrganBalance.MILESTONE_STILLNESS_RESONANCE + sqrt(2.0) * OrganBalance.SCAR_STILLNESS_SQRT_FACTOR
+    // Subsequent early harvest at 215k after M1 is cleared yields 2 Scars (bonus is strictly first-excision only)
+    assertEquals(2L, postReset.copy(ichor = 215_000.0, cycleLifetimeIchor = 215_000.0, phase = 4).pendingScarTissue)
+    // Root-softcapped passive resonance: 1 + 1*0.20 + sqrt(3)*0.25 and 1 + 1*0.15 + sqrt(3)*0.18
+    val expectedScarMult = 1.0 + 1 * OrganBalance.MILESTONE_ICHOR_RESONANCE + sqrt(3.0) * OrganBalance.SCAR_RESONANCE_SQRT_FACTOR
+    val expectedStillMult = 1.0 + 1 * OrganBalance.MILESTONE_STILLNESS_RESONANCE + sqrt(3.0) * OrganBalance.SCAR_STILLNESS_SQRT_FACTOR
     assertEquals(expectedScarMult, postReset.scarMultiplier, 0.001)
     assertEquals(expectedStillMult, postReset.scarStillnessMultiplier, 0.001)
     assertEquals(expectedScarMult, postReset.manualTapYield, 0.001)
@@ -1067,10 +1069,13 @@ class OrganGameEngineTest {
     val catalog = sampleCatalog()
     val base = OrganGameEngine.initialState(catalog)
 
-    // M1 (210k) sits on the base threshold itself and still yields 2 Scars (no spurious extra scar)
+    // M1 (210k) sits on the base threshold (2 curve Scars) + 1 First Severance bonus = 3 Scars; repeat runs at 210k yield 2 Scars
     val atM1 = base.copy(highestExcisionMilestone = 0, cycleLifetimeIchor = 210_000.0)
     assertEquals(2L, atM1.currentBaseScarHarvest)
-    assertEquals(2L, atM1.pendingScarTissue)
+    assertEquals(3L, atM1.pendingScarTissue)
+    val postM1Early = base.copy(highestExcisionMilestone = 1, cycleLifetimeIchor = 210_000.0)
+    assertEquals(2L, postM1Early.currentBaseScarHarvest)
+    assertEquals(2L, postM1Early.pendingScarTissue)
 
     // For M2..M6, next scar never exceeds the active milestone threshold and hitting M grants +1 early
     val expectedAtActiveMilestone =
@@ -1154,8 +1159,13 @@ class OrganGameEngineTest {
   fun excisionAntiSkipCap_advancesAtMostOneMilestoneRemovesBonusScarsAndGatesArc2BehindM5() {
     val catalog = sampleCatalog()
 
-    // Every milestone must award zero bonus Scars
-    assertTrue(ExcisionMilestone.entries.all { it.firstClearScarBonus == 0L })
+    // Only First Severance (M1) awards +1 first-clear bonus Scar; M2..M6 award zero bonus Scars
+    assertEquals(1L, ExcisionMilestone.FIRST_SEVERANCE.firstClearScarBonus)
+    assertTrue(
+      ExcisionMilestone.entries
+        .filter { it != ExcisionMilestone.FIRST_SEVERANCE }
+        .all { it.firstClearScarBonus == 0L },
+    )
 
     // M0 with 999B mass can only advance to M1 (never skipping M2..M6) and cannot breach Arc 2
     val massiveM0 =
@@ -1169,7 +1179,8 @@ class OrganGameEngineTest {
     assertFalse("Arc 2 Breach must be locked before M5 is cleared", massiveM0.canBreachToArc2)
     val afterM0 = OrganGameEngine.performExcision(massiveM0, catalog)
     assertEquals(1, afterM0.highestExcisionMilestone)
-    assertEquals(massiveM0.currentBaseScarHarvest, afterM0.scarTissue)
+    assertEquals(massiveM0.currentBaseScarHarvest + 1L, afterM0.scarTissue)
+    assertEquals(massiveM0.pendingScarTissue, afterM0.scarTissue)
 
     // M4 with 200B mass (exceeds M5 4.5B & M6 160B) still cannot breach Arc 2 and advances strictly to M5
     val massiveM4 =

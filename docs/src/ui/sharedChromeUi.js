@@ -3,8 +3,8 @@
  * Recovered Notes Archive modal, and floating tap residue pills.
  */
 
-import { formatInteger } from '../engine.js?v=3.11';
-import { lastClearedExcisionName } from './arc1ChamberUi.js?v=3.11';
+import { formatInteger } from '../engine.js?v=3.12';
+import { lastClearedExcisionName } from './arc1ChamberUi.js?v=3.12';
 
 export function createSharedChromeUi(els, drippingMargin) {
   let lastDialogueId = null;

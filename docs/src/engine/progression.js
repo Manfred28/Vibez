@@ -8,14 +8,14 @@ import {
   GAME_ARCS,
   ORGAN_BALANCE,
   PHASE_THRESHOLDS,
-} from './constants.js?v=3.11';
-import { initialArc2State } from './arc2Models.js?v=3.11';
+} from './constants.js?v=3.12';
+import { initialArc2State } from './arc2Models.js?v=3.12';
 import {
   creatureCount,
   cycleLifetimeIchorDisplay,
   hasNode,
   nextExcisionMilestone,
-} from './arc1Math.js?v=3.11';
+} from './arc1Math.js?v=3.12';
 
 export function phaseForCount(count) {
   const safe = Math.max(0, Math.floor(count));

@@ -17,9 +17,9 @@ import {
   arc2NextChapter,
   formatCompactDecimal,
   formatInteger,
-} from '../engine.js?v=3.11';
-import { drawDeskAnomalyGlyph } from '../chamberCanvas.js?v=3.11';
-import { arc2UnlockKeys, markTabSeen, shouldAlertArc2Tab } from './tabAlerts.js?v=3.11';
+} from '../engine.js?v=3.12';
+import { drawDeskAnomalyGlyph } from '../chamberCanvas.js?v=3.12';
+import { arc2UnlockKeys, markTabSeen, shouldAlertArc2Tab } from './tabAlerts.js?v=3.12';
 
 export function createArc2InvestigatorUi(els, handlers) {
   let selectedArc2Tab = 'contacts';

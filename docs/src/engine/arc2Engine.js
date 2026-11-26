@@ -2,7 +2,7 @@
  * Arc 2 Investigator Desk engine actions, desk anomaly spawning, and Arc 3 Convergence transition.
  */
 
-import { GAME_ARCS } from './constants.js?v=3.11';
+import { GAME_ARCS } from './constants.js?v=3.12';
 import {
   ARC2_BALANCE,
   DESK_ANCHORS,
@@ -18,8 +18,8 @@ import {
   arc2SilencePerSecond,
   contactById,
   deductionById,
-} from './arc2Models.js?v=3.11';
-import { finalizeProgression } from './progression.js?v=3.11';
+} from './arc2Models.js?v=3.12';
+import { finalizeProgression } from './progression.js?v=3.12';
 
 export function spawnImmediateDeskAnomaly(desk) {
   if (desk.activeDeskAnomalies.length >= ARC2_BALANCE.MAX_DESK_ANOMALIES) return desk;

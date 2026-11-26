@@ -2,9 +2,9 @@
  * Save-file serialization & versioned migration (v1 -> v2 compatible, with dedicated Arc 2 codec seam).
  */
 
-import { GAME_ARCS, ORGAN_BALANCE, REPEATABLE_SCAR_GRAFTS } from './constants.js?v=3.11';
-import { ARC2_BALANCE, initialArc2State } from './arc2Models.js?v=3.11';
-import { finalizeProgression, initialState } from './progression.js?v=3.11';
+import { GAME_ARCS, ORGAN_BALANCE, REPEATABLE_SCAR_GRAFTS } from './constants.js?v=3.12';
+import { ARC2_BALANCE, initialArc2State } from './arc2Models.js?v=3.12';
+import { finalizeProgression, initialState } from './progression.js?v=3.12';
 
 export function encodeArc2State(arc2) {
   return arc2;

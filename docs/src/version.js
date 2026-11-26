@@ -4,7 +4,7 @@
  * stay synchronized across HTML, JS modules, and static artwork.
  */
 
-export const ASSET_VERSION = '3.11';
+export const ASSET_VERSION = '3.12';
 
 export function versionedAssetUrl(relativePath) {
   const separator = relativePath.includes('?') ? '&' : '?';
