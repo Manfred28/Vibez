@@ -76,7 +76,21 @@ internal object DialogueTriggerEvaluator {
           }
         targetArc != null && state.activeArc == targetArc
       }
-      "case_chapter_completed" -> state.arc2.completedChapters >= trigger.threshold
+      "case_chapter_completed" -> state.arc2.completedCasePivots >= trigger.threshold
+      "case_angle_reached" -> state.arc2.caseAngle >= trigger.threshold
+      "corroboration_discovered" -> {
+        val target = trigger.target
+        if (target.isNullOrBlank()) {
+          state.arc2.discoveredCorroborations.size >= trigger.threshold
+        } else {
+          val corr = CorroborationId.byId(target)
+          corr != null && corr in state.arc2.discoveredCorroborations
+        }
+      }
+      "lamp_toggled" -> state.arc2.lampOffCount >= trigger.threshold
+      "arc2_silence_reached" -> state.arc2.lifetimeSilence >= trigger.threshold.toDouble()
+      "reel_scrubbed" -> state.arc2.reelScrubCount >= trigger.threshold
+      "redaction_dissolved" -> state.arc2.dissolvedRedactions.size >= trigger.threshold
       "desk_anomaly_interacted" -> {
         val deskType = DeskAnomalyType.byId(trigger.target ?: "")
         deskType != null && (state.arc2.deskAnomalyInteractions[deskType] ?: 0) >= trigger.threshold

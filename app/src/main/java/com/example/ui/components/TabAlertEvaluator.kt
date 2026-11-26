@@ -41,9 +41,11 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.R
-import com.example.game.CaseDeduction
+import com.example.game.AuditRedaction
+import com.example.game.CaseExhibit
 import com.example.game.CreatureType
 import com.example.game.CultDossierLine
+import com.example.game.InvestigatorContact
 import com.example.game.InvestigatorDeckTab
 import com.example.game.OrganDeckTab
 import com.example.game.OrganGameState
@@ -134,11 +136,30 @@ object TabAlertEvaluator {
   fun arc2UnlockKeys(state: OrganGameState, tab: InvestigatorDeckTab): Set<String> {
     val desk = state.arc2
     return when (tab) {
-      InvestigatorDeckTab.CONTACTS -> setOf("arc2_contacts")
-      InvestigatorDeckTab.DEDUCTIONS -> setOf("arc2_deductions")
-      InvestigatorDeckTab.EVIDENCE_BOARD ->
+      InvestigatorDeckTab.CONTACTS ->
         buildSet {
-          desk.nextChapter?.let { add("arc2_ch_${it.number}") }
+          InvestigatorContact.entries
+            .filter { desk.isContactUnlocked(it) }
+            .forEach { add("arc2_contact_${it.id}") }
+          if (desk.isBulkWarrantUnlocked) add("arc2_bulk_warrants")
+        }
+      InvestigatorDeckTab.BOARD ->
+        buildSet {
+          desk.pinnedExhibits.forEach { add("arc2_exhibit_${it.id}") }
+          add("arc2_spools_${desk.maxStringSpools}")
+        }
+      InvestigatorDeckTab.DOSSIER ->
+        buildSet {
+          CaseExhibit.entries
+            .filter { !it.isKeystone && desk.caseAngle >= it.unlockCaseAngle }
+            .forEach { add("arc2_dossier_ex_${it.id}") }
+          if (desk.isReelScrubUnlocked) add("arc2_reel_scrub")
+          if (desk.isRedactionSolventUnlocked) add("arc2_redaction_solvent")
+        }
+      InvestigatorDeckTab.REVISION ->
+        buildSet {
+          if (desk.isRevisionTabVisible) add("arc2_revision_tab")
+          if (desk.canPivotNextCase) add("arc2_pivot_ready_c${desk.caseAngle}")
           if (desk.fileZeroRevealed) add("arc2_file_zero")
         }
     }
@@ -148,11 +169,14 @@ object TabAlertEvaluator {
     val desk = state.arc2
     return when (tab) {
       InvestigatorDeckTab.CONTACTS -> false
-      InvestigatorDeckTab.DEDUCTIONS ->
-        CaseDeduction.entries.any { ded ->
-          ded !in desk.ownedDeductions && desk.silence >= ded.silenceCost
-        }
-      InvestigatorDeckTab.EVIDENCE_BOARD -> desk.canConnectNextChapter
+      InvestigatorDeckTab.BOARD ->
+        desk.pinnedExhibits.size >= 2 && desk.wiredPairs.size < desk.maxStringSpools
+      InvestigatorDeckTab.DOSSIER ->
+        CaseExhibit.entries.any { desk.canUnlockExhibit(it) } ||
+          desk.canTriggerReelScrub ||
+          AuditRedaction.entries.any { desk.canDissolveRedaction(it) }
+      // REVISION uses unlock-key alerting only so first tap silences its red pulse immediately
+      InvestigatorDeckTab.REVISION -> false
     }
   }
 

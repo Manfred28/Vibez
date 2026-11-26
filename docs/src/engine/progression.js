@@ -8,14 +8,14 @@ import {
   GAME_ARCS,
   ORGAN_BALANCE,
   PHASE_THRESHOLDS,
-} from './constants.js?v=3.12';
-import { initialArc2State } from './arc2Models.js?v=3.12';
+} from './constants.js?v=3.13';
+import { initialArc2State } from './arc2Models.js?v=3.13';
 import {
   creatureCount,
   cycleLifetimeIchorDisplay,
   hasNode,
   nextExcisionMilestone,
-} from './arc1Math.js?v=3.12';
+} from './arc1Math.js?v=3.13';
 
 export function phaseForCount(count) {
   const safe = Math.max(0, Math.floor(count));
@@ -144,9 +144,32 @@ export function isTriggerSatisfied(state, entry) {
     case 'arc_entered':
       return state.activeArc === trigger.target;
     case 'case_chapter_completed':
-      return state.arc2.completedChapters >= trigger.threshold;
-    case 'desk_anomaly_interacted':
-      return (state.arc2.deskAnomalyInteractions?.[trigger.target] ?? 0) >= trigger.threshold;
+      return (state.arc2.completedCasePivots ?? 0) >= trigger.threshold;
+    case 'case_angle_reached':
+      return (
+        state.activeArc === GAME_ARCS.ARC_2_INVESTIGATION &&
+        (state.arc2.caseAngle ?? 1) >= trigger.threshold
+      );
+    case 'corroboration_discovered':
+      return (
+        Boolean(trigger.target) &&
+        (state.arc2.discoveredCorroborations ?? []).includes(trigger.target)
+      );
+    case 'lamp_toggled':
+      if (trigger.target === 'off') {
+        return (state.arc2.lampOffCount ?? 0) >= trigger.threshold;
+      }
+      return (state.arc2.lampToggleCount ?? 0) >= trigger.threshold;
+    case 'arc2_silence_reached':
+      return (state.arc2.lifetimeSilence ?? 0) >= trigger.threshold;
+    case 'reel_scrubbed':
+      return (state.arc2.reelScrubCount ?? 0) >= trigger.threshold;
+    case 'redaction_dissolved':
+      return (state.arc2.dissolvedRedactions?.length ?? 0) >= trigger.threshold;
+    case 'desk_anomaly_interacted': {
+      const normalizedTarget = trigger.target === 'red_string' ? 'enamel_exhibit' : trigger.target;
+      return (state.arc2.deskAnomalyInteractions?.[normalizedTarget] ?? 0) >= trigger.threshold;
+    }
     default:
       return false;
   }

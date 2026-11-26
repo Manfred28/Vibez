@@ -3,14 +3,23 @@
  */
 
 import {
-  CASE_DEDUCTIONS,
+  AUDIT_REDACTIONS,
+  CASE_EXHIBITS,
   CREATURE_LIST,
   CULT_DOSSIER_LINES,
+  INVESTIGATOR_CONTACTS,
   REPEATABLE_SCAR_GRAFTS,
   SCAR_NODES,
   SPECIMEN_JAR_LIST,
-  arc2CanConnectNextChapter,
-  arc2NextChapter,
+  arc2CanDissolveRedaction,
+  arc2CanPivotNextCase,
+  arc2CanTriggerReelScrub,
+  arc2CanUnlockExhibit,
+  arc2IsBulkWarrantUnlocked,
+  arc2IsContactUnlocked,
+  arc2IsRedactionSolventUnlocked,
+  arc2IsReelScrubUnlocked,
+  arc2MaxStringSpools,
   canAffordChoirLung,
   canAffordGraft,
   canBreachToArc2,
@@ -28,7 +37,7 @@ import {
   isRepeatableGraftsUnlocked,
   isScarTreeUnlocked,
   nextExcisionMilestone,
-} from '../engine.js?v=3.12';
+} from '../engine.js?v=3.13';
 
 export function markTabSeen(seenMap, tab, keys) {
   let bucket = seenMap.get(tab);
@@ -125,12 +134,26 @@ export function arc2UnlockKeys(state, tab) {
   const desk = state.arc2;
   const keys = new Set();
   if (tab === 'contacts') {
-    keys.add('arc2_contacts');
-  } else if (tab === 'deductions') {
-    keys.add('arc2_deductions');
-  } else if (tab === 'evidence_board') {
-    const nextCh = arc2NextChapter(desk);
-    if (nextCh) keys.add(`arc2_ch_${nextCh.number}`);
+    for (const c of INVESTIGATOR_CONTACTS) {
+      if (arc2IsContactUnlocked(desk, c)) keys.add(`arc2_contact_${c.id}`);
+    }
+    if (arc2IsBulkWarrantUnlocked(desk)) keys.add('arc2_warrant');
+  } else if (tab === 'board') {
+    for (const exId of desk.pinnedExhibits ?? []) {
+      keys.add(`arc2_exhibit_${exId}`);
+    }
+    keys.add(`arc2_spools_${arc2MaxStringSpools(desk)}`);
+  } else if (tab === 'dossier') {
+    for (const ex of CASE_EXHIBITS) {
+      if (!ex.isKeystone && (desk.caseAngle ?? 1) >= ex.unlockCaseAngle) {
+        keys.add(`arc2_dossier_ex_${ex.id}`);
+      }
+    }
+    if (arc2IsReelScrubUnlocked(desk)) keys.add('arc2_reel_scrub');
+    if (arc2IsRedactionSolventUnlocked(desk)) keys.add('arc2_redactions');
+  } else if (tab === 'revision') {
+    keys.add(`arc2_case_${desk.caseAngle ?? 1}`);
+    if (arc2CanPivotNextCase(desk)) keys.add(`arc2_pivot_ready_${desk.caseAngle ?? 1}`);
     if (desk.fileZeroRevealed) keys.add('arc2_file_zero');
   }
   return keys;
@@ -138,14 +161,22 @@ export function arc2UnlockKeys(state, tab) {
 
 export function isArc2TabReady(state, tab) {
   const desk = state.arc2;
-  if (tab === 'deductions') {
-    return CASE_DEDUCTIONS.some(
-      (d) => !desk.ownedDeductions.includes(d.id) && desk.silence >= d.silenceCost,
+  if (tab === 'contacts') return false;
+  if (tab === 'board') {
+    return (
+      (desk.pinnedExhibits?.length ?? 0) >= 2 &&
+      (desk.wiredPairs?.length ?? 0) < arc2MaxStringSpools(desk)
     );
   }
-  if (tab === 'evidence_board') {
-    return arc2CanConnectNextChapter(desk);
+  if (tab === 'dossier') {
+    return (
+      CASE_EXHIBITS.some((ex) => arc2CanUnlockExhibit(desk, ex)) ||
+      arc2CanTriggerReelScrub(desk) ||
+      AUDIT_REDACTIONS.some((r) => arc2CanDissolveRedaction(desk, r))
+    );
   }
+  // Revision relies strictly on unlock keys so the first tap silences its alert pulse cleanly
+  if (tab === 'revision') return false;
   return false;
 }
 

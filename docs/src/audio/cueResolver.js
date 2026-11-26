@@ -3,8 +3,13 @@
  * for "The Tending of the Unnamed Organ" (1:1 parity with Android SoundCueResolver).
  */
 
-import { CREATURE_TYPES, GAME_ARCS, WALL_ANOMALY_TYPES } from '../engine/constants.js?v=3.12';
-import { DESK_ANOMALY_TYPES } from '../engine/arc2Models.js?v=3.12';
+import { CREATURE_TYPES, GAME_ARCS, WALL_ANOMALY_TYPES } from '../engine/constants.js?v=3.13';
+import {
+  DESK_ANOMALY_TYPES,
+  arc2HauntDepth,
+  arc2IsReelScrubbing,
+  arc2IsSilenceActive,
+} from '../engine/arc2Models.js?v=3.13';
 
 export const AUDIO_MUTE_STORAGE_KEY = 'unnamed_organ_audio_muted_v1';
 
@@ -32,8 +37,12 @@ export const SOUND_CUES = Object.freeze({
   STORY_DRIP: 'story_drip',
   PHASE_SHIFT: 'phase_shift',
   ARC2_STAMP: 'arc2_stamp',
+  ARC2_LAMP_TOGGLE: 'arc2_lamp_toggle',
   ARC2_CONTACT: 'arc2_contact',
   ARC2_DEDUCTION: 'arc2_deduction',
+  ARC2_STRING_WIRE: 'arc2_string_wire',
+  ARC2_REEL_SCRUB: 'arc2_reel_scrub',
+  ARC2_REDACTION_DISSOLVE: 'arc2_redaction_dissolve',
   ARC2_DESK_ANOMALY: 'arc2_desk_anomaly',
   ARC2_CHAPTER: 'arc2_chapter',
   ARC2_FILE_ZERO: 'arc2_file_zero',
@@ -56,8 +65,12 @@ export const SOUND_ACTION_HINTS = Object.freeze({
   EXCISION: 'excision',
   BREACH_TO_ARC2: 'breach_to_arc2',
   ARC2_STAMP: 'arc2_stamp',
+  ARC2_LAMP_TOGGLE: 'arc2_lamp_toggle',
   ARC2_CONTACT: 'arc2_contact',
   ARC2_DEDUCTION: 'arc2_deduction',
+  ARC2_STRING_WIRE: 'arc2_string_wire',
+  ARC2_REEL_SCRUB: 'arc2_reel_scrub',
+  ARC2_REDACTION_DISSOLVE: 'arc2_redaction_dissolve',
   ARC2_DESK_ANOMALY: 'arc2_desk_anomaly',
   ARC2_CHAPTER: 'arc2_chapter',
   ARC3_ENTER: 'arc3_enter',
@@ -88,8 +101,12 @@ export const CUE_MIN_INTERVAL_MS = Object.freeze({
   [SOUND_CUES.STORY_DRIP]: 380,
   [SOUND_CUES.PHASE_SHIFT]: 450,
   [SOUND_CUES.ARC2_STAMP]: 62,
+  [SOUND_CUES.ARC2_LAMP_TOGGLE]: 110,
   [SOUND_CUES.ARC2_CONTACT]: 80,
   [SOUND_CUES.ARC2_DEDUCTION]: 120,
+  [SOUND_CUES.ARC2_STRING_WIRE]: 95,
+  [SOUND_CUES.ARC2_REEL_SCRUB]: 240,
+  [SOUND_CUES.ARC2_REDACTION_DISSOLVE]: 180,
   [SOUND_CUES.ARC2_DESK_ANOMALY]: 110,
   [SOUND_CUES.ARC2_CHAPTER]: 240,
   [SOUND_CUES.ARC2_FILE_ZERO]: 450,
@@ -109,6 +126,16 @@ function mapsDiffer(a, b) {
   const keys = new Set([...Object.keys(a || {}), ...Object.keys(b || {})]);
   for (const k of keys) {
     if ((a?.[k] ?? 0) !== (b?.[k] ?? 0)) return true;
+  }
+  return false;
+}
+
+function setsDiffer(a, b) {
+  const sa = new Set(a || []);
+  const sb = new Set(b || []);
+  if (sa.size !== sb.size) return true;
+  for (const item of sa) {
+    if (!sb.has(item)) return true;
   }
   return false;
 }
@@ -146,7 +173,6 @@ export function resolveTransitionCues(prev, next, action = SOUND_ACTION_HINTS.TI
   }
   const cues = [];
 
-  // 1. Primary action-driven cues (gated on genuine state change so failed taps stay silent)
   switch (action) {
     case SOUND_ACTION_HINTS.VALVE_PRESS:
       if (next.cycleLifetimeIchor > prev.cycleLifetimeIchor) {
@@ -248,14 +274,37 @@ export function resolveTransitionCues(prev, next, action = SOUND_ACTION_HINTS.TI
         cues.push(SOUND_CUES.ARC2_STAMP);
       }
       break;
+    case SOUND_ACTION_HINTS.ARC2_LAMP_TOGGLE:
+      if (next.arc2?.lampOn !== prev.arc2?.lampOn) {
+        cues.push(SOUND_CUES.ARC2_LAMP_TOGGLE);
+      }
+      break;
     case SOUND_ACTION_HINTS.ARC2_CONTACT:
       if (mapsDiffer(prev.arc2?.contacts, next.arc2?.contacts)) {
         cues.push(SOUND_CUES.ARC2_CONTACT);
       }
       break;
     case SOUND_ACTION_HINTS.ARC2_DEDUCTION:
-      if ((next.arc2?.ownedDeductions?.length ?? 0) > (prev.arc2?.ownedDeductions?.length ?? 0)) {
+      if ((next.arc2?.pinnedExhibits?.length ?? 0) > (prev.arc2?.pinnedExhibits?.length ?? 0)) {
         cues.push(SOUND_CUES.ARC2_DEDUCTION);
+      }
+      break;
+    case SOUND_ACTION_HINTS.ARC2_STRING_WIRE:
+      if (setsDiffer(prev.arc2?.wiredPairs, next.arc2?.wiredPairs)) {
+        cues.push(SOUND_CUES.ARC2_STRING_WIRE);
+      }
+      break;
+    case SOUND_ACTION_HINTS.ARC2_REEL_SCRUB:
+      if ((next.arc2?.reelScrubCount ?? 0) > (prev.arc2?.reelScrubCount ?? 0)) {
+        cues.push(SOUND_CUES.ARC2_REEL_SCRUB);
+      }
+      break;
+    case SOUND_ACTION_HINTS.ARC2_REDACTION_DISSOLVE:
+      if (
+        (next.arc2?.dissolvedRedactions?.length ?? 0) >
+        (prev.arc2?.dissolvedRedactions?.length ?? 0)
+      ) {
+        cues.push(SOUND_CUES.ARC2_REDACTION_DISSOLVE);
       }
       break;
     case SOUND_ACTION_HINTS.ARC2_DESK_ANOMALY: {
@@ -272,7 +321,7 @@ export function resolveTransitionCues(prev, next, action = SOUND_ACTION_HINTS.TI
     case SOUND_ACTION_HINTS.ARC2_CHAPTER:
       if (next.arc2?.fileZeroRevealed && !prev.arc2?.fileZeroRevealed) {
         cues.push(SOUND_CUES.ARC2_FILE_ZERO);
-      } else if ((next.arc2?.completedChapters ?? 0) > (prev.arc2?.completedChapters ?? 0)) {
+      } else if ((next.arc2?.completedCasePivots ?? 0) > (prev.arc2?.completedCasePivots ?? 0)) {
         cues.push(SOUND_CUES.ARC2_CHAPTER);
       }
       break;
@@ -288,7 +337,7 @@ export function resolveTransitionCues(prev, next, action = SOUND_ACTION_HINTS.TI
       break;
   }
 
-  // 2. Passive / emergent chamber events
+  // Passive / emergent chamber events
   if ((next.echoPulsesTriggered ?? 0) > (prev.echoPulsesTriggered ?? 0)) {
     cues.push(SOUND_CUES.ECHO_PULSE);
   }
@@ -310,7 +359,7 @@ export function resolveTransitionCues(prev, next, action = SOUND_ACTION_HINTS.TI
     cues.push(SOUND_CUES.PHASE_SHIFT);
   }
 
-  // 3. Quiet story condensation cue when a brand-new fragment unlocks
+  // Quiet story condensation cue when a brand-new fragment unlocks
   const newStoryUnlocked =
     next.activeDialogue != null &&
     next.activeDialogue.id !== prev.activeDialogue?.id &&
@@ -329,6 +378,7 @@ export function resolveTransitionCues(prev, next, action = SOUND_ACTION_HINTS.TI
 
 /**
  * Pure ambient soundscape parameter mapper matching Android `SoundCueResolver.computeAmbientProfile`.
+ * Strictly enforces Slow-Boil quarantine: zero fleshDepth/cardiacPulse while hauntDepth < 0.58.
  */
 export function computeAmbientProfile(state) {
   if (!state || state.activeArc === GAME_ARCS.ARC_1_CHAMBER) {
@@ -356,20 +406,23 @@ export function computeAmbientProfile(state) {
     };
   }
   if (state.activeArc === GAME_ARCS.ARC_2_INVESTIGATION) {
-    const complicity = clamp01(state.arc2?.complicity ?? 0.05);
-    const silent = Boolean(state.arc2?.isSilenceActive);
-    const fileZero = Boolean(state.arc2?.fileZeroRevealed);
+    const desk = state.arc2 ?? {};
+    const haunt = clamp01(arc2HauntDepth(desk));
+    const silent = arc2IsSilenceActive(desk);
+    const scrubbing = arc2IsReelScrubbing(desk);
+    const fileZero = Boolean(desk.fileZeroRevealed);
+    const roomBleed = haunt < 0.58 ? 0.0 : clamp01((haunt - 0.58) / 0.42);
     return {
       activeArc: GAME_ARCS.ARC_2_INVESTIGATION,
       phase: fileZero ? 6 : 5,
-      humGain: silent ? 0.2 : 0.28,
-      dripRate: clamp01(0.14 + complicity * 0.35 + (silent ? 0.22 : 0.0)),
-      fleshDepth: clamp01(complicity * 0.55),
-      cardiacPulse: fileZero ? 0.45 : complicity * 0.22,
-      stillnessFocus: silent ? 0.85 : 0.0,
-      clampTension: 0.0,
-      rainMix: silent ? 0.86 : 0.72,
-      complicityBleed: complicity,
+      humGain: scrubbing ? 0.34 : silent ? 0.18 : 0.26,
+      dripRate: clamp01(0.08 + haunt * 0.28 + (silent ? 0.22 : 0.0)),
+      fleshDepth: clamp01(roomBleed * 0.52),
+      cardiacPulse: fileZero ? 0.45 : roomBleed * 0.24,
+      stillnessFocus: silent ? 0.88 : 0.0,
+      clampTension: scrubbing ? 0.45 : 0.0,
+      rainMix: silent ? 0.88 : 0.72,
+      complicityBleed: haunt,
     };
   }
   return {

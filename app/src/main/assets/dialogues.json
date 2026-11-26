@@ -1015,24 +1015,100 @@
       "once": true,
       "speaker": "Case Folder #14-B",
       "lines": [
-        "Rain streaks the precinct glass. Open on your blotter lies an unsigned, water-stained plea for salvation—the ink bled into Day 14, smelling faintly of damp grout.",
-        "No return address, no intake stamp—only a faint thumb smudge and three missing Hydro-Ward attendants. Stamp the file and begin."
+        "Rain streaks the fourth-floor glass. Under your blotter lies an unsigned, water-stained plea for salvation—no return address, no intake stamp, only twelve unpaid municipal water notices folded behind it.",
+        "Three city meter clerks stopped cashing checks in the same week. Stamp the intake sheet and start the file."
+      ]
+    },
+    {
+      "id": "dlg_arc2_lamp_first_off",
+      "phase": 5,
+      "mood": "uncanny",
+      "trigger": {
+        "type": "lamp_toggled",
+        "threshold": 1
+      },
+      "once": true,
+      "speaker": "After-Hours Desk",
+      "lines": [
+        "You pull the brass chain. Without the tungsten cone, the streetlamps outside paint grey rain across the wall and the building settles into a heavy, listening quiet.",
+        "Paperwork slows to a crawl in the dark, yet half the clues in this city only show up when you stop staring directly at them."
+      ]
+    },
+    {
+      "id": "dlg_arc2_silence_first",
+      "phase": 5,
+      "mood": "heavy",
+      "trigger": {
+        "type": "arc2_silence_reached",
+        "threshold": 10
+      },
+      "once": true,
+      "speaker": "Precinct Window",
+      "lines": [
+        "Ten minutes with the lamp dark and the radiator still has not clicked on. Down on Fourth Street, nobody passes under the awning.",
+        "You sit with both palms flat on the cool blotter, waiting for the quiet to tell you which ledger was misfiled on purpose."
       ]
     },
     {
       "id": "dlg_arc2_envelope",
       "phase": 5,
-      "mood": "uncanny",
+      "mood": "clinical",
       "trigger": {
         "type": "desk_anomaly_interacted",
         "target": "evidence_envelope",
         "threshold": 1
       },
       "once": true,
-      "speaker": "Evidence Bag #04",
+      "speaker": "Arrears Envelope #04",
       "lines": [
-        "You slit the damp envelope open; out rolls a single hollow white molar dusted with grey grout.",
-        "The evidence clerk swore the bag only contained a rusted locker key."
+        "You slit the damp municipal envelope open; inside is a rusted water-meter key and a final billing stub stamped PAID IN PERSON on a Sunday when the bureau was locked.",
+        "The clerk's initials at the bottom are blurred into a grey thumbprint."
+      ]
+    },
+    {
+      "id": "dlg_arc2_corr_smudged_date",
+      "phase": 5,
+      "mood": "uncanny",
+      "trigger": {
+        "type": "corroboration_discovered",
+        "target": "smudged_ledger_date",
+        "threshold": 1
+      },
+      "once": true,
+      "speaker": "Corkboard // Smudged Ledger Date",
+      "lines": [
+        "Red cotton string links the unsigned petition to the unlisted timecard. Both sheets were dated the fourteenth in the same watered-down blue ink.",
+        "Either a city clerk wrote a plea for help on municipal stationery, or the stationery was never meant for the public."
+      ]
+    },
+    {
+      "id": "dlg_arc2_case1_dead_end",
+      "phase": 5,
+      "mood": "heavy",
+      "trigger": {
+        "type": "case_chapter_completed",
+        "threshold": 1
+      },
+      "once": true,
+      "speaker": "Case I // Dead End Filed",
+      "lines": [
+        "Every arrears account closes into the same demolished tax parcel on the 1998 municipal plat. The paper trail ends at a wall with no door.",
+        "You sweep the loose slips off the blotter, pin the 1998 Tax Plat to the board, and open a colder angle."
+      ]
+    },
+    {
+      "id": "dlg_arc2_case2_entry",
+      "phase": 5,
+      "mood": "uncanny",
+      "trigger": {
+        "type": "case_angle_reached",
+        "threshold": 2
+      },
+      "once": true,
+      "speaker": "Case II // The Second Chair",
+      "lines": [
+        "You walk past the 1998 plat address before midnight; nothing stands between the pharmacy and the storm culvert except thirty feet of blank, windowless brick.",
+        "Back in your office, a second wooden chair sits angled toward your blotter—still bearing two damp scuffs on the floorboards you do not remember making."
       ]
     },
     {
@@ -1045,61 +1121,62 @@
         "threshold": 1
       },
       "once": true,
-      "speaker": "Desk Blotter",
+      "speaker": "Reading Lenses",
       "lines": [
-        "You wipe lukewarm condensation off your lenses, and for half a second the leather blotter looks tiled.",
-        "When you blink again, only coffee rings and pale ink remain."
+        "Lukewarm mist coats the inside of your spectacles. When you wipe them clean, the second chair across the desk looks slightly closer than it stood a minute ago.",
+        "When you blink again, the floorboards are dry and the room is empty."
       ]
     },
     {
-      "id": "dlg_arc2_red_string",
-      "phase": 5,
-      "mood": "existential",
-      "trigger": {
-        "type": "desk_anomaly_interacted",
-        "target": "red_string",
-        "threshold": 1
-      },
-      "once": true,
-      "speaker": "Pinboard Thread",
-      "lines": [
-        "The cotton twine feels stiff as dried clot between your thumb and forefinger.",
-        "Every sighting of the cult bends back toward a basement corridor the city insists was demolished."
-      ]
-    },
-    {
-      "id": "dlg_arc2_reel_tape",
-      "phase": 5,
-      "mood": "grotesque",
-      "trigger": {
-        "type": "desk_anomaly_interacted",
-        "target": "reel_tape",
-        "threshold": 1
-      },
-      "once": true,
-      "speaker": "Reel-to-Reel Transcript",
-      "lines": [
-        "Forty minutes of wet rhythmic clicking, a heavy iron valve turning, and a voice whispering tallies under its breath.",
-        "You stop the spool early because the breathing sounds too close to your own throat."
-      ]
-    },
-    {
-      "id": "dlg_arc2_ch1_caretakers",
+      "id": "dlg_arc2_corr_unlisted_annex",
       "phase": 5,
       "mood": "uncanny",
       "trigger": {
-        "type": "case_chapter_completed",
+        "type": "corroboration_discovered",
+        "target": "unlisted_annex",
         "threshold": 1
       },
       "once": true,
-      "speaker": "Chapter I // Missing Caretakers",
+      "speaker": "Corkboard // Unlisted Annex",
       "lines": [
-        "Every missing attendant filed a final maintenance slip dated Day 14 in bled ink.",
-        "Laid beside the water-stained petition under your lamp, all four signatures carry the exact rightward slant of your own hand."
+        "Pinned beside the 1998 plat, the chair scuffs trace the exact footprint of an unrecorded sub-street annex.",
+        "The city bricked over the doorway twelve winters ago, yet utility water still meters through the parcel every night."
       ]
     },
     {
-      "id": "dlg_arc2_ch2_cult",
+      "id": "dlg_arc2_corr_warm_room_tone",
+      "phase": 5,
+      "mood": "existential",
+      "trigger": {
+        "type": "corroboration_discovered",
+        "target": "warm_room_tone",
+        "threshold": 1
+      },
+      "once": true,
+      "speaker": "Corkboard // Warm Room Tone",
+      "lines": [
+        "Moisture gathered on the inside of your painted-shut window matches the humid smudge across Tuesday's carbon statement.",
+        "Someone has been breathing slowly in a sealed fourth-floor office—and the clerk's docket insists you already took their statement on Tuesday."
+      ]
+    },
+    {
+      "id": "dlg_arc2_corr_phantom_roster",
+      "phase": 5,
+      "mood": "heavy",
+      "trigger": {
+        "type": "corroboration_discovered",
+        "target": "phantom_roster",
+        "threshold": 1
+      },
+      "once": true,
+      "speaker": "Corkboard // Phantom Roster",
+      "lines": [
+        "The unlisted timecard and Tuesday's carbon sheet carry identical margin tallies, counted in neat groups of five until the pencil broke.",
+        "People do not vanish cleanly in a city this small; they simply stop being counted on the surface."
+      ]
+    },
+    {
+      "id": "dlg_arc2_case2_dead_end",
       "phase": 5,
       "mood": "heavy",
       "trigger": {
@@ -1107,25 +1184,318 @@
         "threshold": 2
       },
       "once": true,
-      "speaker": "Chapter II // The Hydro-Ward Cult",
+      "speaker": "Case II // Dead End Filed",
       "lines": [
-        "Invoices from the order list wax specimen jars, iron valves, and quiet attendants referred to only as Vessels.",
-        "Whenever you sit motionless to read, your desk lamp sweats a single grey drop onto the blotter."
+        "No living witness admits to sitting in that chair, and the building superintendent swears the office only ever held one.",
+        "You clear the desk, pin the Second Chair note to the corkboard, and pull a dusty magnetic dictation spool from the basement archive."
       ]
     },
     {
-      "id": "dlg_arc2_ch3_blueprint",
+      "id": "dlg_arc2_case3_entry",
+      "phase": 5,
+      "mood": "uncanny",
+      "trigger": {
+        "type": "case_angle_reached",
+        "threshold": 3
+      },
+      "once": true,
+      "speaker": "Case III // Static on Reel 4",
+      "lines": [
+        "Reel 4 runs forty minutes of blank basement room tone—until you switch the lamp off and turn the monitor gain all the way up.",
+        "Beneath the hiss, something heavy turns in slow, unhurried intervals, followed by a pause long enough to sound like patience."
+      ]
+    },
+    {
+      "id": "dlg_arc2_reel_tape",
+      "phase": 5,
+      "mood": "surreal",
+      "trigger": {
+        "type": "desk_anomaly_interacted",
+        "target": "reel_tape",
+        "threshold": 1
+      },
+      "once": true,
+      "speaker": "Reel 4 Monitor",
+      "lines": [
+        "The warped magnetic ribbon slips across the brass head. Through the static, someone counts under their breath and stops halfway through a number you almost recognize.",
+        "You thumb the stop switch early because the pacing matches your own pulse."
+      ]
+    },
+    {
+      "id": "dlg_arc2_reel_scrub_first",
+      "phase": 5,
+      "mood": "uncanny",
+      "trigger": {
+        "type": "reel_scrubbed",
+        "threshold": 1
+      },
+      "once": true,
+      "speaker": "Acoustic Scrub // 00:14:00",
+      "lines": [
+        "Dragging the reel backward in the dark isolates a low metallic thump buried every six seconds under the street rain.",
+        "It does not sound like a broken main. It sounds like a habit."
+      ]
+    },
+    {
+      "id": "dlg_arc2_reel_scrub_deep",
       "phase": 5,
       "mood": "existential",
+      "trigger": {
+        "type": "reel_scrubbed",
+        "threshold": 3
+      },
+      "once": true,
+      "speaker": "Acoustic Scrub // 00:38:12",
+      "lines": [
+        "Near the end of the tape, the room tone drops away and a familiar chair leg scrapes across bare floorboards.",
+        "The recorder was never sitting in a basement corridor. The microphone was resting on your own blotter."
+      ]
+    },
+    {
+      "id": "dlg_arc2_corr_cadence",
+      "phase": 5,
+      "mood": "surreal",
+      "trigger": {
+        "type": "corroboration_discovered",
+        "target": "sub_surface_cadence",
+        "threshold": 1
+      },
+      "once": true,
+      "speaker": "Corkboard // Sub-Surface Cadence",
+      "lines": [
+        "Linking the condensation swab to Reel 4's waveform shows the humidity peaks on the exact beat of the buried thump.",
+        "Whatever sits below the parcel is breathing damp air straight up through the masonry."
+      ]
+    },
+    {
+      "id": "dlg_arc2_corr_witness_two_places",
+      "phase": 5,
+      "mood": "uncanny",
+      "trigger": {
+        "type": "corroboration_discovered",
+        "target": "witness_in_two_places",
+        "threshold": 1
+      },
+      "once": true,
+      "speaker": "Corkboard // Witness In Two Places",
+      "lines": [
+        "The dry-cleaning ticket stamped at 11:40 PM matches the exact minute a heavy wool coat brushes past the Reel 4 microphone.",
+        "Your own wet coat is still dripping on the brass hook behind your office door."
+      ]
+    },
+    {
+      "id": "dlg_arc2_corr_borrowed_coat",
+      "phase": 5,
+      "mood": "existential",
+      "trigger": {
+        "type": "corroboration_discovered",
+        "target": "borrowed_coat",
+        "threshold": 1
+      },
+      "once": true,
+      "speaker": "Corkboard // Borrowed Coat",
+      "lines": [
+        "You trace the red thread from the coat ticket to the second chair. The cuff smells faintly of cold rain and damp basement lime.",
+        "You cannot remember which of the two chairs you were sitting in when the rain began."
+      ]
+    },
+    {
+      "id": "dlg_arc2_case3_dead_end",
+      "phase": 5,
+      "mood": "heavy",
       "trigger": {
         "type": "case_chapter_completed",
         "threshold": 3
       },
       "once": true,
-      "speaker": "Chapter III // Brick-Work Blueprint",
+      "speaker": "Case III // Dead End Filed",
       "lines": [
-        "The basement survey shows no exterior door at all—only masonry sealed three winters ago around a single damp room.",
-        "In the black reflection of the rain glass, faint pale fingers twitch beside your desk lamp."
+        "The tape ends in a wet click and forty seconds of rain against glass that matches the storm outside right now.",
+        "You wipe the ledger clean, pin Reel 4's waveform beside the plat, and requisition the sub-surface drainage blueprints."
+      ]
+    },
+    {
+      "id": "dlg_arc2_case4_entry",
+      "phase": 5,
+      "mood": "existential",
+      "trigger": {
+        "type": "case_angle_reached",
+        "threshold": 4
+      },
+      "once": true,
+      "speaker": "Case IV // Sub-Surface Survey",
+      "lines": [
+        "The drainage blueprints fold back into a single windowless square directly beneath your precinct floor—no stair, no hatch, only sealed mortar.",
+        "When you pull the lamp chain off tonight, faint grey grout lines linger under the leather blotter long after your eyes adjust."
+      ]
+    },
+    {
+      "id": "dlg_arc2_corr_closed_loop",
+      "phase": 5,
+      "mood": "heavy",
+      "trigger": {
+        "type": "corroboration_discovered",
+        "target": "closed_municipal_loop",
+        "threshold": 1
+      },
+      "once": true,
+      "speaker": "Corkboard // Closed Municipal Loop",
+      "lines": [
+        "Pinned to the 1998 plat, the storm-main schematic has no outflow pipe at all. Every channel drains inward toward one recessed square.",
+        "Someone petitioned the city to seal the door from the outside, and kept paying the water bill from within."
+      ]
+    },
+    {
+      "id": "dlg_arc2_redaction_1",
+      "phase": 5,
+      "mood": "uncanny",
+      "trigger": {
+        "type": "redaction_dissolved",
+        "threshold": 1
+      },
+      "once": true,
+      "speaker": "Solvent Clause I",
+      "lines": [
+        "The black censor ink lifts in cold grey streaks: \"Municipal maintenance ceases at the fourth floor; below grade, the tenant maintains the masonry.\"",
+        "The cadence of the sentence feels sickeningly familiar, as if you recited it to keep your hands steady."
+      ]
+    },
+    {
+      "id": "dlg_arc2_redaction_2",
+      "phase": 5,
+      "mood": "heavy",
+      "trigger": {
+        "type": "redaction_dissolved",
+        "threshold": 2
+      },
+      "once": true,
+      "speaker": "Solvent Clause II",
+      "lines": [
+        "Second strip dissolves: \"Relief clerk reassigned indefinitely; attendance continues until the count stabilizes.\"",
+        "Nobody ever signed a replacement transfer. You check the margin handwriting—the rightward slant is yours."
+      ]
+    },
+    {
+      "id": "dlg_arc2_redaction_3",
+      "phase": 5,
+      "mood": "existential",
+      "trigger": {
+        "type": "redaction_dissolved",
+        "threshold": 3
+      },
+      "once": true,
+      "speaker": "Solvent Clause III",
+      "lines": [
+        "Third strip softens into damp ash: \"Where speech disturbs the wall, keep quiet until the glass collects what is owed.\"",
+        "Your throat tightens. You already knew the next sentence before the solvent reached it."
+      ]
+    },
+    {
+      "id": "dlg_arc2_redaction_4",
+      "phase": 5,
+      "mood": "hopeless",
+      "trigger": {
+        "type": "redaction_dissolved",
+        "threshold": 4
+      },
+      "once": true,
+      "speaker": "Solvent Clause IV",
+      "lines": [
+        "The last black bar runs down the margin like diluted soot: \"File #00 remains open under the investigator's own signature; no transfer out was ever countersigned.\"",
+        "Only one folder remains in the bottom drawer, wet through the manila tab."
+      ]
+    },
+    {
+      "id": "dlg_arc2_case4_dead_end",
+      "phase": 5,
+      "mood": "hopeless",
+      "trigger": {
+        "type": "case_chapter_completed",
+        "threshold": 4
+      },
+      "once": true,
+      "speaker": "Case IV // Dead End Filed",
+      "lines": [
+        "Every string on the corkboard now converges on the chair you are sitting in. The rain outside sounds thinner, as if the glass were only painted black.",
+        "You clear the surface one final time, pin the closed drainage plat, and pull the unnumbered internal audit folder onto the damp blotter."
+      ]
+    },
+    {
+      "id": "dlg_arc2_case5_entry",
+      "phase": 6,
+      "mood": "grotesque",
+      "trigger": {
+        "type": "case_angle_reached",
+        "threshold": 5
+      },
+      "once": true,
+      "speaker": "Case V // Internal Audit",
+      "lines": [
+        "The brass desk lamp hood sweats a single drop of cold grey oil onto the blotter, leaving a pale ring that smells of wet mortar and iron.",
+        "Turning the lamp back on no longer hides the damp tile seams beneath the leather. The Hydro-Ward invoice was never lost—it was addressed to your desk."
+      ]
+    },
+    {
+      "id": "dlg_arc2_enamel_exhibit",
+      "phase": 6,
+      "mood": "grotesque",
+      "trigger": {
+        "type": "desk_anomaly_interacted",
+        "target": "enamel_exhibit",
+        "threshold": 1
+      },
+      "once": true,
+      "speaker": "Uncatalogued Pouch #00",
+      "lines": [
+        "You unseal a sodden linen pouch; out rolls a single hollow white molar dusted with grey grout.",
+        "The evidence tag is empty, yet you remember the exact pressure of pulling it loose from plaster."
+      ]
+    },
+    {
+      "id": "dlg_arc2_corr_sub_basement",
+      "phase": 6,
+      "mood": "grotesque",
+      "trigger": {
+        "type": "corroboration_discovered",
+        "target": "hydro_ward_sub_basement",
+        "threshold": 1
+      },
+      "once": true,
+      "speaker": "Corkboard // Sub-Basement Seam",
+      "lines": [
+        "Red twine binds the closed drainage blueprint to the grey wax thumb cast. Between the pins, the corkboard weeps a slow, mineral salt.",
+        "Hydro-Ward IV was never a separate precinct. It is the other side of this blotter."
+      ]
+    },
+    {
+      "id": "dlg_arc2_corr_matching_hand",
+      "phase": 6,
+      "mood": "hopeless",
+      "trigger": {
+        "type": "corroboration_discovered",
+        "target": "matching_hand",
+        "threshold": 1
+      },
+      "once": true,
+      "speaker": "Corkboard // Matching Hand",
+      "lines": [
+        "You lay your left hand beside the wax cast and the water-stained petition. The pale transverse scar across your thumb fits the impression without a millimeter of slack.",
+        "You wrote the plea for salvation from the valve, and opened the case file to pretend someone outside heard it."
+      ]
+    },
+    {
+      "id": "dlg_arc2_silence_deep",
+      "phase": 6,
+      "mood": "hopeless",
+      "trigger": {
+        "type": "arc2_silence_reached",
+        "threshold": 2000
+      },
+      "once": true,
+      "speaker": "Black Windowpane",
+      "lines": [
+        "In the dark glass, the office behind you has lost its filing cabinets. Only pale wet tiles and faint stitched shadows stir beside your shoulders.",
+        "Even sitting motionless feels like waiting for a jar to fill."
       ]
     },
     {
@@ -1134,13 +1504,13 @@
       "mood": "hopeless",
       "trigger": {
         "type": "case_chapter_completed",
-        "threshold": 4
+        "threshold": 5
       },
       "once": true,
       "speaker": "File #00 // Subject Intake",
       "lines": [
-        "\"Subject #00 — Distinguishing mark: pale transverse scar across the left thumb. Status: Still seated at valve.\"",
-        "Your own badge number is stamped across the intake margin. The blotter curls back, revealing cold wet tile beneath your palms."
+        "\"Subject #00 — Distinguishing mark: pale transverse scar across the left thumb. Status: Still seated at the recessed valve.\"",
+        "Your own badge number is stamped across the intake margin. The blotter curls back from damp hospital tile; the room and the office share one wet seam."
       ]
     },
     {

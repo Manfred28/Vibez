@@ -10,14 +10,59 @@ internal object Arc2FoleyCueBank {
   fun synthesize(cue: SoundCue, pitch: Double): ShortArray? =
     when (cue) {
       SoundCue.ARC2_STAMP -> renderDeskStamp(pitch)
+      SoundCue.ARC2_LAMP_TOGGLE -> renderBrassPullChain(pitch)
       SoundCue.ARC2_CONTACT -> renderPaperFolder(pitch)
       SoundCue.ARC2_DEDUCTION -> renderRedStringPin(pitch)
+      SoundCue.ARC2_STRING_WIRE -> renderRedStringPin(pitch * 1.08)
+      SoundCue.ARC2_REEL_SCRUB -> renderReelScrub(pitch)
+      SoundCue.ARC2_REDACTION_DISSOLVE -> renderSolventDissolve(pitch)
       SoundCue.ARC2_DESK_ANOMALY -> renderDeskAnomaly(pitch)
       SoundCue.ARC2_CHAPTER -> renderCaseChapterThud(pitch)
       SoundCue.ARC2_FILE_ZERO -> renderFileZeroReveal(pitch)
       SoundCue.ARC3_ENTER -> renderConvergenceTone(pitch)
       else -> null
     }
+
+  /** Crisp brass desk-lamp pull-chain click + faint filament settle. */
+  private fun renderBrassPullChain(pitch: Double): ShortArray {
+    val len = (FOLEY_SAMPLE_RATE * 0.16).toInt()
+    val buf = FloatArray(len)
+    addIronModalRing(buf, 0.0, 0.09, 620.0 * pitch, gain = 0.34, decayScale = 2.4, seed = 2111, includeRatchetGrit = false)
+    addIronModalRing(buf, 0.032, 0.10, 480.0 * pitch, gain = 0.28, decayScale = 2.0, seed = 2119, includeRatchetGrit = false)
+    return toPcm16(buf, 0.72f, roomWet = 0.10f)
+  }
+
+  /** Warped magnetic reel hiss + low veiled sub-surface thump (Case III Acoustic Scrub). */
+  private fun renderReelScrub(pitch: Double): ShortArray {
+    val len = (FOLEY_SAMPLE_RATE * 0.56).toInt()
+    val buf = FloatArray(len)
+    val noise = NoiseGen(2223)
+    val hissFilter = SvFilter()
+    for (i in 0 until len) {
+      val t = i.toDouble() / FOLEY_SAMPLE_RATE
+      val env = sin(PI * (t / 0.56).coerceAtMost(1.0)).coerceAtLeast(0.0)
+      val hiss = hissFilter.processBandpass(noise.nextFloat().toDouble(), 1100.0 - t * 650.0, 2.2) * env * 0.42
+      val subThump = sin(TWO_PI * (52.0 * pitch) * t) * exp(-((t - 0.24) * (t - 0.24)) * 90.0) * 0.65
+      buf[i] = (hiss + subThump).toFloat()
+    }
+    return toPcm16(buf, 0.76f, roomWet = 0.18f)
+  }
+
+  /** Cold damp solvent hiss lifting censor ink off municipal ledger paper (Case IV Redaction). */
+  private fun renderSolventDissolve(pitch: Double): ShortArray {
+    val len = (FOLEY_SAMPLE_RATE * 0.48).toInt()
+    val buf = FloatArray(len)
+    val noise = NoiseGen(2331)
+    val filter = SvFilter()
+    for (i in 0 until len) {
+      val t = i.toDouble() / FOLEY_SAMPLE_RATE
+      val env = (1.0 - exp(-t * 18.0)) * exp(-t * 4.5)
+      val sizzle = filter.processBandpass(noise.nextFloat().toDouble(), 1650.0 - t * 1400.0, 1.5) * env * 0.52
+      val paperSigh = sin(TWO_PI * (88.0 * pitch) * t) * exp(-t * 8.0) * 0.30
+      buf[i] = (sizzle + paperSigh).toFloat()
+    }
+    return toPcm16(buf, 0.74f, roomWet = 0.16f)
+  }
 
   /** Deep heavy muffled wooden desk stamp thump + dark blotter slap (Arc 2). */
   private fun renderDeskStamp(pitch: Double): ShortArray {

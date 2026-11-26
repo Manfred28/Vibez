@@ -7,6 +7,8 @@ import com.example.data.AssetDialogueRepository
 import com.example.data.EscalationCurve
 import com.example.data.OrganStateSerializer
 import com.example.data.SharedPreferencesOrganSaveRepository
+import com.example.game.CaseExhibit
+import com.example.game.CorroborationId
 import com.example.game.OrganBalance
 import com.example.game.OrganDevEngine
 import com.example.game.OrganGameEngine
@@ -69,7 +71,13 @@ class DialogueAssetValidationTest {
         "marrow_bloom",
         "dossier_line_unredacted",
         "arc_entered",
+        "case_angle_reached",
         "case_chapter_completed",
+        "corroboration_discovered",
+        "lamp_toggled",
+        "arc2_silence_reached",
+        "reel_scrubbed",
+        "redaction_dissolved",
         "desk_anomaly_interacted",
       )
     val targetedTypes =
@@ -79,12 +87,13 @@ class DialogueAssetValidationTest {
         "anomaly_interacted",
         "scar_node_specific",
         "arc_entered",
+        "corroboration_discovered",
         "desk_anomaly_interacted",
       )
 
     val root = loadDialoguesJson()
     val entries = root.getJSONArray("entries")
-    assertTrue("dialogues.json must contain full Arc 1 escape-to-plea + Excision I-VI + Arc 2 + Arc 3 fragments", entries.length() >= 70)
+    assertTrue("dialogues.json must contain full Arc 1 escape-to-plea + Excision I-VI + Arc 2 Slow Boil + Arc 3 fragments", entries.length() >= 85)
 
     val seenIds = mutableSetOf<String>()
     val counterThresholdByPhase = mutableMapOf<Int, Long>()
@@ -92,6 +101,9 @@ class DialogueAssetValidationTest {
     val seenMilestones = mutableSetOf<Long>()
     val seenDossierLines = mutableSetOf<Long>()
     val seenChapters = mutableSetOf<Long>()
+    val seenCaseAngles = mutableSetOf<Long>()
+    val seenRedactions = mutableSetOf<Long>()
+    val seenCorroborations = mutableSetOf<String>()
     val seenArcs = mutableSetOf<String>()
     var hasExcisionEntry = false
 
@@ -118,6 +130,9 @@ class DialogueAssetValidationTest {
         if (triggerType == "scar_node_specific") {
           assertNotNull("Unknown ScarNodeId '$target' in $id", ScarNodeId.byId(target))
         }
+        if (triggerType == "corroboration_discovered") {
+          assertNotNull("Unknown CorroborationId '$target' in $id", CorroborationId.byId(target))
+        }
       }
       when (triggerType) {
         "counter_reached" -> {
@@ -131,6 +146,9 @@ class DialogueAssetValidationTest {
         "excision_milestone_reached" -> seenMilestones.add(threshold)
         "dossier_line_unredacted" -> seenDossierLines.add(threshold)
         "case_chapter_completed" -> seenChapters.add(threshold)
+        "case_angle_reached" -> seenCaseAngles.add(threshold)
+        "redaction_dissolved" -> seenRedactions.add(threshold)
+        "corroboration_discovered" -> seenCorroborations.add(trigger.getString("target"))
         "arc_entered" -> seenArcs.add(trigger.getString("target"))
       }
 
@@ -168,9 +186,20 @@ class DialogueAssetValidationTest {
     for (line in 1L..4L) {
       assertTrue("Expected dossier_line_unredacted fragment for line $line", line in seenDossierLines)
     }
-    for (ch in 1L..4L) {
-      assertTrue("Expected case_chapter_completed fragment for Chapter $ch", ch in seenChapters)
+    for (ch in 1L..5L) {
+      assertTrue("Expected case_chapter_completed fragment for Case Pivot $ch", ch in seenChapters)
     }
+    for (angle in 2L..5L) {
+      assertTrue("Expected case_angle_reached fragment for Case $angle", angle in seenCaseAngles)
+    }
+    for (clause in 1L..4L) {
+      assertTrue("Expected redaction_dissolved fragment for Clause $clause", clause in seenRedactions)
+    }
+    assertEquals(
+      "All 10 curated Corroborations must have dedicated story fragments",
+      CorroborationId.entries.size,
+      seenCorroborations.size,
+    )
     assertTrue("Expected arc_entered fragment for arc_2", "arc_2" in seenArcs)
     assertTrue("Expected arc_entered fragment for arc_3", "arc_3" in seenArcs)
   }
@@ -261,6 +290,63 @@ class DialogueAssetValidationTest {
   }
 
   @Test
+  fun arc2SlowBoilQuarantine_preventsGrotesqueRoomSpoilersInCasesOneThroughThree() {
+    val context = ApplicationProvider.getApplicationContext<Context>()
+    val catalog = AssetDialogueRepository(context).loadCatalog()
+    val byId = catalog.entries.associateBy { it.id }
+
+    val bannedEarlyTerms =
+      listOf(
+        "hydro-ward",
+        "molar",
+        "grout",
+        "valve",
+        "ichor",
+        "suture",
+        "caretaker",
+        "tile",
+        "vessel",
+        "scar",
+      )
+    val earlyIds =
+      listOf(
+        "dlg_arc2_entry",
+        "dlg_arc2_lamp_first_off",
+        "dlg_arc2_silence_first",
+        "dlg_arc2_envelope",
+        "dlg_arc2_corr_smudged_date",
+        "dlg_arc2_case1_dead_end",
+        "dlg_arc2_case2_entry",
+        "dlg_arc2_spectacles",
+        "dlg_arc2_corr_unlisted_annex",
+        "dlg_arc2_corr_warm_room_tone",
+        "dlg_arc2_corr_phantom_roster",
+        "dlg_arc2_case2_dead_end",
+        "dlg_arc2_case3_entry",
+        "dlg_arc2_reel_tape",
+        "dlg_arc2_reel_scrub_first",
+        "dlg_arc2_reel_scrub_deep",
+        "dlg_arc2_corr_cadence",
+        "dlg_arc2_corr_witness_two_places",
+        "dlg_arc2_corr_borrowed_coat",
+        "dlg_arc2_case3_dead_end",
+      )
+
+    earlyIds.forEach { id ->
+      val entry = byId[id]
+      assertNotNull("Expected early Arc 2 dialogue entry $id", entry)
+      val body = "${entry!!.speaker} ${entry.lines.joinToString(" ")}".lowercase()
+      bannedEarlyTerms.forEach { banned ->
+        assertFalse(
+          "Early Arc 2 entry $id leaked quarantined Room vocabulary '$banned'",
+          body.contains(banned),
+        )
+      }
+    }
+    assertNotNull("Expected Case IV+ enamel_exhibit fragment", byId["dlg_arc2_enamel_exhibit"])
+  }
+
+  @Test
   fun phaseOneGraphicAssets_allExistAndLoadAsDrawables() {
     val context = ApplicationProvider.getApplicationContext<Context>()
     val expectedDrawables =
@@ -290,7 +376,8 @@ class DialogueAssetValidationTest {
     state = OrganDevEngine.setHighestMilestone(state, 5, catalog)
     state = OrganDevEngine.assignArc1Resources(state, ichor = 123_456.0, stillness = 89.0, availableScar = 14L, catalog = catalog)
     state = OrganDevEngine.setAllScarNodes(state, unlockAll = true, catalog = catalog)
-    state = OrganDevEngine.assignArc2Resources(state, leads = 4_200.0, silence = 75.0, completedChapters = 2, catalog = catalog)
+    state = OrganDevEngine.assignArc2Resources(state, leads = 4_200.0, silence = 75.0, caseAngle = 3, completedChapters = 2, catalog = catalog)
+    state = OrganDevEngine.toggleArc2Lamp(state, catalog)
 
     repo.save(state)
     val restored = repo.load(catalog)
@@ -302,7 +389,10 @@ class DialogueAssetValidationTest {
     assertEquals(14L, restored.availableScarTissue)
     assertEquals(ScarNodeId.entries.size, restored.unlockedScarNodes.size)
     assertEquals(4_200L, restored.arc2.leadsDisplay)
-    assertEquals(2, restored.arc2.completedChapters)
+    assertEquals(3, restored.arc2.caseAngle)
+    assertEquals(2, restored.arc2.completedCasePivots)
+    assertFalse(restored.arc2.lampOn)
+    assertTrue(CaseExhibit.TAX_PLAT_1998 in restored.arc2.pinnedExhibits)
 
     // Corrupt JSON fails cleanly to null
     assertNull(OrganStateSerializer.deserialize("{corrupt", catalog))

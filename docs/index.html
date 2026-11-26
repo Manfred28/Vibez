@@ -13,10 +13,10 @@
     />
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
     <meta http-equiv="Pragma" content="no-cache" />
-    <meta name="app-build" content="3.12" />
+    <meta name="app-build" content="3.13" />
     <title>Tap Counter // The Counting Room</title>
     <link rel="icon" type="image/png" href="./assets/icon.png" />
-    <link rel="stylesheet" href="./styles.css?v=3.12" />
+    <link rel="stylesheet" href="./styles.css?v=3.13" />
   </head>
   <body data-phase="0" data-arc="arc_1">
     <main class="app-shell">
@@ -162,16 +162,16 @@
       <div id="arc2-shell" class="arc-shell" hidden>
         <section class="telemetry-header telemetry-header--arc2" aria-label="Investigation telemetry">
           <div class="telemetry-row">
-            <span id="arc2-header" class="phase-label">THE INQUIRY · CASE #14-B</span>
+            <span id="arc2-header" class="phase-label">CASE I · UNCLAIMED ARREARS</span>
           </div>
-          <div id="arc2-complicity-label" class="cycle-status">COMPLICITY: 5% · SCAR ECHOES: 0</div>
+          <div id="arc2-case-subtitle" class="cycle-status">Unsigned plea and twelve unpaid municipal water notices</div>
           <div class="progress-track" aria-hidden="true">
-            <div id="arc2-complicity-fill" class="progress-fill progress-fill--deep"></div>
+            <div id="arc2-case-progress-fill" class="progress-fill progress-fill--deep"></div>
           </div>
           <div id="arc2-chapter-status" class="threshold-status" hidden></div>
         </section>
 
-        <section class="chamber-card chamber-card--desk" aria-label="Haunted investigator desk">
+        <section class="chamber-card chamber-card--desk" aria-label="Investigator office desk">
           <canvas id="investigator-desk-canvas" class="chamber-backdrop-canvas" aria-hidden="true"></canvas>
 
           <div class="chamber-foreground">
@@ -188,13 +188,23 @@
               <div class="status-pills-row">
                 <span id="arc2-silence-text" class="status-tag">SILENCE: 0</span>
                 <span id="arc2-silence-badge" class="status-tag status-tag--stillness" hidden>
-                  LATE-NIGHT SILENCE
+                  AFTER-HOURS SILENCE
                 </span>
+                <span id="arc2-scrub-badge" class="status-tag status-tag--gaze" hidden></span>
                 <span id="arc2-focus-badge" class="status-tag status-tag--gaze" hidden></span>
               </div>
             </div>
 
             <div class="desk-stamp-arena">
+              <button
+                id="lamp-toggle-btn"
+                type="button"
+                class="lamp-toggle-btn"
+                aria-pressed="true"
+                aria-label="Pull brass desk lamp chain to switch between Daylight Leads and After-Hours Silence"
+              >
+                LAMP: ON (DAYLIGHT LEADS)
+              </button>
               <button
                 id="inspect-case-btn"
                 type="button"
@@ -356,7 +366,7 @@
           </div>
 
           <div class="dev-section">
-            <div class="dev-section-label">ARC 2 DESK RESOURCES & CHAPTERS</div>
+            <div class="dev-section-label">ARC 2 CASE ANGLES &amp; DESK RESOURCES</div>
             <div class="dev-input-grid">
               <label class="dev-field">
                 <span>LEADS</span>
@@ -370,11 +380,15 @@
             <div class="dev-chip-row">
               <button id="dev-apply-arc2-btn" type="button" class="dev-chip dev-chip--primary">APPLY ARC 2</button>
               <button type="button" class="dev-chip" data-dev-leads="200000">SET 200K LEADS</button>
-              <button type="button" class="dev-chip" data-dev-ch="0">CH 0</button>
-              <button type="button" class="dev-chip" data-dev-ch="1">CH 1</button>
-              <button type="button" class="dev-chip" data-dev-ch="2">CH 2</button>
-              <button type="button" class="dev-chip" data-dev-ch="3">CH 3</button>
-              <button type="button" class="dev-chip" data-dev-ch="4">CH 4 (FILE #00)</button>
+              <button type="button" class="dev-chip" data-dev-case="1">CASE I</button>
+              <button type="button" class="dev-chip" data-dev-case="2">CASE II</button>
+              <button type="button" class="dev-chip" data-dev-case="3">CASE III</button>
+              <button type="button" class="dev-chip" data-dev-case="4">CASE IV</button>
+              <button type="button" class="dev-chip" data-dev-case="5">CASE V</button>
+              <button id="dev-arc2-f0-btn" type="button" class="dev-chip">FILE #00</button>
+              <button id="dev-toggle-lamp-btn" type="button" class="dev-chip">TOGGLE LAMP</button>
+              <button id="dev-all-exhibits-btn" type="button" class="dev-chip">ALL EXHIBITS</button>
+              <button id="dev-reset-arc2-btn" type="button" class="dev-chip">RESET ARC 2</button>
             </div>
           </div>
 
@@ -410,6 +424,6 @@
       </div>
     </div>
 
-    <script type="module" src="./src/app.js?v=3.12"></script>
+    <script type="module" src="./src/app.js?v=3.13"></script>
   </body>
 </html>

@@ -31,8 +31,12 @@ enum class SoundCue(val id: String, val minIntervalMs: Long = 55L) {
   STORY_DRIP("story_drip", minIntervalMs = 380L),
   PHASE_SHIFT("phase_shift", minIntervalMs = 450L),
   ARC2_STAMP("arc2_stamp", minIntervalMs = 62L),
+  ARC2_LAMP_TOGGLE("arc2_lamp_toggle", minIntervalMs = 95L),
   ARC2_CONTACT("arc2_contact", minIntervalMs = 80L),
   ARC2_DEDUCTION("arc2_deduction", minIntervalMs = 120L),
+  ARC2_STRING_WIRE("arc2_string_wire", minIntervalMs = 110L),
+  ARC2_REEL_SCRUB("arc2_reel_scrub", minIntervalMs = 240L),
+  ARC2_REDACTION_DISSOLVE("arc2_redaction_dissolve", minIntervalMs = 220L),
   ARC2_DESK_ANOMALY("arc2_desk_anomaly", minIntervalMs = 110L),
   ARC2_CHAPTER("arc2_chapter", minIntervalMs = 240L),
   ARC2_FILE_ZERO("arc2_file_zero", minIntervalMs = 450L),
@@ -56,8 +60,12 @@ enum class SoundActionHint {
   EXCISION,
   BREACH_TO_ARC2,
   ARC2_STAMP,
+  ARC2_LAMP_TOGGLE,
   ARC2_CONTACT,
   ARC2_DEDUCTION,
+  ARC2_STRING_WIRE,
+  ARC2_REEL_SCRUB,
+  ARC2_REDACTION_DISSOLVE,
   ARC2_DESK_ANOMALY,
   ARC2_CHAPTER,
   ARC3_ENTER,
@@ -183,14 +191,34 @@ object SoundCueResolver {
           cues.add(SoundCue.ARC2_STAMP)
         }
       }
+      SoundActionHint.ARC2_LAMP_TOGGLE -> {
+        if (next.arc2.lampOn != prev.arc2.lampOn) {
+          cues.add(SoundCue.ARC2_LAMP_TOGGLE)
+        }
+      }
       SoundActionHint.ARC2_CONTACT -> {
         if (next.arc2.contacts != prev.arc2.contacts) {
           cues.add(SoundCue.ARC2_CONTACT)
         }
       }
       SoundActionHint.ARC2_DEDUCTION -> {
-        if (next.arc2.ownedDeductions.size > prev.arc2.ownedDeductions.size) {
+        if (next.arc2.pinnedExhibits.size > prev.arc2.pinnedExhibits.size) {
           cues.add(SoundCue.ARC2_DEDUCTION)
+        }
+      }
+      SoundActionHint.ARC2_STRING_WIRE -> {
+        if (next.arc2.wiredPairs != prev.arc2.wiredPairs) {
+          cues.add(SoundCue.ARC2_STRING_WIRE)
+        }
+      }
+      SoundActionHint.ARC2_REEL_SCRUB -> {
+        if (next.arc2.reelScrubCount > prev.arc2.reelScrubCount) {
+          cues.add(SoundCue.ARC2_REEL_SCRUB)
+        }
+      }
+      SoundActionHint.ARC2_REDACTION_DISSOLVE -> {
+        if (next.arc2.dissolvedRedactions.size > prev.arc2.dissolvedRedactions.size) {
+          cues.add(SoundCue.ARC2_REDACTION_DISSOLVE)
         }
       }
       SoundActionHint.ARC2_DESK_ANOMALY -> {
@@ -205,7 +233,7 @@ object SoundCueResolver {
       SoundActionHint.ARC2_CHAPTER -> {
         if (next.arc2.fileZeroRevealed && !prev.arc2.fileZeroRevealed) {
           cues.add(SoundCue.ARC2_FILE_ZERO)
-        } else if (next.arc2.completedChapters > prev.arc2.completedChapters) {
+        } else if (next.arc2.completedCasePivots > prev.arc2.completedCasePivots) {
           cues.add(SoundCue.ARC2_CHAPTER)
         }
       }
@@ -298,19 +326,22 @@ object SoundCueResolver {
         )
       }
       GameArc.ARC_2_INVESTIGATION -> {
-        val complicity = state.arc2.complicity.coerceIn(0f, 1f)
-        val silent = state.arc2.isSilenceActive
+        val haunt = state.arc2.hauntDepth.coerceIn(0f, 1f)
+        val lampOff = !state.arc2.lampOn
+        val scrubbing = state.arc2.isReelScrubbing
+        // Slow Boil audio quarantine: no flesh/cardiac chamber bleed until Case IV (hauntDepth >= 0.60)
+        val roomBleed = ((haunt - 0.58f) / 0.42f).coerceIn(0f, 1f)
         AmbientSoundProfile(
           activeArc = GameArc.ARC_2_INVESTIGATION,
-          phase = if (state.arc2.fileZeroRevealed) 6 else 5,
-          humGain = if (silent) 0.20f else 0.28f,
-          dripRate = (0.14f + complicity * 0.35f + if (silent) 0.22f else 0f).coerceIn(0f, 1f),
-          fleshDepth = (complicity * 0.55f).coerceIn(0f, 1f),
-          cardiacPulse = if (state.arc2.fileZeroRevealed) 0.45f else (complicity * 0.22f),
-          stillnessFocus = if (silent) 0.85f else 0f,
-          clampTension = 0f,
-          rainMix = if (silent) 0.86f else 0.72f,
-          complicityBleed = complicity,
+          phase = if (state.arc2.fileZeroRevealed || state.arc2.caseAngle >= 5) 6 else 5,
+          humGain = if (lampOff) (0.10f + roomBleed * 0.14f) else 0.30f,
+          dripRate = (0.06f + roomBleed * 0.44f + if (lampOff && haunt >= 0.55f) 0.16f else 0f).coerceIn(0f, 1f),
+          fleshDepth = (roomBleed * 0.58f).coerceIn(0f, 1f),
+          cardiacPulse = if (state.arc2.fileZeroRevealed) 0.45f else (roomBleed * 0.28f),
+          stillnessFocus = if (scrubbing) 1.0f else if (lampOff) 0.85f else 0f,
+          clampTension = if (scrubbing) 0.35f else 0f,
+          rainMix = if (lampOff) 0.88f else 0.66f,
+          complicityBleed = haunt,
         )
       }
       GameArc.ARC_3_CONVERGENCE ->

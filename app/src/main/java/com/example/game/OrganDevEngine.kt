@@ -5,7 +5,7 @@ import kotlin.math.max
 
 /**
  * Pure developer testing helpers allowing arbitrary milestone unlocking, resource assignment,
- * surgical tree toggling, arc switching, and anomaly spawning without mutating production rules.
+ * surgical tree toggling, Arc 2 Case Angle jumps, Lamp toggling, Exhibit unlocking, and wipes.
  */
 object OrganDevEngine {
 
@@ -26,7 +26,14 @@ object OrganDevEngine {
           state.copy(
             activeArc = arc,
             highestExcisionMilestone = max(state.highestExcisionMilestone, 6),
-            arc2 = state.arc2.copy(completedChapters = 4, fileZeroRevealed = true, complicity = 1f),
+            arc2 =
+              state.arc2.copy(
+                caseAngle = 5,
+                completedCasePivots = 5,
+                fileZeroRevealed = true,
+                pinnedExhibits = CaseExhibit.entries.toSet(),
+                dissolvedRedactions = AuditRedaction.entries.toSet(),
+              ),
           )
       }
     return OrganGameEngine.finalizeExternalTransition(adjusted, catalog)
@@ -90,33 +97,80 @@ object OrganDevEngine {
     state: OrganGameState,
     leads: Double? = null,
     silence: Double? = null,
-    complicity: Float? = null,
+    caseAngle: Int? = null,
     completedChapters: Int? = null,
     catalog: DialogueCatalog,
   ): OrganGameState {
     val desk = state.arc2
     val nextLeads = leads?.coerceAtLeast(0.0) ?: desk.leads
     val nextSilence = silence?.coerceAtLeast(0.0) ?: desk.silence
-    val nextChapters = completedChapters?.coerceIn(0, 4) ?: desk.completedChapters
-    val nextComplicity = complicity?.coerceIn(0.05f, 1.0f) ?: desk.complicity
+    val nextPivots =
+      when {
+        completedChapters != null -> completedChapters.coerceIn(0, 5)
+        caseAngle != null -> (caseAngle.coerceIn(1, 5) - 1).coerceAtLeast(0)
+        else -> desk.completedCasePivots
+      }
+    val nextAngle =
+      when {
+        caseAngle != null -> caseAngle.coerceIn(1, 5)
+        completedChapters != null -> (nextPivots + 1).coerceIn(1, 5)
+        else -> desk.caseAngle
+      }
+    val nextPinned = desk.pinnedExhibits.toMutableSet()
+    CaseAngle.entries.forEach { angle ->
+      if (nextPivots >= angle.number && angle.keystoneReward != null) {
+        nextPinned.add(angle.keystoneReward)
+      }
+    }
+    val nextFileZero = nextPivots >= 5 || (caseAngle == null && completedChapters == null && desk.fileZeroRevealed)
     val nextDesk =
       desk.copy(
         leads = nextLeads,
         lifetimeLeads = max(desk.lifetimeLeads, nextLeads),
         silence = nextSilence,
         lifetimeSilence = max(desk.lifetimeSilence, nextSilence),
-        complicity = nextComplicity,
-        completedChapters = nextChapters,
-        fileZeroRevealed = nextChapters >= 4 || desk.fileZeroRevealed,
+        caseAngle = nextAngle,
+        completedCasePivots = nextPivots,
+        pinnedExhibits = nextPinned,
+        fileZeroRevealed = nextFileZero,
       )
     return OrganGameEngine.finalizeExternalTransition(state.copy(arc2 = nextDesk), catalog)
   }
+
+  fun setArc2AllExhibits(
+    state: OrganGameState,
+    unlockAll: Boolean,
+    catalog: DialogueCatalog,
+  ): OrganGameState {
+    val desk = state.arc2
+    val nextPinned =
+      if (unlockAll) CaseExhibit.entries.toSet()
+      else setOf(CaseExhibit.WATER_STAINED_PETITION)
+    val nextWired = if (unlockAll) desk.wiredPairs else emptySet()
+    val nextDesk = desk.copy(pinnedExhibits = nextPinned, wiredPairs = nextWired)
+    return OrganGameEngine.finalizeExternalTransition(state.copy(arc2 = nextDesk), catalog)
+  }
+
+  fun toggleArc2Lamp(state: OrganGameState, catalog: DialogueCatalog): OrganGameState {
+    val desk = state.arc2
+    val nextLampOn = !desk.lampOn
+    val nextDesk =
+      desk.copy(
+        lampOn = nextLampOn,
+        lampToggleCount = desk.lampToggleCount + 1,
+        lampOffCount = if (!nextLampOn) desk.lampOffCount + 1 else desk.lampOffCount,
+      )
+    return OrganGameEngine.finalizeExternalTransition(state.copy(arc2 = nextDesk), catalog)
+  }
+
+  fun resetArc2(state: OrganGameState, catalog: DialogueCatalog): OrganGameState =
+    OrganGameEngine.finalizeExternalTransition(state.copy(arc2 = Arc2DeskState()), catalog)
 
   fun spawnWallAnomaly(state: OrganGameState): OrganGameState =
     OrganGameEngine.spawnImmediateWallAnomaly(state, allowOverflow = true)
 
   fun spawnDeskAnomaly(state: OrganGameState): OrganGameState =
-    state.copy(arc2 = Arc2InvestigatorEngine.spawnImmediateAnomaly(state.arc2))
+    state.copy(arc2 = Arc2InvestigatorEngine.spawnImmediateDeskAnomaly(state.arc2))
 
   fun resetAll(catalog: DialogueCatalog): OrganGameState = OrganGameEngine.initialState(catalog)
 }

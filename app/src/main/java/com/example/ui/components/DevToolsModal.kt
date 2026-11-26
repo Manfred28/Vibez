@@ -56,9 +56,12 @@ fun DevToolsModal(
   onAssignArc2Resources: (
     leads: Double?,
     silence: Double?,
-    complicity: Float?,
+    caseAngle: Int?,
     completedChapters: Int?,
   ) -> Unit,
+  onSetArc2AllExhibits: (Boolean) -> Unit = {},
+  onToggleArc2Lamp: () -> Unit = {},
+  onResetArc2: () -> Unit = {},
   onSpawnDeskAnomaly: () -> Unit,
   onAdvanceTime: (Double) -> Unit,
   onResetAll: () -> Unit,
@@ -280,8 +283,8 @@ fun DevToolsModal(
 
           HorizontalDivider(color = atmosphere.hairline)
 
-          // 4. Arc 2 Resources & Chapters
-          DevSectionHeader("ARC 2 RESOURCES & CHAPTERS (CH ${state.arc2.completedChapters}/4)")
+          // 4. Arc 2 Resources, Case Angles & Exhibits
+          DevSectionHeader("ARC 2 DESK (CASE ${state.arc2.caseAngle}/5 · ${if (state.arc2.lampOn) "LAMP ON" else "LAMP OFF"})")
           Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(6.dp),
@@ -322,12 +325,12 @@ fun DevToolsModal(
               modifier = Modifier.weight(1f),
             )
             DevChip(
-              label = "+250K LEADS & 300 SIL",
+              label = "+100M LEADS & 15K SIL",
               selected = false,
               testTag = "dev_boost_arc2_button",
               onClick = {
-                val l = state.arc2.leads + 250_000.0
-                val s = state.arc2.silence + 300.0
+                val l = state.arc2.leads + 100_000_000.0
+                val s = state.arc2.silence + 15_000.0
                 leadsInput = l.toLong().toString()
                 silenceInput = s.toLong().toString()
                 onAssignArc2Resources(l, s, null, null)
@@ -339,17 +342,48 @@ fun DevToolsModal(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(4.dp),
           ) {
-            (0..4).forEach { ch ->
+            (1..5).forEach { c ->
               DevChip(
-                label = "CH$ch",
-                selected = state.arc2.completedChapters == ch,
-                testTag = "dev_chapter_$ch",
-                onClick = {
-                  onAssignArc2Resources(null, null, (0.1f + ch * 0.225f).coerceAtMost(1f), ch)
-                },
+                label = "C$c",
+                selected = state.arc2.caseAngle == c && !state.arc2.fileZeroRevealed,
+                testTag = "dev_case_$c",
+                onClick = { onAssignArc2Resources(null, null, c, c - 1) },
                 modifier = Modifier.weight(1f),
               )
             }
+            DevChip(
+              label = "F#00",
+              selected = state.arc2.fileZeroRevealed,
+              testTag = "dev_chapter_4",
+              onClick = { onAssignArc2Resources(null, null, 5, 5) },
+              modifier = Modifier.weight(1f),
+            )
+          }
+          Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+          ) {
+            DevChip(
+              label = if (state.arc2.lampOn) "LAMP → OFF" else "LAMP → ON",
+              selected = !state.arc2.lampOn,
+              testTag = "dev_toggle_lamp",
+              onClick = onToggleArc2Lamp,
+              modifier = Modifier.weight(1f),
+            )
+            DevChip(
+              label = "ALL EXHIBITS",
+              selected = state.arc2.pinnedExhibits.size >= 10,
+              testTag = "dev_unlock_exhibits",
+              onClick = { onSetArc2AllExhibits(true) },
+              modifier = Modifier.weight(1f),
+            )
+            DevChip(
+              label = "RESET ARC 2",
+              selected = false,
+              testTag = "dev_reset_arc2",
+              onClick = onResetArc2,
+              modifier = Modifier.weight(1f),
+            )
           }
           Row(
             modifier = Modifier.fillMaxWidth(),

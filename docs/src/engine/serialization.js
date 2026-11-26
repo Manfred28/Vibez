@@ -1,47 +1,161 @@
 /**
- * Save-file serialization & versioned migration (v1 -> v2 compatible, with dedicated Arc 2 codec seam).
+ * Save-file serialization & versioned migration (v1 -> v2 -> v3 compatible, with dedicated Arc 2
+ * Slow Boil codec seam preserving Arc 1 state untouched).
  */
 
-import { GAME_ARCS, ORGAN_BALANCE, REPEATABLE_SCAR_GRAFTS } from './constants.js?v=3.12';
-import { ARC2_BALANCE, initialArc2State } from './arc2Models.js?v=3.12';
-import { finalizeProgression, initialState } from './progression.js?v=3.12';
+import { GAME_ARCS, ORGAN_BALANCE, REPEATABLE_SCAR_GRAFTS } from './constants.js?v=3.13';
+import {
+  ARC2_BALANCE,
+  AUDIT_REDACTIONS,
+  CASE_EXHIBITS,
+  CORROBORATIONS,
+  DESK_ANOMALY_TYPES,
+  canonicalPairKey,
+  initialArc2State,
+} from './arc2Models.js?v=3.13';
+import { finalizeProgression, initialState } from './progression.js?v=3.13';
+
+const VALID_EXHIBIT_IDS = new Set(CASE_EXHIBITS.map((e) => e.id));
+const VALID_CORR_IDS = new Set(CORROBORATIONS.map((c) => c.id));
+const VALID_REDACTION_IDS = new Set(AUDIT_REDACTIONS.map((r) => r.id));
+const VALID_ANOMALY_IDS = new Set(Object.values(DESK_ANOMALY_TYPES).map((t) => t.id));
+
+function normalizeAnomalyTypeId(rawId) {
+  if (rawId === 'red_string') return DESK_ANOMALY_TYPES.ENAMEL_EXHIBIT.id;
+  return VALID_ANOMALY_IDS.has(rawId) ? rawId : null;
+}
 
 export function encodeArc2State(arc2) {
   return arc2;
 }
 
-export function decodeArc2State(rawArc2) {
+export function decodeArc2State(rawArc2, schemaVersion = 3) {
   const src = rawArc2 && typeof rawArc2 === 'object' ? rawArc2 : {};
+  const isV3 = schemaVersion >= 3 || src.caseAngle != null || Array.isArray(src.pinnedExhibits);
+
+  let caseAngle;
+  let completedCasePivots;
+  let pinnedExhibits;
+  let fileZeroRevealed = Boolean(src.fileZeroRevealed);
+
+  if (isV3) {
+    completedCasePivots = Math.max(0, Math.min(5, Math.floor(Number(src.completedCasePivots) || 0)));
+    caseAngle = Math.max(1, Math.min(5, Math.floor(Number(src.caseAngle) || 1)));
+    const rawPinned = Array.isArray(src.pinnedExhibits) ? src.pinnedExhibits : [];
+    const set = new Set(['water_stained_petition']);
+    for (const id of rawPinned) {
+      if (VALID_EXHIBIT_IDS.has(id)) set.add(id);
+    }
+    pinnedExhibits = Array.from(set);
+  } else {
+    // v2 -> v3 migration preserving investigator progress cleanly
+    const legacyChapters = Math.max(0, Math.min(4, Math.floor(Number(src.completedChapters) || 0)));
+    completedCasePivots = legacyChapters >= 4 ? 5 : legacyChapters;
+    caseAngle = Math.min(5, legacyChapters + 1);
+    fileZeroRevealed = fileZeroRevealed || legacyChapters >= 4;
+
+    const set = new Set(['water_stained_petition']);
+    if (legacyChapters >= 1) set.add('tax_plat_1998');
+    if (legacyChapters >= 2) set.add('second_chair_polaroid');
+    if (legacyChapters >= 3) set.add('reel_four_waveform');
+    if (legacyChapters >= 4) set.add('drainage_loop_blueprint');
+
+    const legacyDeds = Array.isArray(src.ownedDeductions) ? src.ownedDeductions : [];
+    if (legacyDeds.includes('hydro_ward_invoices')) set.add('unlisted_pay_stub');
+    if (legacyDeds.includes('missing_caretaker_roster')) set.add('inside_condensation_swab');
+    if (legacyDeds.includes('mortar_sample_match')) set.add('tuesday_statement_copy');
+    pinnedExhibits = Array.from(set);
+  }
+
+  const wiredPairs = [];
+  if (Array.isArray(src.wiredPairs)) {
+    const seen = new Set();
+    for (const rawKey of src.wiredPairs) {
+      if (typeof rawKey !== 'string') continue;
+      const parts = rawKey.split('|');
+      if (parts.length !== 2) continue;
+      if (!VALID_EXHIBIT_IDS.has(parts[0]) || !VALID_EXHIBIT_IDS.has(parts[1])) continue;
+      const key = canonicalPairKey(parts[0], parts[1]);
+      if (key && !seen.has(key)) {
+        seen.add(key);
+        wiredPairs.push(key);
+      }
+    }
+  }
+
+  const discoveredCorroborations = Array.isArray(src.discoveredCorroborations)
+    ? Array.from(new Set(src.discoveredCorroborations.filter((id) => VALID_CORR_IDS.has(id))))
+    : [];
+
+  const dissolvedRedactions = Array.isArray(src.dissolvedRedactions)
+    ? Array.from(new Set(src.dissolvedRedactions.filter((id) => VALID_REDACTION_IDS.has(id))))
+    : [];
+
+  const activeDeskAnomalies = Array.isArray(src.activeDeskAnomalies)
+    ? src.activeDeskAnomalies
+        .map((a) => {
+          const type = normalizeAnomalyTypeId(a?.type);
+          if (!type) return null;
+          return {
+            id: Math.max(1, Math.floor(Number(a.id) || 1)),
+            type,
+            xFraction: Math.max(0.04, Math.min(0.95, Number(a.xFraction) || 0.16)),
+            yFraction: Math.max(0.15, Math.min(0.88, Number(a.yFraction) || 0.32)),
+            remainingSeconds: Math.max(
+              1.0,
+              Number(a.remainingSeconds) || ARC2_BALANCE.DESK_ANOMALY_LIFETIME_SEC,
+            ),
+          };
+        })
+        .filter(Boolean)
+    : [];
+
+  const deskAnomalyInteractions = {};
+  if (src.deskAnomalyInteractions && typeof src.deskAnomalyInteractions === 'object') {
+    for (const [rawKey, rawVal] of Object.entries(src.deskAnomalyInteractions)) {
+      const normalized = normalizeAnomalyTypeId(rawKey);
+      const count = Math.max(0, Math.floor(Number(rawVal) || 0));
+      if (normalized && count > 0) {
+        deskAnomalyInteractions[normalized] = (deskAnomalyInteractions[normalized] ?? 0) + count;
+      }
+    }
+  }
+
   return {
     ...initialArc2State(),
     leads: Math.max(0, Number(src.leads) || 0),
     lifetimeLeads: Math.max(0, Number(src.lifetimeLeads) || 0),
     silence: Math.max(0, Number(src.silence) || 0),
     lifetimeSilence: Math.max(0, Number(src.lifetimeSilence) || 0),
-    complicity: Math.max(0.05, Math.min(1.0, Number(src.complicity) || 0.05)),
+    caseAngle,
+    completedCasePivots,
+    lampOn: src.lampOn != null ? Boolean(src.lampOn) : true,
+    lampToggleCount: Math.max(0, Math.floor(Number(src.lampToggleCount) || 0)),
+    lampOffCount: Math.max(0, Math.floor(Number(src.lampOffCount) || 0)),
+    totalLampOffSeconds: Math.max(0, Number(src.totalLampOffSeconds) || 0),
     contacts: src.contacts && typeof src.contacts === 'object' ? { ...src.contacts } : {},
-    ownedDeductions: Array.isArray(src.ownedDeductions) ? [...src.ownedDeductions] : [],
-    completedChapters: Math.max(0, Math.min(4, Math.floor(Number(src.completedChapters) || 0))),
-    activeDeskAnomalies: Array.isArray(src.activeDeskAnomalies) ? [...src.activeDeskAnomalies] : [],
-    deskAnomalyInteractions:
-      src.deskAnomalyInteractions && typeof src.deskAnomalyInteractions === 'object'
-        ? { ...src.deskAnomalyInteractions }
-        : {},
-    secondsSinceLastAction: Math.max(0, Number(src.secondsSinceLastAction) || 0),
-    isSilenceActive: Boolean(src.isSilenceActive),
+    pinnedExhibits,
+    wiredPairs,
+    discoveredCorroborations,
+    reelScrubRemainingSeconds: Math.max(0, Number(src.reelScrubRemainingSeconds) || 0),
+    reelScrubCooldownSeconds: Math.max(0, Number(src.reelScrubCooldownSeconds) || 0),
+    reelScrubCount: Math.max(0, Math.floor(Number(src.reelScrubCount) || 0)),
+    dissolvedRedactions,
+    activeDeskAnomalies,
+    deskAnomalyInteractions,
     focusRemainingSeconds: Math.max(0, Number(src.focusRemainingSeconds) || 0),
     secondsUntilNextAnomaly: Math.max(
       0,
       Number(src.secondsUntilNextAnomaly) || ARC2_BALANCE.FIRST_DESK_ANOMALY_DELAY_SEC,
     ),
     nextAnomalyId: Math.max(1, Math.floor(Number(src.nextAnomalyId) || 1)),
-    fileZeroRevealed: Boolean(src.fileZeroRevealed),
+    fileZeroRevealed,
   };
 }
 
 export function serializeState(state) {
   return JSON.stringify({
-    version: 2,
+    version: 3,
     activeArc: state.activeArc,
     ichor: state.ichor,
     cycleLifetimeIchor: state.cycleLifetimeIchor,
@@ -90,6 +204,7 @@ export function deserializeState(rawJson, catalog) {
     const data = JSON.parse(rawJson);
     if (!data || typeof data !== 'object' || typeof data.ichor !== 'number') return null;
 
+    const schemaVersion = Math.max(1, Math.floor(Number(data.version) || 1));
     const entryMap = new Map((catalog?.entries ?? []).map((e) => [e.id, e]));
     const discovered = (Array.isArray(data.discoveredDialogueIds) ? data.discoveredDialogueIds : [])
       .map((id) => entryMap.get(id))
@@ -108,7 +223,7 @@ export function deserializeState(rawJson, catalog) {
         ? Math.max(0, Math.floor(Number(data.availableScarTissue) || 0))
         : scarLifetime;
 
-    const arc2 = decodeArc2State(data.arc2);
+    const arc2 = decodeArc2State(data.arc2, schemaVersion);
 
     const validArc = Object.values(GAME_ARCS).includes(data.activeArc)
       ? data.activeArc

@@ -11,7 +11,8 @@ import com.example.data.DialogueCatalog
 import com.example.data.DialogueRepository
 import com.example.data.OrganSaveRepository
 import com.example.game.Arc2InvestigatorEngine
-import com.example.game.CaseDeduction
+import com.example.game.AuditRedaction
+import com.example.game.CaseExhibit
 import com.example.game.CreatureType
 import com.example.game.CultDossierLine
 import com.example.game.GameArc
@@ -240,13 +241,23 @@ class OrganViewModel(
   // --- Arc 2 Investigator Actions ---
   val investigatorActions: InvestigatorActions =
     InvestigatorActions(
+      onToggleLamp = ::toggleArc2Lamp,
       onInspectCaseFile = ::inspectCaseFile,
       onRecruitContact = ::recruitContact,
-      onPinDeduction = ::pinDeduction,
+      onRecruitMaxContact = ::recruitMaxContact,
+      onUnlockExhibit = ::unlockExhibit,
+      onToggleExhibitPair = ::toggleExhibitPair,
+      onTriggerReelScrub = ::triggerReelScrub,
+      onDissolveRedaction = ::dissolveRedaction,
       onInteractDeskAnomaly = ::interactDeskAnomaly,
-      onConnectNextChapter = ::connectNextChapter,
+      onPivotNextCase = ::pivotNextCase,
       onEnterArc3 = ::enterArc3Convergence,
     )
+
+  fun toggleArc2Lamp() =
+    mutate(actionHint = SoundActionHint.ARC2_LAMP_TOGGLE) {
+      Arc2InvestigatorEngine.toggleLamp(it, catalog)
+    }
 
   fun inspectCaseFile() =
     mutate(persistImmediately = false, actionHint = SoundActionHint.ARC2_STAMP) {
@@ -258,9 +269,29 @@ class OrganViewModel(
       Arc2InvestigatorEngine.recruitContact(it, contact, catalog)
     }
 
-  fun pinDeduction(deduction: CaseDeduction) =
+  fun recruitMaxContact(contact: InvestigatorContact) =
+    mutate(actionHint = SoundActionHint.ARC2_CONTACT) {
+      Arc2InvestigatorEngine.recruitMaxContact(it, contact, catalog)
+    }
+
+  fun unlockExhibit(exhibit: CaseExhibit) =
     mutate(actionHint = SoundActionHint.ARC2_DEDUCTION) {
-      Arc2InvestigatorEngine.pinDeduction(it, deduction, catalog)
+      Arc2InvestigatorEngine.unlockExhibit(it, exhibit, catalog)
+    }
+
+  fun toggleExhibitPair(a: CaseExhibit, b: CaseExhibit) =
+    mutate(actionHint = SoundActionHint.ARC2_STRING_WIRE) {
+      Arc2InvestigatorEngine.toggleExhibitPair(it, a, b, catalog)
+    }
+
+  fun triggerReelScrub() =
+    mutate(actionHint = SoundActionHint.ARC2_REEL_SCRUB) {
+      Arc2InvestigatorEngine.triggerReelScrub(it, catalog)
+    }
+
+  fun dissolveRedaction(redaction: AuditRedaction) =
+    mutate(actionHint = SoundActionHint.ARC2_REDACTION_DISSOLVE) {
+      Arc2InvestigatorEngine.dissolveRedaction(it, redaction, catalog)
     }
 
   fun interactDeskAnomaly(anomalyId: Long) =
@@ -268,9 +299,9 @@ class OrganViewModel(
       Arc2InvestigatorEngine.interactDeskAnomaly(it, anomalyId, catalog)
     }
 
-  fun connectNextChapter() =
+  fun pivotNextCase() =
     mutate(actionHint = SoundActionHint.ARC2_CHAPTER) {
-      Arc2InvestigatorEngine.connectNextChapter(it, catalog)
+      Arc2InvestigatorEngine.pivotNextCase(it, catalog)
     }
 
   fun enterArc3Convergence() =
@@ -306,11 +337,26 @@ class OrganViewModel(
   fun devAssignArc2Resources(
     leads: Double? = null,
     silence: Double? = null,
-    complicity: Float? = null,
+    caseAngle: Int? = null,
     completedChapters: Int? = null,
   ) = mutate(actionHint = SoundActionHint.DEV) {
-    OrganDevEngine.assignArc2Resources(it, leads, silence, complicity, completedChapters, catalog)
+    OrganDevEngine.assignArc2Resources(it, leads, silence, caseAngle, completedChapters, catalog)
   }
+
+  fun devSetArc2AllExhibits(unlockAll: Boolean) =
+    mutate(actionHint = SoundActionHint.DEV) {
+      OrganDevEngine.setArc2AllExhibits(it, unlockAll, catalog)
+    }
+
+  fun devToggleArc2Lamp() =
+    mutate(actionHint = SoundActionHint.DEV) {
+      OrganDevEngine.toggleArc2Lamp(it, catalog)
+    }
+
+  fun devResetArc2() =
+    mutate(actionHint = SoundActionHint.DEV) {
+      OrganDevEngine.resetArc2(it, catalog)
+    }
 
   fun devSpawnDeskAnomaly() =
     mutate(actionHint = SoundActionHint.DEV) { OrganDevEngine.spawnDeskAnomaly(it) }

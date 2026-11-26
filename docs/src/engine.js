@@ -6,18 +6,18 @@
  * `tick(state, deltaSeconds, catalog)` across Arc 1, Arc 2, and Arc 3.
  */
 
-import { GAME_ARCS } from './engine/constants.js?v=3.12';
-import { tickArc1 } from './engine/arc1Engine.js?v=3.12';
-import { tickArc2 } from './engine/arc2Engine.js?v=3.12';
+import { GAME_ARCS } from './engine/constants.js?v=3.13';
+import { tickArc1 } from './engine/arc1Engine.js?v=3.13';
+import { tickArc2 } from './engine/arc2Engine.js?v=3.13';
 
-export * from './engine/constants.js?v=3.12';
-export * from './engine/arc2Models.js?v=3.12';
-export * from './engine/arc1Math.js?v=3.12';
-export * from './engine/progression.js?v=3.12';
-export * from './engine/arc1Engine.js?v=3.12';
-export * from './engine/arc2Engine.js?v=3.12';
-export * from './engine/devEngine.js?v=3.12';
-export * from './engine/serialization.js?v=3.12';
+export * from './engine/constants.js?v=3.13';
+export * from './engine/arc2Models.js?v=3.13';
+export * from './engine/arc1Math.js?v=3.13';
+export * from './engine/progression.js?v=3.13';
+export * from './engine/arc1Engine.js?v=3.13';
+export * from './engine/arc2Engine.js?v=3.13';
+export * from './engine/devEngine.js?v=3.13';
+export * from './engine/serialization.js?v=3.13';
 
 export function tick(state, deltaSeconds, catalog) {
   if (deltaSeconds <= 0.0) return state;

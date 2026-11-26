@@ -4,7 +4,7 @@
  * under `./ui/` while preserving the exact public export surface.
  */
 
-import { GAME_ARCS } from './engine.js?v=3.12';
+import { GAME_ARCS } from './engine.js?v=3.13';
 import {
   REPEAT_EVENT_DRIP_CHANCE,
   STORY_DRIP_QUEUE_GAP_MS,
@@ -13,7 +13,7 @@ import {
   createDrippingMarginController,
   createStoryDripQueue,
   shouldTriggerEventDrip,
-} from './ui/drippingMargin.js?v=3.12';
+} from './ui/drippingMargin.js?v=3.13';
 import {
   arc1UnlockKeys,
   arc2UnlockKeys,
@@ -21,15 +21,15 @@ import {
   isArc2TabReady,
   shouldAlertArc1Tab,
   shouldAlertArc2Tab,
-} from './ui/tabAlerts.js?v=3.12';
+} from './ui/tabAlerts.js?v=3.13';
 import {
   DEEP_SHELF_JARS,
   FOUNDATIONAL_SHELF_JARS,
   createArc1ChamberUi,
   partitionChamberShelfJars,
-} from './ui/arc1ChamberUi.js?v=3.12';
-import { createArc2InvestigatorUi } from './ui/arc2InvestigatorUi.js?v=3.12';
-import { createSharedChromeUi } from './ui/sharedChromeUi.js?v=3.12';
+} from './ui/arc1ChamberUi.js?v=3.13';
+import { createArc2InvestigatorUi } from './ui/arc2InvestigatorUi.js?v=3.13';
+import { createSharedChromeUi } from './ui/sharedChromeUi.js?v=3.13';
 
 export {
   DEEP_SHELF_JARS,
@@ -83,14 +83,16 @@ export function createUiController(handlers) {
 
     // Arc 2
     arc2Header: document.getElementById('arc2-header'),
-    arc2ComplicityLabel: document.getElementById('arc2-complicity-label'),
-    arc2ComplicityFill: document.getElementById('arc2-complicity-fill'),
+    arc2CaseSubtitle: document.getElementById('arc2-case-subtitle'),
+    arc2CaseProgressFill: document.getElementById('arc2-case-progress-fill'),
     arc2ChapterStatus: document.getElementById('arc2-chapter-status'),
     arc2LeadsRate: document.getElementById('arc2-leads-rate'),
     arc2LeadsValue: document.getElementById('arc2-leads-value'),
     arc2SilenceText: document.getElementById('arc2-silence-text'),
     arc2SilenceBadge: document.getElementById('arc2-silence-badge'),
+    arc2ScrubBadge: document.getElementById('arc2-scrub-badge'),
     arc2FocusBadge: document.getElementById('arc2-focus-badge'),
+    lampToggleBtn: document.getElementById('lamp-toggle-btn'),
     inspectYieldText: document.getElementById('inspect-yield-text'),
     arc2ResidueLayer: document.getElementById('arc2-residue-layer'),
     deskAnomalyLayer: document.getElementById('desk-anomaly-layer'),

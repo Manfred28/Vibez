@@ -22,8 +22,9 @@ interface OrganSaveRepository {
  * Arc 1 and Arc 2 payloads to [Arc1SaveCodec] and [Arc2SaveCodec].
  */
 object OrganStateSerializer {
-  internal const val SCHEMA_VERSION = 2
+  internal const val SCHEMA_VERSION = 3
   internal const val LEGACY_SCHEMA_VERSION = 1
+  internal const val V2_SCHEMA_VERSION = 2
   internal const val FORWARD_SCHEMA_VERSION = 3
 
   fun serialize(state: OrganGameState): String {
@@ -53,9 +54,9 @@ object OrganStateSerializer {
 
   internal fun migrateRootPayload(root: JSONObject, detectedVersion: Int): Pair<JSONObject, Int> =
     when {
-      detectedVersion <= LEGACY_SCHEMA_VERSION -> migrateV1ToV2(root) to SCHEMA_VERSION
-      detectedVersion == SCHEMA_VERSION -> root to SCHEMA_VERSION
-      else -> root to detectedVersion.coerceAtLeast(FORWARD_SCHEMA_VERSION)
+      detectedVersion <= LEGACY_SCHEMA_VERSION -> migrateV1ToV2(root) to V2_SCHEMA_VERSION
+      detectedVersion == V2_SCHEMA_VERSION -> root to V2_SCHEMA_VERSION
+      else -> root to detectedVersion.coerceAtLeast(SCHEMA_VERSION)
     }
 
   private fun migrateV1ToV2(v1Root: JSONObject): JSONObject {

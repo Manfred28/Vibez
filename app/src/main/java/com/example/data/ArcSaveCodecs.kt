@@ -1,7 +1,6 @@
 package com.example.data
 
 import com.example.game.Arc2DeskState
-import com.example.game.CaseDeduction
 import com.example.game.CreatureType
 import com.example.game.CultDossierLine
 import com.example.game.DeskAnomalyType
@@ -204,8 +203,8 @@ internal object Arc1SaveCodec {
 
 /**
  * Isolated Arc 2 (Haunted Investigator Desk) save codec.
- * Accepts [schemaVersion] so future v3 Corkboard/Lamp/Forensic fields route cleanly here without
- * coupling to Arc 1 persistence.
+ * Encodes v3 Corkboard/Lamp/Forensic fields and migrates legacy v2 payloads cleanly without
+ * touching Arc 1 persistence.
  */
 internal object Arc2SaveCodec {
 
@@ -215,17 +214,37 @@ internal object Arc2SaveCodec {
     arc2Obj.put("lifetimeLeads", desk.lifetimeLeads)
     arc2Obj.put("silence", desk.silence)
     arc2Obj.put("lifetimeSilence", desk.lifetimeSilence)
-    arc2Obj.put("complicity", desk.complicity.toDouble())
-    arc2Obj.put("completedChapters", desk.completedChapters)
+    arc2Obj.put("caseAngle", desk.caseAngle)
+    arc2Obj.put("completedCasePivots", desk.completedCasePivots)
+    arc2Obj.put("completedChapters", desk.completedCasePivots)
+    arc2Obj.put("lampOn", desk.lampOn)
+    arc2Obj.put("lampToggleCount", desk.lampToggleCount)
+    arc2Obj.put("lampOffCount", desk.lampOffCount)
+    arc2Obj.put("totalLampOffSeconds", desk.totalLampOffSeconds)
+    arc2Obj.put("reelScrubRemainingSeconds", desk.reelScrubRemainingSeconds)
+    arc2Obj.put("reelScrubCooldownSeconds", desk.reelScrubCooldownSeconds)
+    arc2Obj.put("reelScrubCount", desk.reelScrubCount)
     arc2Obj.put("fileZeroRevealed", desk.fileZeroRevealed)
 
     val contactsObj = JSONObject()
     desk.contacts.forEach { (contact, count) -> contactsObj.put(contact.id, count) }
     arc2Obj.put("contacts", contactsObj)
 
-    val deductionsArr = JSONArray()
-    desk.ownedDeductions.forEach { deductionsArr.put(it.id) }
-    arc2Obj.put("ownedDeductions", deductionsArr)
+    val exhibitsArr = JSONArray()
+    desk.pinnedExhibits.forEach { exhibitsArr.put(it.id) }
+    arc2Obj.put("pinnedExhibits", exhibitsArr)
+
+    val wiredArr = JSONArray()
+    desk.wiredPairs.forEach { wiredArr.put(it.key) }
+    arc2Obj.put("wiredPairs", wiredArr)
+
+    val corrArr = JSONArray()
+    desk.discoveredCorroborations.forEach { corrArr.put(it.id) }
+    arc2Obj.put("discoveredCorroborations", corrArr)
+
+    val redactionsArr = JSONArray()
+    desk.dissolvedRedactions.forEach { redactionsArr.put(it.id) }
+    arc2Obj.put("dissolvedRedactions", redactionsArr)
 
     val deskAnomaliesObj = JSONObject()
     desk.deskAnomalyInteractions.forEach { (type, count) -> deskAnomaliesObj.put(type.id, count) }
@@ -243,42 +262,123 @@ internal object Arc2SaveCodec {
       }
     }
 
-    val deductions = mutableSetOf<CaseDeduction>()
-    arc2Obj.optJSONArray("ownedDeductions")?.let { arr ->
-      for (i in 0 until arr.length()) {
-        CaseDeduction.byId(arr.optString(i))?.let { deductions.add(it) }
-      }
-    }
-
     val deskAnomalies = mutableMapOf<DeskAnomalyType, Int>()
     arc2Obj.optJSONObject("deskAnomalyInteractions")?.let { obj ->
-      DeskAnomalyType.entries.forEach { type ->
-        val count = obj.optInt(type.id, 0)
-        if (count > 0) deskAnomalies[type] = count
+      val keys = obj.keys()
+      while (keys.hasNext()) {
+        val key = keys.next()
+        val type = DeskAnomalyType.byId(key) ?: continue
+        val count = obj.optInt(key, 0)
+        if (count > 0) deskAnomalies[type] = (deskAnomalies[type] ?: 0) + count
       }
     }
 
-    val v2State =
-      Arc2DeskState(
-        leads = arc2Obj.optDouble("leads", 0.0).coerceAtLeast(0.0),
-        lifetimeLeads = arc2Obj.optDouble("lifetimeLeads", 0.0).coerceAtLeast(0.0),
-        silence = arc2Obj.optDouble("silence", 0.0).coerceAtLeast(0.0),
-        lifetimeSilence = arc2Obj.optDouble("lifetimeSilence", 0.0).coerceAtLeast(0.0),
-        complicity = arc2Obj.optDouble("complicity", 0.05).toFloat().coerceIn(0.05f, 1.0f),
-        contacts = contacts,
-        ownedDeductions = deductions,
-        completedChapters = arc2Obj.optInt("completedChapters", 0).coerceIn(0, 4),
-        deskAnomalyInteractions = deskAnomalies,
-        fileZeroRevealed = arc2Obj.optBoolean("fileZeroRevealed", false),
-      )
-    return if (schemaVersion >= 3) {
-      decodeV3Extension(v2State, arc2Obj)
-    } else {
-      v2State
-    }
-  }
+    val leads = arc2Obj.optDouble("leads", 0.0).coerceAtLeast(0.0)
+    val lifetimeLeads = arc2Obj.optDouble("lifetimeLeads", leads).coerceAtLeast(leads)
+    val silence = arc2Obj.optDouble("silence", 0.0).coerceAtLeast(0.0)
+    val lifetimeSilence = arc2Obj.optDouble("lifetimeSilence", silence).coerceAtLeast(silence)
 
-  /** Forward-compatible v3 Arc 2 migration/extension seam (no-op until Arc 2 overhaul lands). */
-  private fun decodeV3Extension(base: Arc2DeskState, @Suppress("UNUSED_PARAMETER") arc2Obj: JSONObject): Arc2DeskState =
-    base
+    if (schemaVersion >= 3 && arc2Obj.has("caseAngle")) {
+      val caseAngle = arc2Obj.optInt("caseAngle", 1).coerceIn(1, 5)
+      val pivots = arc2Obj.optInt("completedCasePivots", (caseAngle - 1).coerceAtLeast(0)).coerceIn(0, 5)
+      val fileZero = arc2Obj.optBoolean("fileZeroRevealed", false) || pivots >= 5
+
+      val pinned = mutableSetOf(com.example.game.CaseExhibit.WATER_STAINED_PETITION)
+      arc2Obj.optJSONArray("pinnedExhibits")?.let { arr ->
+        for (i in 0 until arr.length()) {
+          com.example.game.CaseExhibit.byId(arr.optString(i))?.let { pinned.add(it) }
+        }
+      }
+      // Guarantee keystones earned by pivots are always pinned
+      com.example.game.CaseAngle.entries.forEach { angle ->
+        if (pivots >= angle.number && angle.keystoneReward != null) {
+          pinned.add(angle.keystoneReward)
+        }
+      }
+
+      val maxSpools = (1 + pivots).coerceIn(1, 5)
+      val wired = mutableSetOf<com.example.game.ExhibitPair>()
+      arc2Obj.optJSONArray("wiredPairs")?.let { arr ->
+        for (i in 0 until arr.length()) {
+          if (wired.size >= maxSpools) break
+          val pair = com.example.game.ExhibitPair.parse(arr.optString(i)) ?: continue
+          if (pair.first in pinned && pair.second in pinned) wired.add(pair)
+        }
+      }
+
+      val discoveredCorr = mutableSetOf<com.example.game.CorroborationId>()
+      arc2Obj.optJSONArray("discoveredCorroborations")?.let { arr ->
+        for (i in 0 until arr.length()) {
+          com.example.game.CorroborationId.byId(arr.optString(i))?.let { discoveredCorr.add(it) }
+        }
+      }
+      wired.mapNotNull { com.example.game.CorroborationId.matchPair(it) }.forEach { discoveredCorr.add(it) }
+
+      val redactions = mutableSetOf<com.example.game.AuditRedaction>()
+      arc2Obj.optJSONArray("dissolvedRedactions")?.let { arr ->
+        for (i in 0 until arr.length()) {
+          com.example.game.AuditRedaction.byId(arr.optString(i))?.let { redactions.add(it) }
+        }
+      }
+
+      return Arc2DeskState(
+        leads = leads,
+        lifetimeLeads = lifetimeLeads,
+        silence = silence,
+        lifetimeSilence = lifetimeSilence,
+        caseAngle = caseAngle,
+        completedCasePivots = pivots,
+        lampOn = arc2Obj.optBoolean("lampOn", true),
+        lampToggleCount = arc2Obj.optInt("lampToggleCount", 0).coerceAtLeast(0),
+        lampOffCount = arc2Obj.optInt("lampOffCount", 0).coerceAtLeast(0),
+        totalLampOffSeconds = arc2Obj.optDouble("totalLampOffSeconds", 0.0).coerceAtLeast(0.0),
+        contacts = contacts,
+        pinnedExhibits = pinned,
+        wiredPairs = wired,
+        discoveredCorroborations = discoveredCorr,
+        reelScrubRemainingSeconds = arc2Obj.optDouble("reelScrubRemainingSeconds", 0.0).coerceAtLeast(0.0),
+        reelScrubCooldownSeconds = arc2Obj.optDouble("reelScrubCooldownSeconds", 0.0).coerceAtLeast(0.0),
+        reelScrubCount = arc2Obj.optInt("reelScrubCount", 0).coerceAtLeast(0),
+        dissolvedRedactions = redactions,
+        deskAnomalyInteractions = deskAnomalies,
+        fileZeroRevealed = fileZero,
+      )
+    }
+
+    // Legacy v2 -> v3 migration: preserve progress gracefully without wiping player effort
+    val legacyChapters = arc2Obj.optInt("completedChapters", 0).coerceIn(0, 4)
+    val legacyFileZero = arc2Obj.optBoolean("fileZeroRevealed", false) || legacyChapters >= 4
+    val migratedPivots = if (legacyFileZero) 5 else legacyChapters
+    val migratedAngle = (legacyChapters + 1).coerceIn(1, 5)
+    val migratedExhibits = mutableSetOf(com.example.game.CaseExhibit.WATER_STAINED_PETITION)
+    com.example.game.CaseAngle.entries.forEach { angle ->
+      if (migratedPivots >= angle.number && angle.keystoneReward != null) {
+        migratedExhibits.add(angle.keystoneReward)
+      }
+    }
+    // Map legacy ownedDeductions to equivalent Silence-unlocked Exhibits
+    arc2Obj.optJSONArray("ownedDeductions")?.let { arr ->
+      for (i in 0 until arr.length()) {
+        when (arr.optString(i)) {
+          "hydro_ward_invoices" -> migratedExhibits.add(com.example.game.CaseExhibit.UNLISTED_PAY_STUB)
+          "missing_caretaker_roster" -> migratedExhibits.add(com.example.game.CaseExhibit.INSIDE_CONDENSATION_SWAB)
+          "mortar_sample_match" -> migratedExhibits.add(com.example.game.CaseExhibit.TUESDAY_STATEMENT_COPY)
+        }
+      }
+    }
+
+    return Arc2DeskState(
+      leads = leads,
+      lifetimeLeads = lifetimeLeads,
+      silence = silence,
+      lifetimeSilence = lifetimeSilence,
+      caseAngle = migratedAngle,
+      completedCasePivots = migratedPivots,
+      lampOn = true,
+      contacts = contacts,
+      pinnedExhibits = migratedExhibits,
+      deskAnomalyInteractions = deskAnomalies,
+      fileZeroRevealed = legacyFileZero,
+    )
+  }
 }

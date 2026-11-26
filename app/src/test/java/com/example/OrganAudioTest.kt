@@ -14,7 +14,9 @@ import com.example.data.DialogueTrigger
 import com.example.game.ActiveDeskAnomaly
 import com.example.game.ActiveWallAnomaly
 import com.example.game.Arc2InvestigatorEngine
-import com.example.game.CaseDeduction
+import com.example.game.AuditRedaction
+import com.example.game.CaseExhibit
+import com.example.game.CorroborationId
 import com.example.game.CreatureType
 import com.example.game.CultDossierLine
 import com.example.game.DeskAnomalyType
@@ -275,11 +277,14 @@ class OrganAudioTest {
           activeArc = GameArc.ARC_2_INVESTIGATION,
           arc2 =
             initial.arc2.copy(
-              leads = 250_000.0,
-              lifetimeLeads = 250_000.0,
-              silence = 300.0,
+              leads = 90_000_000.0,
+              lifetimeLeads = 90_000_000.0,
+              silence = 20_000.0,
+              lifetimeSilence = 20_000.0,
+              caseAngle = 1,
+              lampOn = true,
               activeDeskAnomalies =
-                listOf(ActiveDeskAnomaly(5L, DeskAnomalyType.EVIDENCE_ENVELOPE, 0.5f, 0.5f)),
+                listOf(ActiveDeskAnomaly(5L, DeskAnomalyType.EVIDENCE_ENVELOPE, 0.5f, 0.5f, 14.0)),
             ),
         )
       }
@@ -288,6 +293,12 @@ class OrganAudioTest {
     assertEquals(
       listOf(SoundCue.ARC2_STAMP),
       SoundCueResolver.resolveTransitionCues(arc2Base, stamped, SoundActionHint.ARC2_STAMP),
+    )
+
+    val lampOff = Arc2InvestigatorEngine.toggleLamp(arc2Base, DialogueCatalog.Empty)
+    assertEquals(
+      listOf(SoundCue.ARC2_LAMP_TOGGLE),
+      SoundCueResolver.resolveTransitionCues(arc2Base, lampOff, SoundActionHint.ARC2_LAMP_TOGGLE),
     )
 
     val contacted =
@@ -301,15 +312,52 @@ class OrganAudioTest {
       SoundCueResolver.resolveTransitionCues(arc2Base, contacted, SoundActionHint.ARC2_CONTACT),
     )
 
-    val deduced =
-      Arc2InvestigatorEngine.pinDeduction(
+    val unlockedExhibit =
+      Arc2InvestigatorEngine.unlockExhibit(
         arc2Base,
-        CaseDeduction.HYDRO_WARD_INVOICES,
+        CaseExhibit.UNLISTED_PAY_STUB,
         DialogueCatalog.Empty,
       )
     assertEquals(
       listOf(SoundCue.ARC2_DEDUCTION),
-      SoundCueResolver.resolveTransitionCues(arc2Base, deduced, SoundActionHint.ARC2_DEDUCTION),
+      SoundCueResolver.resolveTransitionCues(arc2Base, unlockedExhibit, SoundActionHint.ARC2_DEDUCTION),
+    )
+
+    val wired =
+      Arc2InvestigatorEngine.toggleExhibitPair(
+        unlockedExhibit,
+        CaseExhibit.WATER_STAINED_PETITION,
+        CaseExhibit.UNLISTED_PAY_STUB,
+        DialogueCatalog.Empty,
+      )
+    assertEquals(
+      listOf(SoundCue.ARC2_STRING_WIRE),
+      SoundCueResolver.resolveTransitionCues(unlockedExhibit, wired, SoundActionHint.ARC2_STRING_WIRE),
+    )
+
+    val case4Dark =
+      wired.copy(
+        arc2 = wired.arc2.copy(caseAngle = 4, completedCasePivots = 3, lampOn = false),
+      )
+    val scrubbed = Arc2InvestigatorEngine.triggerReelScrub(case4Dark, DialogueCatalog.Empty)
+    assertEquals(
+      listOf(SoundCue.ARC2_REEL_SCRUB),
+      SoundCueResolver.resolveTransitionCues(case4Dark, scrubbed, SoundActionHint.ARC2_REEL_SCRUB),
+    )
+
+    val dissolved =
+      Arc2InvestigatorEngine.dissolveRedaction(
+        scrubbed,
+        AuditRedaction.CLAUSE_SEEPAGE,
+        DialogueCatalog.Empty,
+      )
+    assertEquals(
+      listOf(SoundCue.ARC2_REDACTION_DISSOLVE),
+      SoundCueResolver.resolveTransitionCues(
+        scrubbed,
+        dissolved,
+        SoundActionHint.ARC2_REDACTION_DISSOLVE,
+      ),
     )
 
     val deskAnomaly =
@@ -323,29 +371,39 @@ class OrganAudioTest {
       ),
     )
 
-    // Chapter 1 -> ARC2_CHAPTER; Chapter 4 -> ARC2_FILE_ZERO
-    val ch1 = Arc2InvestigatorEngine.connectNextChapter(arc2Base, DialogueCatalog.Empty)
+    // Case I pivot -> ARC2_CHAPTER; Case V pivot -> ARC2_FILE_ZERO
+    val pivoted = Arc2InvestigatorEngine.pivotNextCase(wired, DialogueCatalog.Empty)
     assertEquals(
       listOf(SoundCue.ARC2_CHAPTER),
-      SoundCueResolver.resolveTransitionCues(arc2Base, ch1, SoundActionHint.ARC2_CHAPTER),
+      SoundCueResolver.resolveTransitionCues(wired, pivoted, SoundActionHint.ARC2_CHAPTER),
     )
-    val ch3Done = arc2Base.copy(arc2 = arc2Base.arc2.copy(completedChapters = 3))
-    val ch4 = Arc2InvestigatorEngine.connectNextChapter(ch3Done, DialogueCatalog.Empty)
+    val case5Ready =
+      arc2Base.copy(
+        arc2 =
+          arc2Base.arc2.copy(
+            caseAngle = 5,
+            completedCasePivots = 4,
+            discoveredCorroborations = CorroborationId.entries.take(5).toSet(),
+            reelScrubCount = 1,
+            dissolvedRedactions = AuditRedaction.entries.toSet(),
+          ),
+      )
+    val fileZero = Arc2InvestigatorEngine.pivotNextCase(case5Ready, DialogueCatalog.Empty)
     assertEquals(
       listOf(SoundCue.ARC2_FILE_ZERO),
-      SoundCueResolver.resolveTransitionCues(ch3Done, ch4, SoundActionHint.ARC2_CHAPTER),
+      SoundCueResolver.resolveTransitionCues(case5Ready, fileZero, SoundActionHint.ARC2_CHAPTER),
     )
 
     // Arc 3 convergence
-    val arc3 = Arc2InvestigatorEngine.enterArc3Convergence(ch4, DialogueCatalog.Empty)
+    val arc3 = Arc2InvestigatorEngine.enterArc3Convergence(fileZero, DialogueCatalog.Empty)
     assertEquals(
       listOf(SoundCue.ARC3_ENTER),
-      SoundCueResolver.resolveTransitionCues(ch4, arc3, SoundActionHint.ARC3_ENTER),
+      SoundCueResolver.resolveTransitionCues(fileZero, arc3, SoundActionHint.ARC3_ENTER),
     )
   }
 
   @Test
-  fun computeAmbientProfile_escalatesAcrossPhasesStillnessClampArc2AndArc3() {
+  fun computeAmbientProfile_escalatesAcrossPhasesStillnessClampArc2SlowBoilAndArc3() {
     val p0 = SoundCueResolver.computeAmbientProfile(OrganGameState(phase = 0))
     val p4 = SoundCueResolver.computeAmbientProfile(OrganGameState(phase = 4))
     val p2Still =
@@ -354,11 +412,26 @@ class OrganAudioTest {
       SoundCueResolver.computeAmbientProfile(OrganGameState(phase = 2, isStillnessActive = false))
     val clamped =
       SoundCueResolver.computeAmbientProfile(OrganGameState(phase = 4, clampRemainingSeconds = 8.0))
-    val arc2 =
+    // Slow-Boil Quarantine: Cases I–III have ZERO fleshDepth and ZERO cardiacPulse
+    val arc2Early =
       SoundCueResolver.computeAmbientProfile(
         OrganGameState(
           activeArc = GameArc.ARC_2_INVESTIGATION,
-          arc2 = OrganGameState().arc2.copy(complicity = 0.8f, isSilenceActive = true),
+          arc2 = OrganGameState().arc2.copy(caseAngle = 2, lampOn = false),
+        )
+      )
+    val arc2Late =
+      SoundCueResolver.computeAmbientProfile(
+        OrganGameState(
+          activeArc = GameArc.ARC_2_INVESTIGATION,
+          arc2 =
+            OrganGameState().arc2.copy(
+              caseAngle = 5,
+              completedCasePivots = 4,
+              lampOn = false,
+              leads = 50_000_000.0,
+              dissolvedRedactions = AuditRedaction.entries.toSet(),
+            ),
         )
       )
     val arc3 =
@@ -371,14 +444,19 @@ class OrganAudioTest {
     assertTrue(p2Still.dripRate > p2Active.dripRate)
     assertTrue(p2Still.humGain < p2Active.humGain)
     assertTrue(clamped.clampTension > 0.8f)
-    assertTrue(arc2.rainMix > 0.7f)
-    assertTrue(arc2.complicityBleed >= 0.8f)
+    assertTrue(arc2Early.rainMix > 0.5f)
+    assertEquals(0f, arc2Early.fleshDepth, 0.0001f)
+    assertEquals(0f, arc2Early.cardiacPulse, 0.0001f)
+    assertTrue(arc2Late.rainMix > 0.7f)
+    assertTrue(arc2Late.fleshDepth > 0f)
+    assertTrue(arc2Late.cardiacPulse > 0f)
+    assertTrue(arc2Late.complicityBleed >= 0.8f)
     assertTrue(arc3.rainMix > 0.3f && arc3.fleshDepth > 0.2f)
   }
 
   @Test
   fun proceduralFoleySynth_synthesizesNonSilentBoundedPcmForEveryCueAndAmbientBed() {
-    assertEquals(29, SoundCue.entries.size)
+    assertEquals(33, SoundCue.entries.size)
     // Grafting should be a long, fleshy ~0.94s ritual (significantly longer than quick valve taps)
     val graftPcm = ProceduralFoleySynth.synthesizeCue(SoundCue.GRAFT_PERFORM, phase = 3)
     val valvePcm = ProceduralFoleySynth.synthesizeCue(SoundCue.VALVE_PRESS, phase = 0)
@@ -573,7 +651,7 @@ class OrganAudioTest {
     }
 
     assertEquals(22, arc1Count)
-    assertEquals(7, arc2Count)
+    assertEquals(11, arc2Count)
     assertEquals(SoundCue.entries.size, arc1Count + arc2Count)
   }
 }

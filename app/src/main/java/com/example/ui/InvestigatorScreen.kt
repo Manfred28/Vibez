@@ -45,23 +45,22 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.R
-import com.example.game.CaseDeduction
-import com.example.game.InvestigationChapter
-import com.example.game.InvestigatorContact
 import com.example.game.InvestigatorDeckTab
 import com.example.game.OrganGameState
 import com.example.ui.components.ArcTopChromeBar
 import com.example.ui.components.DeckTabCell
 import com.example.ui.components.DrippingTransmissionOverlay
 import com.example.ui.components.FragmentArchiveSheet
+import com.example.ui.components.InvestigatorContactsPanel
+import com.example.ui.components.InvestigatorCorkboardPanel
 import com.example.ui.components.InvestigatorDeskCanvas
+import com.example.ui.components.InvestigatorDossierPanel
+import com.example.ui.components.InvestigatorRevisionPanel
 import com.example.ui.components.PinnedLedgerBottomBar
 import com.example.ui.components.TabAlertEvaluator
-import com.example.ui.components.formatCompactDecimal
 import com.example.ui.components.rememberEventDripChannel
 import com.example.ui.theme.BleakTheme
 import java.text.NumberFormat
-import kotlin.math.roundToInt
 import kotlin.random.Random
 
 @Composable
@@ -79,7 +78,29 @@ fun InvestigatorScreen(
   val desk = state.arc2
   val nf = remember { NumberFormat.getIntegerInstance() }
 
+  val visibleTabs =
+    remember(desk.isRevisionTabVisible) {
+      if (desk.isRevisionTabVisible) {
+        listOf(
+          InvestigatorDeckTab.CONTACTS,
+          InvestigatorDeckTab.BOARD,
+          InvestigatorDeckTab.DOSSIER,
+          InvestigatorDeckTab.REVISION,
+        )
+      } else {
+        listOf(
+          InvestigatorDeckTab.CONTACTS,
+          InvestigatorDeckTab.BOARD,
+          InvestigatorDeckTab.DOSSIER,
+        )
+      }
+    }
+
   var selectedTab by remember { mutableStateOf(InvestigatorDeckTab.CONTACTS) }
+  if (selectedTab !in visibleTabs) {
+    selectedTab = InvestigatorDeckTab.CONTACTS
+  }
+
   var seenArc2Keys by remember {
     mutableStateOf(
       mapOf(selectedTab to TabAlertEvaluator.arc2UnlockKeys(state, selectedTab))
@@ -96,7 +117,7 @@ fun InvestigatorScreen(
   val scrollState = rememberScrollState()
   val isFreshReset =
     desk.lifetimeLeads == 0.0 &&
-      desk.completedChapters == 0 &&
+      desk.completedCasePivots == 0 &&
       desk.deskAnomalyInteractions.isEmpty() &&
       state.discoveredDialogues.isEmpty()
   val dripChannel =
@@ -154,12 +175,12 @@ fun InvestigatorScreen(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(12.dp),
       ) {
-        // Precinct Case Header + Shared Top Chrome
+        // Diegetic Case Angle Header (zero clinical meta-labels like ARC 2 or COMPLICITY %)
         Column(modifier = Modifier.fillMaxWidth()) {
           ArcTopChromeBar(
             title =
               if (desk.fileZeroRevealed) stringResource(R.string.arc2_header_file_zero)
-              else stringResource(R.string.arc2_header),
+              else desk.currentCase.title,
             titleStyle = MaterialTheme.typography.labelMedium,
             titleColor = colorScheme.onSurfaceVariant,
             titleTestTag = "arc2_phase_header",
@@ -170,21 +191,16 @@ fun InvestigatorScreen(
           )
           Spacer(modifier = Modifier.height(4.dp))
           Text(
-            text =
-              stringResource(
-                R.string.arc2_complicity_readout,
-                (desk.complicity * 100f).roundToInt(),
-                nf.format(desk.silenceDisplay),
-              ),
-            style = MaterialTheme.typography.labelSmall,
-            color = if (desk.complicity >= 0.7f) colorScheme.tertiary else colorScheme.primary,
-            modifier = Modifier.testTag("arc2_complicity_status"),
+            text = desk.currentCase.subtitle,
+            style = MaterialTheme.typography.bodySmall,
+            color = colorScheme.onSurfaceVariant,
+            modifier = Modifier.testTag("arc2_case_subtitle"),
           )
           Spacer(modifier = Modifier.height(6.dp))
           LinearProgressIndicator(
-            progress = { desk.complicity.coerceIn(0f, 1f) },
+            progress = { desk.caseProgressFraction },
             modifier = Modifier.fillMaxWidth().height(2.dp),
-            color = if (desk.fileZeroRevealed) colorScheme.tertiary else colorScheme.primary,
+            color = if (desk.fileZeroRevealed || desk.canPivotNextCase) colorScheme.tertiary else colorScheme.primary,
             trackColor = atmosphere.hairline,
             drawStopIndicator = {},
           )
@@ -233,13 +249,14 @@ fun InvestigatorScreen(
           state = state,
           breathPhaseProvider = { breathState.value },
           dropPhaseProvider = { dropState.value },
+          onToggleLamp = actions.onToggleLamp,
           onInspectCaseFile = actions.onInspectCaseFile,
           onInteractDeskAnomaly = actions.onInteractDeskAnomaly,
           onEmitThematicDrip = dripChannel::emit,
-          modifier = Modifier.height(276.dp),
+          modifier = Modifier.height(286.dp),
         )
 
-        // Lower Investigation Deck
+        // Lower 4-Tab Investigation Deck
         Surface(
           modifier = Modifier.fillMaxWidth().testTag("investigator_deck"),
           shape = MaterialTheme.shapes.small,
@@ -248,13 +265,14 @@ fun InvestigatorScreen(
         ) {
           Column(modifier = Modifier.fillMaxWidth()) {
             Row(modifier = Modifier.fillMaxWidth()) {
-              InvestigatorDeckTab.entries.forEach { tab ->
+              visibleTabs.forEach { tab ->
                 val selected = tab == selectedTab
                 val label =
                   when (tab) {
                     InvestigatorDeckTab.CONTACTS -> stringResource(R.string.arc2_tab_contacts)
-                    InvestigatorDeckTab.DEDUCTIONS -> stringResource(R.string.arc2_tab_deductions)
-                    InvestigatorDeckTab.EVIDENCE_BOARD -> stringResource(R.string.arc2_tab_board)
+                    InvestigatorDeckTab.BOARD -> stringResource(R.string.arc2_tab_board)
+                    InvestigatorDeckTab.DOSSIER -> stringResource(R.string.arc2_tab_dossier)
+                    InvestigatorDeckTab.REVISION -> stringResource(R.string.arc2_tab_revision)
                   }
                 val isAlerting =
                   TabAlertEvaluator.shouldAlertArc2Tab(
@@ -267,7 +285,7 @@ fun InvestigatorScreen(
                   label = label,
                   isSelected = selected,
                   isAlerting = isAlerting,
-                  isExcisionAccent = false,
+                  isExcisionAccent = tab == InvestigatorDeckTab.REVISION,
                   tabTestTag = "arc2_tab_${tab.name.lowercase()}",
                   alertPipTestTag = "arc2_tab_alert_${tab.name.lowercase()}",
                   onClick = {
@@ -286,111 +304,17 @@ fun InvestigatorScreen(
               verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
               when (selectedTab) {
-                InvestigatorDeckTab.CONTACTS -> {
-                  InvestigatorContact.entries.forEach { contact ->
-                    val count = desk.contactCount(contact)
-                    val cost = desk.contactCost(contact)
-                    val canAfford = desk.leads >= cost.toDouble()
-                    val title =
-                      when (contact) {
-                        InvestigatorContact.NIGHT_ARCHIVIST ->
-                          stringResource(R.string.arc2_contact_archivist)
-                        InvestigatorContact.BRIBED_ORDERLY ->
-                          stringResource(R.string.arc2_contact_orderly)
-                        InvestigatorContact.MICROFILM_SCANNER ->
-                          stringResource(R.string.arc2_contact_scanner)
-                        InvestigatorContact.AUDIO_TRANSCRIBER ->
-                          stringResource(R.string.arc2_contact_transcriber)
-                      }
-                    val desc =
-                      when (contact) {
-                        InvestigatorContact.NIGHT_ARCHIVIST ->
-                          stringResource(R.string.arc2_contact_archivist_desc)
-                        InvestigatorContact.BRIBED_ORDERLY ->
-                          stringResource(R.string.arc2_contact_orderly_desc)
-                        InvestigatorContact.MICROFILM_SCANNER ->
-                          stringResource(R.string.arc2_contact_scanner_desc)
-                        InvestigatorContact.AUDIO_TRANSCRIBER ->
-                          stringResource(R.string.arc2_contact_transcriber_desc)
-                      }
-                    val each = formatCompactDecimal(desk.effectiveContactLeadsPerSec(contact))
-                    InvestigatorActionRow(
-                      title = "$title [$count]",
-                      subtitle = "$desc · +$each/s",
-                      actionLabel = "${nf.format(cost)} LEADS",
-                      enabled = canAfford,
-                      accent = false,
-                      testTag = "recruit_${contact.id}",
-                      onClick = { actions.onRecruitContact(contact) },
-                    )
-                  }
-                }
-                InvestigatorDeckTab.DEDUCTIONS -> {
-                  CaseDeduction.entries.forEach { ded ->
-                    val owned = ded in desk.ownedDeductions
-                    val canAfford = !owned && desk.silence >= ded.silenceCost
-                    val title =
-                      when (ded) {
-                        CaseDeduction.HYDRO_WARD_INVOICES ->
-                          stringResource(R.string.arc2_deduction_invoices)
-                        CaseDeduction.MISSING_CARETAKER_ROSTER ->
-                          stringResource(R.string.arc2_deduction_roster)
-                        CaseDeduction.MORTAR_SAMPLE_MATCH ->
-                          stringResource(R.string.arc2_deduction_mortar)
-                      }
-                    val desc =
-                      when (ded) {
-                        CaseDeduction.HYDRO_WARD_INVOICES ->
-                          stringResource(R.string.arc2_deduction_invoices_desc)
-                        CaseDeduction.MISSING_CARETAKER_ROSTER ->
-                          stringResource(R.string.arc2_deduction_roster_desc)
-                        CaseDeduction.MORTAR_SAMPLE_MATCH ->
-                          stringResource(R.string.arc2_deduction_mortar_desc)
-                      }
-                    InvestigatorActionRow(
-                      title = title,
-                      subtitle = desc,
-                      actionLabel =
-                        if (owned) stringResource(R.string.jar_sealed_badge)
-                        else "${stringResource(R.string.arc2_pin_action)} · ${ded.silenceCost.toInt()} SIL",
-                      enabled = canAfford,
-                      accent = owned,
-                      testTag = "deduction_${ded.id}",
-                      onClick = { actions.onPinDeduction(ded) },
-                    )
-                  }
-                }
-                InvestigatorDeckTab.EVIDENCE_BOARD -> {
-                  val visibleChapters =
-                    InvestigationChapter.entries.filter { it.number <= desk.completedChapters + 1 }
-                  visibleChapters.forEach { chapter ->
-                    val completed = desk.completedChapters >= chapter.number
-                    val isNext = desk.nextChapter == chapter
-                    val canConnect = isNext && desk.canConnectNextChapter
-                    val chapterTitle =
-                      when (chapter) {
-                        InvestigationChapter.MISSING_CARETAKERS -> "THE MISSING CARETAKERS"
-                        InvestigationChapter.HYDRO_WARD_CULT -> "THE HYDRO-WARD CULT"
-                        InvestigationChapter.BRICK_WORK_BLUEPRINT -> "THE BRICK-WORK BLUEPRINT"
-                        InvestigationChapter.FILE_ZERO_SUBJECT_INTAKE -> "FILE #00: SUBJECT INTAKE"
-                      }
-                    val costStr = buildString {
-                      append("${nf.format(chapter.leadsCost)} LEADS")
-                      if (chapter.silenceCost > 0L) append(" · ${chapter.silenceCost} SILENCE")
-                    }
-                    InvestigatorActionRow(
-                      title = chapterTitle,
-                      subtitle = if (completed) "RED STRING PINNED" else costStr,
-                      actionLabel =
-                        if (completed) stringResource(R.string.arc2_chapter_sealed)
-                        else stringResource(R.string.arc2_chapter_connect),
-                      enabled = canConnect,
-                      accent = completed || isNext,
-                      testTag = "chapter_connect_${chapter.number}",
-                      onClick = actions.onConnectNextChapter,
-                    )
-                  }
-                }
+                InvestigatorDeckTab.CONTACTS ->
+                  InvestigatorContactsPanel(desk = desk, nf = nf, actions = actions)
+                InvestigatorDeckTab.BOARD ->
+                  InvestigatorCorkboardPanel(
+                    desk = desk,
+                    onToggleExhibitPair = actions.onToggleExhibitPair,
+                  )
+                InvestigatorDeckTab.DOSSIER ->
+                  InvestigatorDossierPanel(desk = desk, nf = nf, actions = actions)
+                InvestigatorDeckTab.REVISION ->
+                  InvestigatorRevisionPanel(desk = desk, nf = nf, actions = actions)
               }
             }
           }

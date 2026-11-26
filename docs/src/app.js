@@ -9,6 +9,7 @@
 
 import {
   CREATURE_TYPES,
+  DESK_ANOMALY_TYPES,
   GAME_ARCS,
   WALL_ANOMALY_TYPES,
   activateValveClamp,
@@ -17,17 +18,20 @@ import {
   buyCreature,
   buyMaxCreature,
   buyRepeatableScarGraft,
-  connectNextChapter,
   creatureCount,
   deserializeState,
   devAssignArc1Resources,
   devAssignArc2Resources,
   devResetAll,
+  devResetArc2,
   devSetActiveArc,
   devSetAllScarNodes,
+  devSetArc2AllExhibits,
   devSetHighestMilestone,
   devSpawnDeskAnomaly,
   devSpawnWallAnomaly,
+  devToggleArc2Lamp,
+  dissolveRedaction,
   dredgeSump,
   enterArc3Convergence,
   formatCompactDecimal,
@@ -42,35 +46,40 @@ import {
   performChoirLungGraft,
   performExcision,
   performGraft,
-  pinDeduction,
+  pivotNextCase,
   pressValve,
   recruitContact,
+  recruitMaxContact,
   serializeState,
   setEchoDiversion,
   tick,
   toggleDrainSeal,
+  toggleExhibitPair,
+  toggleLamp,
+  triggerReelScrub,
+  unlockExhibit,
   unlockScarNode,
-} from './engine.js?v=3.12';
+} from './engine.js?v=3.13';
 import {
   drawChamberBackdrop,
   drawForegroundLampsAndSacrifice,
   drawInvestigatorDeskBackdrop,
   drawLeechClerks,
   drawValveAndHands,
-} from './chamberCanvas.js?v=3.12';
-import { createUiController } from './ui.js?v=3.12';
+} from './chamberCanvas.js?v=3.13';
+import { createUiController } from './ui.js?v=3.13';
 import {
   SOUND_ACTION_HINTS,
   computeAmbientProfile,
   createWebAudioEngine,
   resolveTransitionCues,
-} from './audio.js?v=3.12';
+} from './audio.js?v=3.13';
 import {
   ANOMALY_ASSET_URLS,
   DIALOGUES_ASSET_URL,
   JAR_ASSET_URLS,
   WALL_ASSET_URLS,
-} from './version.js?v=3.12';
+} from './version.js?v=3.13';
 
 const SAVE_STORAGE_KEY_V2 = 'unnamed_organ_save_v2';
 const SAVE_STORAGE_KEY_V1 = 'unnamed_organ_save_v1';
@@ -159,6 +168,7 @@ async function main() {
   const valveWheelRotator = document.getElementById('valve-wheel-rotator');
 
   const valveBtn = document.getElementById('valve-button');
+  const lampToggleBtn = document.getElementById('lamp-toggle-btn');
   const inspectCaseBtn = document.getElementById('inspect-case-btn');
   const enterArc3Btn = document.getElementById('enter-arc3-btn');
   const arc3BackDeskBtn = document.getElementById('arc3-back-desk-btn');
@@ -362,24 +372,47 @@ async function main() {
         action: SOUND_ACTION_HINTS.ARC2_CONTACT,
       });
     },
-    onPinDeduction(deductionId) {
-      applyState(pinDeduction(state, deductionId, catalog), {
+    onRecruitMaxContact(contactId) {
+      applyState(recruitMaxContact(state, contactId, catalog), {
+        action: SOUND_ACTION_HINTS.ARC2_CONTACT,
+      });
+    },
+    onUnlockExhibit(exhibitId) {
+      applyState(unlockExhibit(state, exhibitId, catalog), {
         action: SOUND_ACTION_HINTS.ARC2_DEDUCTION,
+      });
+    },
+    onToggleExhibitPair(aId, bId) {
+      applyState(toggleExhibitPair(state, aId, bId, catalog), {
+        action: SOUND_ACTION_HINTS.ARC2_STRING_WIRE,
+      });
+    },
+    onTriggerReelScrub() {
+      applyState(triggerReelScrub(state, catalog), {
+        action: SOUND_ACTION_HINTS.ARC2_REEL_SCRUB,
+      });
+    },
+    onDissolveRedaction(redactionId) {
+      applyState(dissolveRedaction(state, redactionId, catalog), {
+        action: SOUND_ACTION_HINTS.ARC2_REDACTION_DISSOLVE,
       });
     },
     onInteractDeskAnomaly(anomalyId) {
       const anomaly = state.arc2.activeDeskAnomalies.find((a) => a.id === anomalyId);
+      const meta = anomaly
+        ? Object.values(DESK_ANOMALY_TYPES).find((t) => t.id === anomaly.type)
+        : null;
       applyState(interactDeskAnomaly(state, anomalyId, catalog), {
         action: SOUND_ACTION_HINTS.ARC2_DESK_ANOMALY,
       });
       ui.triggerEventDrip(
-        'Another damp slip pinned to the margin.',
+        meta?.dripLine ?? 'Another damp slip pinned to the margin.',
         'CASE DESK',
         `desk_${anomaly?.type ?? 'anomaly'}`,
       );
     },
-    onConnectNextChapter() {
-      applyState(connectNextChapter(state, catalog), { action: SOUND_ACTION_HINTS.ARC2_CHAPTER });
+    onPivotNextCase() {
+      applyState(pivotNextCase(state, catalog), { action: SOUND_ACTION_HINTS.ARC2_CHAPTER });
     },
     onRequestRender() {
       ui.render(state);
@@ -418,6 +451,12 @@ async function main() {
 
   valveBtn.addEventListener('click', triggerValvePress);
   valveBtn.addEventListener('keydown', preventSpaceButtonActivation);
+  if (lampToggleBtn) {
+    lampToggleBtn.addEventListener('click', () => {
+      audio.unlock();
+      applyState(toggleLamp(state, catalog), { action: SOUND_ACTION_HINTS.ARC2_LAMP_TOGGLE });
+    });
+  }
   inspectCaseBtn.addEventListener('click', triggerCaseInspect);
   inspectCaseBtn.addEventListener('keydown', preventSpaceButtonActivation);
   enterArc3Btn.addEventListener('click', () =>
@@ -512,11 +551,35 @@ async function main() {
       applyState(devAssignArc2Resources(state, { leads: Number(btn.dataset.devLeads) }, catalog));
     });
   }
-  for (const btn of devModal.querySelectorAll('[data-dev-ch]')) {
+  for (const btn of devModal.querySelectorAll('[data-dev-case]')) {
     btn.addEventListener('click', () => {
       applyState(
-        devAssignArc2Resources(state, { completedChapters: Number(btn.dataset.devCh) }, catalog),
+        devAssignArc2Resources(state, { caseAngle: Number(btn.dataset.devCase) }, catalog),
       );
+    });
+  }
+  const devFileZeroBtn = document.getElementById('dev-arc2-f0-btn');
+  if (devFileZeroBtn) {
+    devFileZeroBtn.addEventListener('click', () => {
+      applyState(devAssignArc2Resources(state, { completedChapters: 5 }, catalog));
+    });
+  }
+  const devLampBtn = document.getElementById('dev-toggle-lamp-btn');
+  if (devLampBtn) {
+    devLampBtn.addEventListener('click', () => {
+      applyState(devToggleArc2Lamp(state, catalog));
+    });
+  }
+  const devAllExBtn = document.getElementById('dev-all-exhibits-btn');
+  if (devAllExBtn) {
+    devAllExBtn.addEventListener('click', () => {
+      applyState(devSetArc2AllExhibits(state, true, catalog));
+    });
+  }
+  const devResetArc2Btn = document.getElementById('dev-reset-arc2-btn');
+  if (devResetArc2Btn) {
+    devResetArc2Btn.addEventListener('click', () => {
+      applyState(devResetArc2(state, catalog));
     });
   }
   document.getElementById('dev-spawn-wall-btn').addEventListener('click', () => {

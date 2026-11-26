@@ -9,7 +9,9 @@ import com.example.data.PhaseMetadata
 import com.example.game.ActiveWallAnomaly
 import com.example.game.Arc2Balance
 import com.example.game.Arc2InvestigatorEngine
-import com.example.game.CaseDeduction
+import com.example.game.AuditRedaction
+import com.example.game.CaseExhibit
+import com.example.game.CorroborationId
 import com.example.game.CreatureType
 import com.example.game.CultDossierLine
 import com.example.game.DredgedRelic
@@ -190,7 +192,7 @@ class OrganGameEngineTest {
             id = "dlg_arc2_file_zero",
             phase = 5,
             mood = "existential",
-            trigger = DialogueTrigger("case_chapter_completed", 4L),
+            trigger = DialogueTrigger("case_chapter_completed", 5L),
             once = true,
             speaker = "File #00",
             lines = listOf("It is your own signature."),
@@ -895,43 +897,74 @@ class OrganGameEngineTest {
   }
 
   @Test
-  fun arc2InvestigatorEngine_drivesInspectSilenceContactsDeductionsAnomaliesFileZeroAndArc3() {
+  fun arc2InvestigatorEngine_drivesLampCorkboardExhibitsRedactionsPivotsFileZeroAndArc3() {
     val catalog = sampleCatalog()
     var state = OrganDevEngine.setActiveArc(OrganGameEngine.initialState(catalog), GameArc.ARC_2_INVESTIGATION, catalog)
     assertEquals(GameArc.ARC_2_INVESTIGATION, state.activeArc)
+    assertEquals(1, state.arc2.caseAngle)
+    assertTrue(state.arc2.lampOn)
 
     state = Arc2InvestigatorEngine.inspectCaseFile(state, catalog)
     assertEquals(1L, state.arc2.leadsDisplay)
 
-    // Late-Night Silence engages after 2.5s idle and creeps Complicity
-    val complicityBefore = state.arc2.complicity
-    state = Arc2InvestigatorEngine.tick(state, Arc2Balance.SILENCE_IDLE_DELAY_SEC + 1.0, catalog)
+    // Lamp Off activates After-Hours Silence and advances hauntDepth
+    state = Arc2InvestigatorEngine.toggleLamp(state, catalog)
+    assertFalse(state.arc2.lampOn)
     assertTrue(state.arc2.isSilenceActive)
-    assertTrue(state.arc2.complicity > complicityBefore)
+    state = Arc2InvestigatorEngine.tick(state, 120.0, catalog)
+    assertTrue(state.arc2.silence >= 45.0)
 
-    // Boost resources, recruit Contact, pin Deduction, spawn & click Desk Anomaly
-    state = OrganDevEngine.assignArc2Resources(state, leads = 250_000.0, silence = 500.0, catalog = catalog)
+    // Unlock Case I Exhibit, wire first curated Corroboration, recruit Contact, click Desk Anomaly
+    state = Arc2InvestigatorEngine.unlockExhibit(state, CaseExhibit.UNLISTED_PAY_STUB, catalog)
+    assertTrue(CaseExhibit.UNLISTED_PAY_STUB in state.arc2.pinnedExhibits)
+    state = Arc2InvestigatorEngine.toggleExhibitPair(state, CaseExhibit.WATER_STAINED_PETITION, CaseExhibit.UNLISTED_PAY_STUB, catalog)
+    assertTrue(CorroborationId.SMUDGED_LEDGER_DATE in state.arc2.discoveredCorroborations)
+
+    state = OrganDevEngine.assignArc2Resources(state, leads = 15_000.0, silence = 150.0, catalog = catalog)
     state = Arc2InvestigatorEngine.recruitContact(state, InvestigatorContact.NIGHT_ARCHIVIST, catalog)
     assertEquals(1, state.arc2.contactCount(InvestigatorContact.NIGHT_ARCHIVIST))
     assertTrue(state.arc2.leadsPerSecond > 0.0)
 
-    state = Arc2InvestigatorEngine.pinDeduction(state, CaseDeduction.HYDRO_WARD_INVOICES, catalog)
-    assertTrue(CaseDeduction.HYDRO_WARD_INVOICES in state.arc2.ownedDeductions)
-
+    state = state.copy(arc2 = state.arc2.copy(activeDeskAnomalies = emptyList()))
     state = OrganDevEngine.spawnDeskAnomaly(state)
     assertEquals(1, state.arc2.activeDeskAnomalies.size)
     val anomalyId = state.arc2.activeDeskAnomalies.first().id
     state = Arc2InvestigatorEngine.interactDeskAnomaly(state, anomalyId, catalog)
     assertTrue(state.arc2.activeDeskAnomalies.isEmpty())
 
-    // Connect Chapters 1..4 to reveal File #00 twist
-    for (ch in 1..4) {
-      assertTrue(state.arc2.canConnectNextChapter)
-      state = Arc2InvestigatorEngine.connectNextChapter(state, catalog)
-      assertEquals(ch, state.arc2.completedChapters)
-    }
+    // Pivot Case I -> Case II (soft-resets Leads & Contacts, preserves Exhibits & Corroborations)
+    assertTrue(state.arc2.canPivotNextCase)
+    state = Arc2InvestigatorEngine.pivotNextCase(state, catalog)
+    assertEquals(2, state.arc2.caseAngle)
+    assertEquals(1, state.arc2.completedCasePivots)
+    assertEquals(0L, state.arc2.leadsDisplay)
+    assertTrue(state.arc2.contacts.isEmpty())
+    assertTrue(CaseExhibit.TAX_PLAT_1998 in state.arc2.pinnedExhibits)
+
+    // Complete Case V requirements -> unseal File #00
+    state =
+      OrganDevEngine.assignArc2Resources(
+        state,
+        leads = 90_000_000.0,
+        silence = 15_000.0,
+        caseAngle = 5,
+        completedChapters = 4,
+        catalog = catalog,
+      )
+    state =
+      state.copy(
+        arc2 =
+          state.arc2.copy(
+            discoveredCorroborations = CorroborationId.entries.take(5).toSet(),
+            reelScrubCount = 1,
+            dissolvedRedactions = AuditRedaction.entries.toSet(),
+          ),
+      )
+    assertTrue(state.arc2.canPivotNextCase)
+    state = Arc2InvestigatorEngine.pivotNextCase(state, catalog)
     assertTrue(state.arc2.fileZeroRevealed)
-    assertEquals(1.0f, state.arc2.complicity, 0.001f)
+    assertEquals(5, state.arc2.completedCasePivots)
+    assertEquals(1.0f, state.arc2.hauntDepth, 0.001f)
     assertEquals("dlg_arc2_file_zero", state.activeDialogue?.id)
 
     // Cross into Arc 3 open convergence threshold
@@ -947,7 +980,7 @@ class OrganGameEngineTest {
     state = OrganDevEngine.setHighestMilestone(state, 5, catalog)
     state = OrganDevEngine.assignArc1Resources(state, ichor = 123_456.0, stillness = 89.0, availableScar = 14L, catalog = catalog)
     state = OrganDevEngine.setAllScarNodes(state, unlockAll = true, catalog = catalog)
-    state = OrganDevEngine.assignArc2Resources(state, leads = 4_200.0, silence = 75.0, completedChapters = 2, catalog = catalog)
+    state = OrganDevEngine.assignArc2Resources(state, leads = 4_200.0, silence = 75.0, caseAngle = 3, completedChapters = 2, catalog = catalog)
     state = OrganDevEngine.spawnWallAnomaly(state)
 
     assertEquals(5, state.highestExcisionMilestone)
@@ -956,7 +989,8 @@ class OrganGameEngineTest {
     assertEquals(14L, state.availableScarTissue)
     assertEquals(ScarNodeId.entries.size, state.unlockedScarNodes.size)
     assertEquals(4_200L, state.arc2.leadsDisplay)
-    assertEquals(2, state.arc2.completedChapters)
+    assertEquals(3, state.arc2.caseAngle)
+    assertEquals(2, state.arc2.completedCasePivots)
     assertTrue(state.activeAnomalies.isNotEmpty())
 
     // Dev reset wipes everything back to clean Phase 0 Arc 1

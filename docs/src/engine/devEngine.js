@@ -2,10 +2,11 @@
  * Clinical Dev Console state helpers (direct jumps, resource grants, anomaly triggers, and wipe).
  */
 
-import { GAME_ARCS, SCAR_NODES } from './constants.js?v=3.12';
-import { finalizeProgression, initialState } from './progression.js?v=3.12';
-import { spawnImmediateWallAnomaly } from './arc1Engine.js?v=3.12';
-import { spawnImmediateDeskAnomaly } from './arc2Engine.js?v=3.12';
+import { GAME_ARCS, SCAR_NODES } from './constants.js?v=3.13';
+import { CASE_EXHIBITS, initialArc2State } from './arc2Models.js?v=3.13';
+import { finalizeProgression, initialState } from './progression.js?v=3.13';
+import { spawnImmediateWallAnomaly } from './arc1Engine.js?v=3.13';
+import { spawnImmediateDeskAnomaly } from './arc2Engine.js?v=3.13';
 
 export function devSetActiveArc(state, arcId, catalog) {
   const adjusted = { ...state, activeArc: arcId };
@@ -15,9 +16,9 @@ export function devSetActiveArc(state, arcId, catalog) {
     adjusted.highestExcisionMilestone = Math.max(state.highestExcisionMilestone, 6);
     adjusted.arc2 = {
       ...state.arc2,
-      completedChapters: 4,
+      caseAngle: 5,
+      completedCasePivots: 5,
       fileZeroRevealed: true,
-      complicity: 1.0,
     };
   }
   return finalizeProgression(adjusted, catalog);
@@ -37,7 +38,9 @@ export function devAssignArc1Resources(state, { ichor, stillness, availableScar 
   const nextIchor = ichor != null ? Math.max(0, Number(ichor) || 0) : state.ichor;
   const nextStillness = stillness != null ? Math.max(0, Number(stillness) || 0) : state.stillness;
   const nextAvailScar =
-    availableScar != null ? Math.max(0, Math.floor(Number(availableScar) || 0)) : state.availableScarTissue;
+    availableScar != null
+      ? Math.max(0, Math.floor(Number(availableScar) || 0))
+      : state.availableScarTissue;
   const adjusted = {
     ...state,
     ichor: nextIchor,
@@ -64,29 +67,68 @@ export function devSetAllScarNodes(state, unlockAll, catalog) {
 
 export function devAssignArc2Resources(
   state,
-  { leads, silence, complicity, completedChapters },
+  { leads, silence, caseAngle, completedChapters },
   catalog,
 ) {
   const desk = state.arc2;
   const nextLeads = leads != null ? Math.max(0, Number(leads) || 0) : desk.leads;
   const nextSilence = silence != null ? Math.max(0, Number(silence) || 0) : desk.silence;
-  const nextChapters =
+  const resolvedAngle =
+    caseAngle != null
+      ? Math.max(1, Math.min(5, Math.floor(Number(caseAngle) || 1)))
+      : completedChapters != null
+        ? Math.max(1, Math.min(5, Math.floor(Number(completedChapters) || 0) + 1))
+        : desk.caseAngle;
+  const resolvedPivots =
     completedChapters != null
-      ? Math.max(0, Math.min(4, Math.floor(Number(completedChapters) || 0)))
-      : desk.completedChapters;
-  const nextComplicity =
-    complicity != null ? Math.max(0.05, Math.min(1.0, Number(complicity) || 0.05)) : desk.complicity;
+      ? Math.max(0, Math.min(5, Math.floor(Number(completedChapters) || 0)))
+      : caseAngle != null
+        ? Math.max(0, resolvedAngle - 1)
+        : desk.completedCasePivots;
+  const nextPinned = new Set(desk.pinnedExhibits ?? ['water_stained_petition']);
+  for (const ex of CASE_EXHIBITS) {
+    if (ex.isKeystone && ex.unlockCaseAngle <= resolvedAngle) {
+      nextPinned.add(ex.id);
+    }
+  }
   const nextDesk = {
     ...desk,
     leads: nextLeads,
     lifetimeLeads: Math.max(desk.lifetimeLeads, nextLeads),
     silence: nextSilence,
     lifetimeSilence: Math.max(desk.lifetimeSilence, nextSilence),
-    complicity: nextComplicity,
-    completedChapters: nextChapters,
-    fileZeroRevealed: nextChapters >= 4 || desk.fileZeroRevealed,
+    caseAngle: resolvedAngle,
+    completedCasePivots: resolvedPivots,
+    pinnedExhibits: Array.from(nextPinned),
+    fileZeroRevealed: resolvedPivots >= 5 || desk.fileZeroRevealed,
   };
   return finalizeProgression({ ...state, arc2: nextDesk }, catalog);
+}
+
+export function devSetArc2AllExhibits(state, unlockAll, catalog) {
+  const desk = state.arc2;
+  const nextDesk = {
+    ...desk,
+    pinnedExhibits: unlockAll ? CASE_EXHIBITS.map((e) => e.id) : ['water_stained_petition'],
+    wiredPairs: unlockAll ? desk.wiredPairs : [],
+  };
+  return finalizeProgression({ ...state, arc2: nextDesk }, catalog);
+}
+
+export function devToggleArc2Lamp(state, catalog) {
+  const desk = state.arc2;
+  const nextLampOn = !desk.lampOn;
+  const nextDesk = {
+    ...desk,
+    lampOn: nextLampOn,
+    lampToggleCount: (desk.lampToggleCount ?? 0) + 1,
+    lampOffCount: !nextLampOn ? (desk.lampOffCount ?? 0) + 1 : desk.lampOffCount ?? 0,
+  };
+  return finalizeProgression({ ...state, arc2: nextDesk }, catalog);
+}
+
+export function devResetArc2(state, catalog) {
+  return finalizeProgression({ ...state, arc2: initialArc2State() }, catalog);
 }
 
 export function devSpawnWallAnomaly(state) {

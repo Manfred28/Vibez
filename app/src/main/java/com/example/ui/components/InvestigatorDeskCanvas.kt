@@ -25,7 +25,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
@@ -47,16 +46,20 @@ import java.text.NumberFormat
 import kotlin.math.ceil
 
 /**
- * Upper arena for Arc 2 ("The Inquiry"): a rain-streaked Investigator Case Desk subtly haunted
- * by the Arc 1 chamber. As Complicity rises, wet tile grout lines bleed through the leather
- * blotter, the tungsten desk lamp drips downward condensation during Silence, and the window
- * reflection ghosts faint Arc 1 Scar Tissue numbers and claw-marks.
+ * Placeholder-art interactive Investigator Desk Arena for Arc 2 ("The Inquiry").
+ * Features the brass Lamp On / Lamp Off pull-chain toggle and strictly Slow-Boil-gated visuals:
+ * - Cases I–III (`hauntDepth < 0.60`): pure cold rain, tungsten cone vs dark slate, inside mist,
+ *   and faint second-chair shadow (Case II+); zero wet grout or Room bleed.
+ * - Case IV (`0.60..0.82`): Lamp Off subtly exposes faint wet tile grout beneath the blotter.
+ * - Case V (`0.85..1.00`): persistent tile grout even under Lamp On, grey oil weep from the lamp,
+ *   corner reflection scratches, and File #00 blotter peel-back.
  */
 @Composable
 fun InvestigatorDeskCanvas(
   state: OrganGameState,
   breathPhaseProvider: () -> Float,
   dropPhaseProvider: () -> Float,
+  onToggleLamp: () -> Unit,
   onInspectCaseFile: () -> Unit,
   onInteractDeskAnomaly: (Long) -> Unit,
   onEmitThematicDrip: (eventKey: String, text: String) -> Unit = { _, _ -> },
@@ -67,78 +70,120 @@ fun InvestigatorDeskCanvas(
   val desk = state.arc2
   val nf = remember { NumberFormat.getIntegerInstance() }
   val formattedLeads = remember(desk.leadsDisplay) { nf.format(desk.leadsDisplay) }
+  val formattedSilence = remember(desk.silenceDisplay) { nf.format(desk.silenceDisplay) }
   val formattedTap = remember(desk.inspectYield) { formatCompactDecimal(desk.inspectYield) }
   val inspectCd = stringResource(R.string.arc2_inspect_cd)
-
+  val lampToggleCd = stringResource(R.string.arc2_lamp_toggle_cd)
   val scratchPath = remember { Path() }
 
   Surface(
     modifier = modifier.fillMaxWidth().testTag("investigator_desk_canvas"),
     shape = MaterialTheme.shapes.small,
-    color = colorScheme.surface.copy(alpha = 0.92f),
-    border = BorderStroke(1.dp, atmosphere.hairline),
+    color = colorScheme.surface.copy(alpha = 0.94f),
+    border =
+      BorderStroke(
+        width = 1.dp,
+        color = if (desk.lampOn) atmosphere.hairline else colorScheme.secondary.copy(alpha = 0.55f),
+      ),
   ) {
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
       val boxW = maxWidth
       val boxH = maxHeight
 
-      // Haunted Desk Blotter + Tungsten Lamp + Arc 1 Bleed Canvas
       Canvas(modifier = Modifier.fillMaxSize().testTag("haunted_desk_backdrop")) {
         val breath = breathPhaseProvider()
         val drop = dropPhaseProvider()
-        val complicity = desk.complicity.coerceIn(0f, 1f)
+        val haunt = desk.hauntDepth.coerceIn(0f, 1f)
+        val lampOn = desk.lampOn
 
-        // Base dark desk blotter
-        drawRect(color = colorScheme.background)
+        // 1. Base dark nocturnal office slate (deeper shadow when Lamp Off)
+        drawRect(color = if (lampOn) colorScheme.background else Color(0xFF06080B))
 
-        // Warm-ash tungsten desk lamp cone from top center
-        val lampSway = (breath - 0.5f) * 14.dp.toPx()
+        // 2. Overhead tungsten lamp cone (bright warm pool when On; cold moonlit slate glow when Off)
+        val lampSway = (breath - 0.5f) * 10.dp.toPx()
         val lampOrigin = Offset(size.width * 0.5f + lampSway, 0f)
-        drawCircle(
-          brush =
-            Brush.radialGradient(
-              colors =
-                listOf(
-                  colorScheme.primary.copy(alpha = 0.22f + breath * 0.05f),
-                  Color.Transparent,
-                ),
-              center = Offset(lampOrigin.x, size.height * 0.42f),
-              radius = size.minDimension * 0.72f,
-            ),
-          radius = size.minDimension * 0.72f,
-          center = Offset(lampOrigin.x, size.height * 0.42f),
-        )
+        if (lampOn) {
+          drawCircle(
+            brush =
+              Brush.radialGradient(
+                colors =
+                  listOf(
+                    colorScheme.primary.copy(alpha = 0.28f + breath * 0.04f),
+                    colorScheme.primary.copy(alpha = 0.06f),
+                    Color.Transparent,
+                  ),
+                center = Offset(lampOrigin.x, size.height * 0.44f),
+                radius = size.minDimension * 0.78f,
+              ),
+            radius = size.minDimension * 0.78f,
+            center = Offset(lampOrigin.x, size.height * 0.44f),
+          )
+        } else {
+          drawCircle(
+            brush =
+              Brush.radialGradient(
+                colors =
+                  listOf(
+                    colorScheme.secondary.copy(alpha = 0.14f + breath * 0.04f),
+                    Color.Transparent,
+                  ),
+                center = Offset(size.width * 0.18f, size.height * 0.22f),
+                radius = size.minDimension * 0.85f,
+              ),
+            radius = size.minDimension * 0.85f,
+            center = Offset(size.width * 0.18f, size.height * 0.22f),
+          )
+        }
 
-        // Rain streaks down the upper windowpane band
-        val rainColor = colorScheme.onSurfaceVariant.copy(alpha = 0.14f)
-        for (i in 1..9) {
-          val rx = size.width * (i / 10f)
-          val startY = ((drop * size.height * 0.45f) + (i * 23f)) % (size.height * 0.40f)
+        // 3. Cold rain streaks across dark precinct glass
+        val rainAlpha = if (lampOn) 0.12f else 0.24f
+        val rainColor = colorScheme.onSurfaceVariant.copy(alpha = rainAlpha)
+        for (i in 1..11) {
+          val rx = size.width * (i / 12f)
+          val startY = ((drop * size.height * 0.55f) + (i * 21f)) % (size.height * 0.46f)
           drawLine(
             color = rainColor,
             start = Offset(rx, startY),
-            end = Offset(rx - 2.dp.toPx(), startY + 14.dp.toPx()),
+            end = Offset(rx - 2.5.dp.toPx(), startY + 15.dp.toPx()),
             strokeWidth = 1.dp.toPx(),
             cap = StrokeCap.Round,
           )
         }
 
-        // HAUNTING BLEED #1: Faint Arc 1 damp tile grout lines bleeding through the desk blotter
-        val groutAlpha = (0.04f + complicity * 0.22f + if (desk.isSilenceActive) 0.08f else 0f)
-        val groutColor = colorScheme.secondary.copy(alpha = groutAlpha.coerceAtMost(0.36f))
-        val step = 36.dp.toPx()
-        var gx = step
-        while (gx < size.width) {
-          drawLine(groutColor, Offset(gx, 0f), Offset(gx, size.height), strokeWidth = 1f)
-          gx += step
-        }
-        var gy = step
-        while (gy < size.height) {
-          drawLine(groutColor, Offset(0f, gy), Offset(size.width, gy), strokeWidth = 1f)
-          gy += step
+        // 4. Case II+ Eerie Motif (non-grotesque): faint second-chair shadow across desk when Lamp Off
+        if (!lampOn && desk.caseAngle in 2..4) {
+          val chairAlpha = 0.09f + breath * 0.05f
+          val chairColor = colorScheme.onSurfaceVariant.copy(alpha = chairAlpha)
+          val cx = size.width * 0.82f
+          val cy = size.height * 0.66f
+          drawLine(chairColor, Offset(cx - 18.dp.toPx(), cy - 28.dp.toPx()), Offset(cx - 18.dp.toPx(), cy + 20.dp.toPx()), strokeWidth = 2.dp.toPx())
+          drawLine(chairColor, Offset(cx + 14.dp.toPx(), cy - 26.dp.toPx()), Offset(cx + 14.dp.toPx(), cy + 20.dp.toPx()), strokeWidth = 2.dp.toPx())
+          drawLine(chairColor, Offset(cx - 18.dp.toPx(), cy - 22.dp.toPx()), Offset(cx + 14.dp.toPx(), cy - 20.dp.toPx()), strokeWidth = 2.dp.toPx())
+          drawLine(chairColor, Offset(cx - 20.dp.toPx(), cy), Offset(cx + 16.dp.toPx(), cy + 2.dp.toPx()), strokeWidth = 2.dp.toPx())
         }
 
-        // Desk lamp shade silhouette at top center
+        // 5. SLOW-BOIL ROOM BLEED (STRICTLY QUARANTINED UNTIL CASE IV+):
+        // Case IV: faint wet tile grout only shows while Lamp Off.
+        // Case V / File #00: persistent tile grout even when Lamp On!
+        val showGrout = (desk.caseAngle == 4 && !lampOn) || desk.caseAngle >= 5 || desk.fileZeroRevealed
+        if (showGrout) {
+          val bleedStrength = ((haunt - 0.55f) / 0.45f).coerceIn(0.15f, 1f)
+          val groutAlpha = (bleedStrength * if (lampOn) 0.22f else 0.34f).coerceIn(0.06f, 0.36f)
+          val groutColor = colorScheme.secondary.copy(alpha = groutAlpha)
+          val step = 36.dp.toPx()
+          var gx = step
+          while (gx < size.width) {
+            drawLine(groutColor, Offset(gx, 0f), Offset(gx, size.height), strokeWidth = 1f)
+            gx += step
+          }
+          var gy = step
+          while (gy < size.height) {
+            drawLine(groutColor, Offset(0f, gy), Offset(size.width, gy), strokeWidth = 1f)
+            gy += step
+          }
+        }
+
+        // 6. Suspended brass desk lamp hood silhouette
         scratchPath.rewind()
         scratchPath.moveTo(lampOrigin.x - 24.dp.toPx(), 16.dp.toPx())
         scratchPath.lineTo(lampOrigin.x + 24.dp.toPx(), 16.dp.toPx())
@@ -146,57 +191,72 @@ fun InvestigatorDeskCanvas(
         scratchPath.lineTo(lampOrigin.x - 14.dp.toPx(), 4.dp.toPx())
         scratchPath.close()
         drawPath(scratchPath, colorScheme.surfaceVariant)
-        drawPath(scratchPath, colorScheme.outline, style = Stroke(1.2.dp.toPx()))
+        drawPath(
+          scratchPath,
+          if (lampOn) colorScheme.primary else colorScheme.outline,
+          style = Stroke(1.2.dp.toPx()),
+        )
 
-        // HAUNTING BLEED #2: Desk lamp weeps a single downward grey condensation drop in Silence
-        if (desk.isSilenceActive || complicity >= 0.45f) {
-          val dropY = 18.dp.toPx() + drop * (size.height * 0.46f)
-          val dropAlpha = (1f - drop) * 0.70f
+        // 7. Case V+ Grotesque Intrusion: grey oil drop weeping from lamp hood + glass scratches
+        if (desk.caseAngle >= 5 || desk.fileZeroRevealed) {
+          val dropY = 18.dp.toPx() + drop * (size.height * 0.44f)
+          val dropAlpha = (1f - drop) * 0.72f
           drawCircle(
             color = colorScheme.secondary.copy(alpha = dropAlpha),
             radius = 2.4.dp.toPx(),
             center = Offset(lampOrigin.x, dropY),
           )
-        }
-
-        // HAUNTING BLEED #3: Corner glass reflection showing Suture-Hand scratches at high complicity
-        if (complicity >= 0.30f) {
-          val scratchAlpha = ((complicity - 0.25f) * 0.48f).coerceIn(0.05f, 0.42f)
-          val scratchColor = colorScheme.tertiary.copy(alpha = scratchAlpha)
+          val scratchColor = colorScheme.tertiary.copy(alpha = 0.28f + breath * 0.14f)
           for (s in 0..3) {
             val sx = size.width * 0.80f + s * 6.dp.toPx()
             drawLine(
               color = scratchColor,
               start = Offset(sx, 14.dp.toPx()),
-              end = Offset(sx - 5.dp.toPx(), 42.dp.toPx() + (s % 2) * 8.dp.toPx()),
+              end = Offset(sx - 5.dp.toPx(), 40.dp.toPx() + (s % 2) * 8.dp.toPx()),
               strokeWidth = 1.2.dp.toPx(),
               cap = StrokeCap.Round,
             )
           }
         }
 
-        // File #00 blotter peel-back diagonal fold once revealed
+        // 8. File #00 blotter peel-back diagonal fold
         if (desk.fileZeroRevealed) {
           scratchPath.rewind()
           scratchPath.moveTo(0f, size.height)
           scratchPath.lineTo(size.width * 0.28f, size.height)
           scratchPath.lineTo(0f, size.height * 0.68f)
           scratchPath.close()
-          drawPath(scratchPath, colorScheme.tertiaryContainer.copy(alpha = 0.72f))
+          drawPath(scratchPath, colorScheme.tertiaryContainer.copy(alpha = 0.74f))
           drawPath(scratchPath, colorScheme.tertiary, style = Stroke(1.4.dp.toPx()))
         }
       }
 
-      // Subtle haunted reflection whisper referencing real Arc 1 Scar Tissue
-      if (desk.complicity >= 0.35f) {
+      // Interactive Brass Lamp Pull-Chain Toggle (>= 48dp touch target, top-right)
+      Surface(
+        modifier =
+          Modifier.align(Alignment.TopEnd)
+            .padding(top = 8.dp, end = 10.dp)
+            .minimumInteractiveComponentSize()
+            .testTag("lamp_toggle_button")
+            .semantics { contentDescription = lampToggleCd }
+            .clickable(role = Role.Switch, onClick = onToggleLamp),
+        shape = MaterialTheme.shapes.extraSmall,
+        color =
+          if (desk.lampOn) colorScheme.primaryContainer.copy(alpha = 0.88f)
+          else colorScheme.surfaceVariant.copy(alpha = 0.92f),
+        border =
+          BorderStroke(
+            width = 1.2.dp,
+            color = if (desk.lampOn) colorScheme.primary else colorScheme.secondary,
+          ),
+      ) {
         Text(
-          text = "SCAR ECHO // ${nf.format(state.scarTissue)}",
-          style = MaterialTheme.typography.labelSmall.copy(fontSize = 8.5.sp, letterSpacing = 1.sp),
-          color = colorScheme.tertiary.copy(alpha = (desk.complicity * 0.55f).coerceIn(0.15f, 0.55f)),
-          modifier =
-            Modifier.align(Alignment.TopEnd)
-              .padding(top = 8.dp, end = 10.dp)
-              .testTag("arc1_haunting_echo"),
+          text =
+            if (desk.lampOn) stringResource(R.string.arc2_lamp_on_label)
+            else stringResource(R.string.arc2_lamp_off_label),
+          style = MaterialTheme.typography.labelSmall.copy(letterSpacing = 1.sp),
+          color = if (desk.lampOn) colorScheme.primary else colorScheme.secondary,
+          modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
         )
       }
 
@@ -206,7 +266,7 @@ fun InvestigatorDeskCanvas(
         verticalArrangement = Arrangement.SpaceBetween,
       ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-          Spacer(modifier = Modifier.height(8.dp))
+          Spacer(modifier = Modifier.height(6.dp))
           Row(
             horizontalArrangement = Arrangement.spacedBy(10.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -220,7 +280,7 @@ fun InvestigatorDeskCanvas(
               Text(
                 text = "+${formatCompactDecimal(desk.leadsPerSecond)} /s",
                 style = MaterialTheme.typography.labelMedium,
-                color = colorScheme.primary,
+                color = if (desk.lampOn) colorScheme.primary else colorScheme.onSurfaceVariant,
                 modifier = Modifier.testTag("arc2_leads_rate_text"),
               )
             }
@@ -230,26 +290,38 @@ fun InvestigatorDeskCanvas(
 
           Surface(
             shape = MaterialTheme.shapes.extraSmall,
-            color = colorScheme.background.copy(alpha = 0.74f),
+            color = colorScheme.background.copy(alpha = 0.78f),
             border = BorderStroke(1.dp, colorScheme.outline),
           ) {
             Text(
               text = formattedLeads,
-              style = MaterialTheme.typography.displayLarge.copy(fontSize = 44.sp),
+              style = MaterialTheme.typography.displayLarge.copy(fontSize = 42.sp),
               color = colorScheme.onBackground,
               maxLines = 1,
               modifier =
-                Modifier.padding(horizontal = 28.dp, vertical = 6.dp).testTag("arc2_leads_counter"),
+                Modifier.padding(horizontal = 26.dp, vertical = 5.dp).testTag("arc2_leads_counter"),
             )
           }
 
-          Spacer(modifier = Modifier.height(4.dp))
+          Spacer(modifier = Modifier.height(6.dp))
 
           Row(
             horizontalArrangement = Arrangement.spacedBy(10.dp),
             verticalAlignment = Alignment.CenterVertically,
           ) {
-            if (desk.isSilenceActive) {
+            val silRateStr =
+              if (desk.silencePerSecond > 0.0) {
+                " (${stringResource(R.string.arc2_silence_rate_format, formatCompactDecimal(desk.silencePerSecond))})"
+              } else {
+                ""
+              }
+            Text(
+              text = "${stringResource(R.string.arc2_silence_readout, formattedSilence)}$silRateStr",
+              style = MaterialTheme.typography.labelSmall,
+              color = if (!desk.lampOn) colorScheme.secondary else colorScheme.onSurfaceVariant,
+              modifier = Modifier.testTag("arc2_silence_counter"),
+            )
+            if (!desk.lampOn) {
               Text(
                 text = stringResource(R.string.arc2_silence_badge),
                 style = MaterialTheme.typography.labelSmall,
@@ -257,32 +329,56 @@ fun InvestigatorDeskCanvas(
                 modifier = Modifier.testTag("arc2_silence_badge"),
               )
             }
-            if (desk.focusRemainingSeconds > 0.0) {
-              Text(
-                text =
-                  stringResource(
-                    R.string.arc2_focus_badge,
-                    ceil(desk.focusRemainingSeconds).toInt(),
-                  ),
-                style = MaterialTheme.typography.labelSmall,
-                color = colorScheme.primary,
-                modifier = Modifier.testTag("arc2_focus_badge"),
-              )
+          }
+
+          if (desk.isReelScrubbing || desk.focusRemainingSeconds > 0.0) {
+            Spacer(modifier = Modifier.height(3.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+              if (desk.isReelScrubbing) {
+                Text(
+                  text =
+                    stringResource(
+                      R.string.arc2_scrub_badge,
+                      ceil(desk.reelScrubRemainingSeconds).toInt(),
+                    ),
+                  style = MaterialTheme.typography.labelSmall,
+                  color = colorScheme.tertiary,
+                  modifier = Modifier.testTag("arc2_scrub_badge"),
+                )
+              }
+              if (desk.focusRemainingSeconds > 0.0) {
+                Text(
+                  text =
+                    stringResource(
+                      R.string.arc2_focus_badge,
+                      ceil(desk.focusRemainingSeconds).toInt(),
+                    ),
+                  style = MaterialTheme.typography.labelSmall,
+                  color = colorScheme.primary,
+                  modifier = Modifier.testTag("arc2_focus_badge"),
+                )
+              }
             }
           }
         }
 
-        // Tactile Case File / Typewriter Stamp centerpiece (>= 48dp touch target)
+        // Tactile Case File Stamp centerpiece (>= 48dp touch target)
         Surface(
           modifier =
-            Modifier.size(width = 168.dp, height = 84.dp)
+            Modifier.size(width = 176.dp, height = 82.dp)
               .minimumInteractiveComponentSize()
               .testTag("inspect_case_button")
               .semantics { contentDescription = inspectCd }
               .clickable(role = Role.Button, onClick = onInspectCaseFile),
           shape = MaterialTheme.shapes.small,
-          color = colorScheme.surfaceVariant.copy(alpha = 0.94f),
-          border = BorderStroke(1.5.dp, colorScheme.primary.copy(alpha = 0.78f)),
+          color = colorScheme.surfaceVariant.copy(alpha = if (desk.lampOn) 0.94f else 0.72f),
+          border =
+            BorderStroke(
+              width = 1.5.dp,
+              color =
+                if (desk.lampOn) colorScheme.primary.copy(alpha = 0.80f)
+                else colorScheme.outline,
+            ),
         ) {
           Column(
             modifier = Modifier.fillMaxSize().padding(8.dp),
@@ -297,28 +393,28 @@ fun InvestigatorDeskCanvas(
             Text(
               text = "+$formattedTap LEADS",
               style = MaterialTheme.typography.labelMedium,
-              color = colorScheme.primary,
+              color = if (desk.lampOn) colorScheme.primary else colorScheme.onSurfaceVariant,
             )
           }
         }
       }
 
-      // Interactive Desk Anomalies emit slow thematic drips to the subordinate left margin
+      // Interactive Desk Anomalies (strictly gated by Case Angle & Lamp posture)
       val envelopeDrip = stringResource(R.string.drip_desk_anomaly_envelope)
       val spectaclesDrip = stringResource(R.string.drip_desk_anomaly_spectacles)
-      val stringDrip = stringResource(R.string.drip_desk_anomaly_string)
       val tapeDrip = stringResource(R.string.drip_desk_anomaly_tape)
+      val enamelDrip = stringResource(R.string.drip_desk_anomaly_enamel)
 
       desk.activeDeskAnomalies.forEach { anomaly ->
         key(anomaly.id) {
-          val offsetX = (boxW - 76.dp) * anomaly.xFraction
+          val offsetX = (boxW - 84.dp) * anomaly.xFraction
           val offsetY = (boxH - 52.dp) * anomaly.yFraction
           val dripLine =
             when (anomaly.type) {
               DeskAnomalyType.EVIDENCE_ENVELOPE -> envelopeDrip
               DeskAnomalyType.FOGGED_SPECTACLES -> spectaclesDrip
-              DeskAnomalyType.RED_STRING -> stringDrip
               DeskAnomalyType.REEL_TAPE -> tapeDrip
+              DeskAnomalyType.ENAMEL_EXHIBIT -> enamelDrip
             }
           DeskAnomalyChip(
             anomaly = anomaly,
@@ -345,8 +441,8 @@ private fun DeskAnomalyChip(
     when (anomaly.type) {
       DeskAnomalyType.EVIDENCE_ENVELOPE -> "UNSEAL"
       DeskAnomalyType.FOGGED_SPECTACLES -> "WIPE"
-      DeskAnomalyType.RED_STRING -> "UNTANGLE"
       DeskAnomalyType.REEL_TAPE -> "PLAY"
+      DeskAnomalyType.ENAMEL_EXHIBIT -> "CATALOG"
     }
   Surface(
     modifier =

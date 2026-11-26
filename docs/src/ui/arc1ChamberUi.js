@@ -71,14 +71,14 @@ import {
   stillnessDisplay,
   totalCreatureIchorPerSec,
   valveClampDurationSec,
-} from '../engine.js?v=3.12';
+} from '../engine.js?v=3.13';
 import {
   drawActionArtwork,
   drawSumpSiphonPortrait,
   drawWeepingLampPortrait,
-} from '../chamberCanvas.js?v=3.12';
-import { anomalyAssetUrl, jarAssetUrl } from '../version.js?v=3.12';
-import { arc1UnlockKeys, markTabSeen, shouldAlertArc1Tab } from './tabAlerts.js?v=3.12';
+} from '../chamberCanvas.js?v=3.13';
+import { anomalyAssetUrl, jarAssetUrl } from '../version.js?v=3.13';
+import { arc1UnlockKeys, markTabSeen, shouldAlertArc1Tab } from './tabAlerts.js?v=3.13';
 
 export const FOUNDATIONAL_SHELF_JARS = Object.freeze([
   'yesterdays_dust',

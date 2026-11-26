@@ -509,7 +509,7 @@ class OrganScreenBehaviorTest {
   }
 
   @Test
-  fun arc2InvestigatorDeskAndFileZeroTwist_flowsThroughInspectBoardRevealAndArc3Threshold() {
+  fun arc2InvestigatorDeskAndFileZeroTwist_flowsThroughLampCorkboardExhibitsPivotAndArc3Threshold() {
     val context = ApplicationProvider.getApplicationContext<Context>()
     val catalog = AssetDialogueRepository(context).loadCatalog()
     val fileZeroFragment = catalog.entries.first { it.id == "dlg_arc2_ch4_file_zero" }
@@ -528,37 +528,69 @@ class OrganScreenBehaviorTest {
     composeTestRule.onNodeWithTag("dev_close_button").performClick()
     composeTestRule.waitForIdle()
 
-    // Verify Haunted Investigator Desk renders with pure diegetic header (no CH 0/4 or ARC 02)
+    // Verify Investigator Desk renders with pure diegetic Case I header (no ARC 02 / CH 0/4)
     composeTestRule.onNodeWithTag("investigator_screen").assertIsDisplayed()
     composeTestRule
       .onNodeWithTag("arc2_phase_header")
       .assertIsDisplayed()
-      .assertTextEquals("THE INQUIRY · CASE #14-B")
+      .assertTextEquals("CASE I · UNCLAIMED ARREARS")
     val leadsBefore = viewModel.uiState.value.arc2.leadsDisplay
     composeTestRule.onNodeWithTag("inspect_case_button").performScrollTo().performClick()
     composeTestRule.waitForIdle()
     assertTrue(viewModel.uiState.value.arc2.leadsDisplay > leadsBefore)
 
-    // Switch to BOARD tab: future locked threads stay hidden and visible threads use pure titles (no CH 01 //)
-    composeTestRule
-      .onNodeWithTag("arc2_tab_alert_evidence_board", useUnmergedTree = true)
-      .performScrollTo()
-      .assertIsDisplayed()
-    composeTestRule.onNodeWithTag("arc2_tab_evidence_board").performScrollTo().performClick()
+    // Pull brass desk lamp chain -> toggles Lamp Off (After-Hours Silence)
+    assertTrue(viewModel.uiState.value.arc2.lampOn)
+    composeTestRule.onNodeWithTag("lamp_toggle_button").performScrollTo().performClick()
     composeTestRule.waitForIdle()
-    composeTestRule.onNodeWithText("THE MISSING CARETAKERS").performScrollTo().assertIsDisplayed()
-    composeTestRule.onNodeWithTag("chapter_connect_2").assertDoesNotExist()
-    composeTestRule.onNodeWithTag("chapter_connect_4").assertDoesNotExist()
-    for (ch in 1..4) {
-      composeTestRule.onNodeWithTag("chapter_connect_$ch").performScrollTo().performClick()
-      composeTestRule.waitForIdle()
-    }
+    assertFalse(viewModel.uiState.value.arc2.lampOn)
+
+    // Switch to DOSSIER tab -> unlock Case I Silence Exhibit (Unlisted Timecard)
+    composeTestRule.onNodeWithTag("arc2_tab_dossier").performScrollTo().performClick()
+    composeTestRule.waitForIdle()
+    composeTestRule.onNodeWithTag("unlock_exhibit_unlisted_pay_stub").performScrollTo().performClick()
+    composeTestRule.waitForIdle()
+    assertTrue(com.example.game.CaseExhibit.UNLISTED_PAY_STUB in viewModel.uiState.value.arc2.pinnedExhibits)
+
+    // Switch to BOARD tab -> two-tap wire EX-01 + EX-02 into Smudged Ledger Date corroboration
+    composeTestRule.onNodeWithTag("arc2_tab_board").performScrollTo().performClick()
+    composeTestRule.waitForIdle()
+    composeTestRule.onNodeWithTag("corkboard_panel").performScrollTo().assertIsDisplayed()
+    composeTestRule.onNodeWithTag("exhibit_card_water_stained_petition").performScrollTo().performClick()
+    composeTestRule.waitForIdle()
+    composeTestRule.onNodeWithTag("exhibit_card_unlisted_pay_stub").performScrollTo().performClick()
+    composeTestRule.waitForIdle()
+    assertEquals(1, viewModel.uiState.value.arc2.wiredPairs.size)
+    assertTrue(
+      com.example.game.CorroborationId.SMUDGED_LEDGER_DATE in
+        viewModel.uiState.value.arc2.discoveredCorroborations
+    )
+
+    // Switch to REVISION tab -> File Dead End to pivot Case I -> Case II
+    composeTestRule.onNodeWithTag("arc2_tab_revision").performScrollTo().performClick()
+    composeTestRule.waitForIdle()
+    composeTestRule.onNodeWithTag("pivot_case_button").performScrollTo().performClick()
+    composeTestRule.waitForIdle()
+    assertEquals(2, viewModel.uiState.value.arc2.caseAngle)
+    assertEquals(1, viewModel.uiState.value.arc2.completedCasePivots)
+    composeTestRule
+      .onNodeWithTag("arc2_phase_header")
+      .performScrollTo()
+      .assertTextEquals("CASE II · THE SECOND CHAIR")
+
+    // Jump via Dev Console to File #00 climax (F#00) and verify File #00 reveal + Arc 3 transition
+    composeTestRule.onNodeWithTag("open_dev_tools_button").performClick()
+    composeTestRule.waitForIdle()
+    composeTestRule.onNodeWithTag("dev_chapter_4").performScrollTo().performClick()
+    composeTestRule.waitForIdle()
+    composeTestRule.onNodeWithTag("dev_close_button").performClick()
+    composeTestRule.waitForIdle()
 
     assertTrue(viewModel.uiState.value.arc2.fileZeroRevealed)
     composeTestRule
       .onNodeWithTag("arc2_phase_header")
       .performScrollTo()
-      .assertTextEquals("FILE #00 — SUBJECT INTAKE")
+      .assertTextEquals("FILE #00 · SUBJECT INTAKE")
     composeTestRule.onNodeWithTag("file_zero_reveal_card").performScrollTo().assertIsDisplayed()
     composeTestRule
       .onNodeWithTag("dialogue_body")
@@ -1060,19 +1092,19 @@ class OrganScreenBehaviorTest {
     assertTrue("graft_choir_lung" in apparatusKeys)
     assertTrue(TabAlertEvaluator.isArc1TabReady(m4GraftReady, OrganDeckTab.APPARATUS))
 
-    // Arc 2 unseen & readiness checks
+    // Arc 2 unseen & readiness checks (DOSSIER tab alerts when Case I Silence Exhibit is affordable)
     val arc2Ready =
       OrganGameEngine.initialState(catalog).let { base ->
         base.copy(
-          arc2 = base.arc2.copy(leads = 1_000.0, lifetimeLeads = 1_000.0, silence = 50.0)
+          arc2 = base.arc2.copy(leads = 1_000.0, lifetimeLeads = 1_000.0, silence = 60.0)
         )
       }
     assertTrue(
       TabAlertEvaluator.shouldAlertArc2Tab(
         state = arc2Ready,
-        tab = InvestigatorDeckTab.DEDUCTIONS,
+        tab = InvestigatorDeckTab.DOSSIER,
         activeTab = InvestigatorDeckTab.CONTACTS,
-        seenKeysByTab = mapOf(InvestigatorDeckTab.DEDUCTIONS to setOf("arc2_deductions")),
+        seenKeysByTab = mapOf(InvestigatorDeckTab.DOSSIER to setOf("arc2_dossier_ex_unlisted_pay_stub")),
       )
     )
 

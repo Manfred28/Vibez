@@ -100,8 +100,15 @@ Match diction, rhythm, and emotional weight strictly to the entry's `phase` and 
   - `marrow_bloom` (`threshold`: Valve Clamp Marrow Bloom count)
   - `dossier_line_unredacted` (`threshold`: unsealed *Rite of the Quiet Vessel* clauses `1..4`)
   - `arc_entered` (`target`: `arc_2` | `arc_3`, `threshold`: `1`)
-  - `case_chapter_completed` (`threshold`: Arc 2 chapters `1..4`)
-  - `desk_anomaly_interacted` (`target`: `evidence_envelope` | `fogged_spectacles` | `red_string` | `reel_tape`, `threshold`)
+  - `case_angle_reached` (`threshold`: Arc 2 Case Angle `2..5`)
+  - `case_chapter_completed` (`threshold`: Arc 2 Case Pivots `1..5`; `5` unseals **File #00**)
+  - `corroboration_discovered` (`target`: exact `CorroborationId.id` e.g. `smudged_ledger_date`, `threshold`: `1`)
+  - `lamp_toggled` (`threshold`: cumulative Lamp-Off switches)
+  - `arc2_silence_reached` (`threshold`: Arc 2 lifetime After-Hours Silence)
+  - `reel_scrubbed` (`threshold`: Case III+ Acoustic Reel Scrub activations)
+  - `redaction_dissolved` (`threshold`: Case IV+ Audit Redaction clauses dissolved `1..4`)
+  - `desk_anomaly_interacted` (`target`: `evidence_envelope` | `fogged_spectacles` | `reel_tape` | `enamel_exhibit`, `threshold`)
+- **Arc 2 Slow-Boil Quarantine (MANDATORY):** Entries bound to Cases I–III (`dlg_arc2_entry` through `dlg_arc2_case3_dead_end`, including `evidence_envelope`, `fogged_spectacles`, `reel_tape`, and the 7 Case I–III Corroborations) MUST NOT leak grotesque Arc 1 Room vocabulary (`hydro-ward`, `molar`, `grout`, `valve`, `ichor`, `suture`, `caretaker`, `tile`, `vessel`, `scar`). Escalate gradually from Cold Municipal Noir (Case I) → Eerie & Haunted (Cases II–III) → Uncanny Self-Implication (Case IV) → Grotesque Intrusion & **File #00** (Case V).
 
 ---
 

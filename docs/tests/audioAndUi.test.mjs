@@ -6,16 +6,22 @@ import {
   GAME_ARCS,
   ORGAN_BALANCE,
   buyCreature,
-  connectNextChapter,
   devAssignArc1Resources,
+  devAssignArc2Resources,
   devSetActiveArc,
+  dissolveRedaction,
   enterArc3Convergence,
   initialState,
   inspectCaseFile,
   performBreachToArc2,
   performExcision,
+  pivotNextCase,
   pressValve,
   tick,
+  toggleExhibitPair,
+  toggleLamp,
+  triggerReelScrub,
+  unlockExhibit,
 } from '../src/engine.js';
 import {
   DEEP_SHELF_JARS,
@@ -125,7 +131,7 @@ test('.drip-card multi-layer parallax CSS, randomized delay intervals, and safe 
 });
 
 test('Web procedural audio cue resolver, ambient profile escalation, and independent mute persistence match Android 1:1', () => {
-  assert.equal(Object.keys(SOUND_CUES).length, 29);
+  assert.equal(Object.keys(SOUND_CUES).length, 33);
 
   const start = initialState(realCatalog);
 
@@ -216,30 +222,73 @@ test('Web procedural audio cue resolver, ambient profile escalation, and indepen
     ),
   );
 
-  const ch3 = {
-    ...arc2,
-    arc2: { ...arc2.arc2, leads: 250000, lifetimeLeads: 250000, silence: 250, completedChapters: 3 },
+  // New Slow-Boil Arc 2 cues: Lamp Toggle, String Wire, Reel Scrub, Redaction Dissolve
+  const lampOff = toggleLamp(arc2, realCatalog);
+  assert.ok(
+    resolveTransitionCues(arc2, lampOff, SOUND_ACTION_HINTS.ARC2_LAMP_TOGGLE).includes(
+      SOUND_CUES.ARC2_LAMP_TOGGLE,
+    ),
+  );
+
+  const readyBoard = devAssignArc2Resources(lampOff, { caseAngle: 4, silence: 1000 }, realCatalog);
+  const pinnedEx = unlockExhibit(readyBoard, 'unlisted_pay_stub', realCatalog);
+  const wired = toggleExhibitPair(pinnedEx, 'water_stained_petition', 'unlisted_pay_stub', realCatalog);
+  assert.ok(
+    resolveTransitionCues(pinnedEx, wired, SOUND_ACTION_HINTS.ARC2_STRING_WIRE).includes(
+      SOUND_CUES.ARC2_STRING_WIRE,
+    ),
+  );
+
+  const scrubbed = triggerReelScrub(wired, realCatalog);
+  assert.ok(
+    resolveTransitionCues(wired, scrubbed, SOUND_ACTION_HINTS.ARC2_REEL_SCRUB).includes(
+      SOUND_CUES.ARC2_REEL_SCRUB,
+    ),
+  );
+
+  const dissolved = dissolveRedaction(scrubbed, 'clause_seepage', realCatalog);
+  assert.ok(
+    resolveTransitionCues(scrubbed, dissolved, SOUND_ACTION_HINTS.ARC2_REDACTION_DISSOLVE).includes(
+      SOUND_CUES.ARC2_REDACTION_DISSOLVE,
+    ),
+  );
+
+  const c5Ready = {
+    ...devAssignArc2Resources(arc2, { caseAngle: 5, completedChapters: 4, leads: 90000000, silence: 15000 }, realCatalog),
   };
-  const ch4 = connectNextChapter(ch3, realCatalog);
+  c5Ready.arc2 = {
+    ...c5Ready.arc2,
+    discoveredCorroborations: [
+      'smudged_ledger_date',
+      'unlisted_annex',
+      'warm_room_tone',
+      'phantom_roster',
+      'sub_surface_cadence',
+    ],
+    reelScrubCount: 1,
+    dissolvedRedactions: ['clause_seepage', 'clause_shift', 'clause_quiet', 'clause_intake'],
+  };
+  const fileZeroState = pivotNextCase(c5Ready, realCatalog);
   assert.deepEqual(
-    resolveTransitionCues(ch3, ch4, SOUND_ACTION_HINTS.ARC2_CHAPTER),
+    resolveTransitionCues(c5Ready, fileZeroState, SOUND_ACTION_HINTS.ARC2_CHAPTER),
     [SOUND_CUES.ARC2_FILE_ZERO],
   );
 
-  const arc3 = enterArc3Convergence(ch4, realCatalog);
+  const arc3 = enterArc3Convergence(fileZeroState, realCatalog);
   assert.ok(
-    resolveTransitionCues(ch4, arc3, SOUND_ACTION_HINTS.ARC3_ENTER).includes(SOUND_CUES.ARC3_ENTER),
+    resolveTransitionCues(fileZeroState, arc3, SOUND_ACTION_HINTS.ARC3_ENTER).includes(SOUND_CUES.ARC3_ENTER),
   );
 
-  // Ambient profile escalation across Phases 0..4, Stillness, Clamp, Arc 2, and Arc 3
+  // Ambient profile escalation across Phases 0..4, Stillness, Clamp, Arc 2 Slow-Boil Quarantine, and Arc 3
   const p0 = computeAmbientProfile(start);
   const p4 = computeAmbientProfile({ ...start, phase: 4 });
   const still = computeAmbientProfile({ ...start, phase: 2, isStillnessActive: true });
   const active = computeAmbientProfile({ ...start, phase: 2, isStillnessActive: false });
   const clamped = computeAmbientProfile({ ...start, phase: 4, clampRemainingSeconds: 5 });
-  const arc2Profile = computeAmbientProfile({
-    ...arc2,
-    arc2: { ...arc2.arc2, complicity: 0.75, isSilenceActive: true },
+  const arc2EarlyProfile = computeAmbientProfile(lampOff);
+  const arc2LateProfile = computeAmbientProfile({
+    ...fileZeroState,
+    arc2: { ...fileZeroState.arc2, lampOn: false },
   });
   const arc3Profile = computeAmbientProfile(arc3);
 
@@ -250,7 +299,12 @@ test('Web procedural audio cue resolver, ambient profile escalation, and indepen
   assert.ok(still.dripRate > active.dripRate);
   assert.ok(still.humGain < active.humGain);
   assert.ok(clamped.clampTension > 0.8);
-  assert.ok(arc2Profile.rainMix > 0.7 && arc2Profile.complicityBleed >= 0.75);
+  // Slow-Boil Quarantine: zero fleshDepth/cardiacPulse in Case I
+  assert.equal(arc2EarlyProfile.fleshDepth, 0);
+  assert.equal(arc2EarlyProfile.cardiacPulse, 0);
+  assert.ok(arc2EarlyProfile.rainMix > 0.7);
+  // Late Case V / File #00 restores Room bleed
+  assert.ok(arc2LateProfile.fleshDepth > 0.4 && arc2LateProfile.cardiacPulse > 0.4);
   assert.ok(arc3Profile.rainMix > 0.3 && arc3Profile.fleshDepth > 0.2);
 
   // Mute preference defaults to unmuted (false), persists independently of game save, and works headlessly
@@ -344,18 +398,28 @@ test('Web tab alert evaluator, Grafting-in-Organisms alignment, and unseen/readi
   const crossedM2 = { ...cycle1Ready, ichor: 1800000, cycleLifetimeIchor: 1800000 };
   assert.equal(shouldAlertArc1Tab(crossedM2, 'excision', 'apparatus', seenCycle1Excision), true);
 
-  // Arc 2 unseen chapter & readiness checks
+  // Arc 2 4-tab alerts: dossier readiness, board readiness, and revision first-click silencing
   const arc2Ready = {
     ...devSetActiveArc(base, GAME_ARCS.ARC_2_INVESTIGATION, realCatalog),
   };
-  arc2Ready.arc2 = { ...arc2Ready.arc2, leads: 1000, lifetimeLeads: 1000, silence: 50 };
-  assert.ok(arc2UnlockKeys(arc2Ready, 'evidence_board').has('arc2_ch_1'));
-  assert.equal(isArc2TabReady(arc2Ready, 'deductions'), true);
+  arc2Ready.arc2 = {
+    ...arc2Ready.arc2,
+    leads: 12000,
+    lifetimeLeads: 12000,
+    silence: 100,
+    discoveredCorroborations: ['smudged_ledger_date'],
+  };
+  assert.ok(arc2UnlockKeys(arc2Ready, 'revision').has('arc2_pivot_ready_1'));
+  assert.equal(isArc2TabReady(arc2Ready, 'dossier'), true);
+  assert.equal(isArc2TabReady(arc2Ready, 'revision'), false);
   assert.equal(
-    shouldAlertArc2Tab(arc2Ready, 'deductions', 'contacts', new Map([['deductions', new Set(['arc2_deductions'])]])),
+    shouldAlertArc2Tab(arc2Ready, 'dossier', 'contacts', new Map([['dossier', new Set(['arc2_dossier_ex_unlisted_pay_stub'])]])),
     true,
   );
-  assert.equal(shouldAlertArc2Tab(arc2Ready, 'deductions', 'deductions', new Map()), false);
+  // Revision pulses when pivot becomes ready, then silences immediately once seen
+  assert.equal(shouldAlertArc2Tab(arc2Ready, 'revision', 'contacts', new Map()), true);
+  const seenRev = new Map([['revision', new Set(arc2UnlockKeys(arc2Ready, 'revision'))]]);
+  assert.equal(shouldAlertArc2Tab(arc2Ready, 'revision', 'contacts', seenRev), false);
 });
 
 test('Web wall/chamber event drip gate guarantees first sighting (100%) and applies 30% chance on repeats', () => {
