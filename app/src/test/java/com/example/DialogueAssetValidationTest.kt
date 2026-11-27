@@ -367,7 +367,26 @@ class DialogueAssetValidationTest {
         )
       }
     }
-    assertNotNull("Expected Case IV+ enamel_exhibit fragment", byId["dlg_arc2_enamel_exhibit"])
+    assertNotNull("Expected Case V enamel_exhibit fragment", byId["dlg_arc2_enamel_exhibit"])
+
+    // EX-09, Matching Hand, and Clause IV must never spoil File #00's thumb-scar/valve premise during Case IV
+    val ex09Copy = "${CaseExhibit.INTAKE_THUMB_CAST.title} ${CaseExhibit.INTAKE_THUMB_CAST.caption}".lowercase()
+    listOf("wax", "thumb", "scar", "valve").forEach { spoiler ->
+      assertFalse("EX-09 must not leak spoiler term '$spoiler'", ex09Copy.contains(spoiler))
+    }
+    val matchingHand = byId["dlg_arc2_corr_matching_hand"]
+    assertNotNull("Expected dlg_arc2_corr_matching_hand", matchingHand)
+    val matchingHandBody = matchingHand!!.lines.joinToString(" ").lowercase()
+    listOf("wax", "thumb", "scar", "valve").forEach { spoiler ->
+      assertFalse(
+        "dlg_arc2_corr_matching_hand must not prematurely spoil '$spoiler' in Case IV",
+        matchingHandBody.contains(spoiler),
+      )
+    }
+    assertFalse(
+      "Clause IV must not prematurely reveal investigator's own signature before Case V",
+      com.example.game.AuditRedaction.CLAUSE_INTAKE.revealedText.lowercase().contains("investigator's own signature"),
+    )
   }
 
   @Test
@@ -513,17 +532,42 @@ class DialogueAssetValidationTest {
       )
     }
 
-    // Verify all 5 Arc 3 Breach & Abstract Crimson Flood photographic drawables load cleanly
+    // Verify all 12 Arc 3 Breach & Abstract Crimson Flood photographic drawables load cleanly
     listOf(
       R.drawable.img_wall_arc3_breach_early,
+      R.drawable.img_wall_arc3_breach_mid,
       R.drawable.img_wall_arc3_breach_deep,
       R.drawable.img_arc3_crimson_flood,
+      R.drawable.img_arc3_wrench_valve,
+      R.drawable.img_arc3_open_seam,
+      R.drawable.img_arc3_shattered_jar,
+      R.drawable.img_arc3_wedge_file_zero,
       R.drawable.img_rupture_clotting_seam,
+      R.drawable.img_rupture_splintered_rib,
+      R.drawable.img_rupture_torn_suture,
       R.drawable.img_rupture_arterial_well,
     ).forEach { resId ->
       assertNotNull(
         "Arc 3 photographic drawable resource $resId must load cleanly",
         ContextCompat.getDrawable(context, resId),
+      )
+    }
+
+    // Verify every Arc 3 Unmake act (intact & completed) and Memory Wedge resolves a valid drawable
+    com.example.game.Arc3UnmakeAct.entries.forEach { act ->
+      assertNotNull(
+        "Arc 3 unmake ${act.id} (pending) drawable must load cleanly",
+        ContextCompat.getDrawable(context, com.example.ui.components.arc3UnmakeDrawableRes(act, completed = false)),
+      )
+      assertNotNull(
+        "Arc 3 unmake ${act.id} (completed) drawable must load cleanly",
+        ContextCompat.getDrawable(context, com.example.ui.components.arc3UnmakeDrawableRes(act, completed = true)),
+      )
+    }
+    com.example.game.Arc3Stratum.entries.forEach { stratum ->
+      assertNotNull(
+        "Arc 3 wedge ${stratum.id} drawable must load cleanly",
+        ContextCompat.getDrawable(context, com.example.ui.components.arc3WedgeDrawableRes(stratum)),
       )
     }
   }

@@ -4,7 +4,7 @@
  * stay synchronized across HTML, JS modules, and static artwork.
  */
 
-export const ASSET_VERSION = '3.15';
+export const ASSET_VERSION = '3.16';
 
 export function versionedAssetUrl(relativePath) {
   const separator = relativePath.includes('?') ? '&' : '?';
@@ -95,9 +95,16 @@ export const ARC3_CONVERGENCE_ASSET_URL = versionedAssetUrl('./assets/img_arc3_c
 
 export const ARC3_BREACH_ASSET_URLS = Object.freeze({
   wallEarly: versionedAssetUrl('./assets/img_wall_arc3_breach_early.jpg'),
+  wallMid: versionedAssetUrl('./assets/img_wall_arc3_breach_mid.jpg'),
   wallDeep: versionedAssetUrl('./assets/img_wall_arc3_breach_deep.jpg'),
   crimsonFlood: versionedAssetUrl('./assets/img_arc3_crimson_flood.jpg'),
+  wrenchValve: versionedAssetUrl('./assets/img_arc3_wrench_valve.jpg'),
+  openSeam: versionedAssetUrl('./assets/img_arc3_open_seam.jpg'),
+  shatteredJar: versionedAssetUrl('./assets/img_arc3_shattered_jar.jpg'),
+  wedgeFileZero: versionedAssetUrl('./assets/img_arc3_wedge_file_zero.jpg'),
   ruptureClottingSeam: versionedAssetUrl('./assets/img_rupture_clotting_seam.jpg'),
+  ruptureSplinteredRib: versionedAssetUrl('./assets/img_rupture_splintered_rib.jpg'),
+  ruptureTornSuture: versionedAssetUrl('./assets/img_rupture_torn_suture.jpg'),
   ruptureArterialWell: versionedAssetUrl('./assets/img_rupture_arterial_well.jpg'),
 });
 
@@ -134,12 +141,68 @@ export function contactAssetUrl(contactId) {
 }
 
 export function breachRuptureAssetUrl(ruptureType) {
-  if (ruptureType === 'clotting_seam' || ruptureType === 'torn_suture') {
+  if (ruptureType === 'clotting_seam') {
     return ARC3_BREACH_ASSET_URLS.ruptureClottingSeam;
   }
   if (ruptureType === 'splintered_rib') {
-    return ANOMALY_ASSET_URLS.chitin_rib;
+    return ARC3_BREACH_ASSET_URLS.ruptureSplinteredRib;
+  }
+  if (ruptureType === 'torn_suture') {
+    return ARC3_BREACH_ASSET_URLS.ruptureTornSuture;
   }
   return ARC3_BREACH_ASSET_URLS.ruptureArterialWell;
+}
+
+export function arc3UnmakeAssetUrl(act, completed = false) {
+  if (!act) return ARC3_BREACH_ASSET_URLS.ruptureTornSuture;
+  if (act.category === 'shatter_jar') {
+    if (completed) return ARC3_BREACH_ASSET_URLS.shatteredJar;
+    if (act.linkedJar) return jarAssetUrl(act.linkedJar);
+    return ARC3_BREACH_ASSET_URLS.shatteredJar;
+  }
+  switch (act.id) {
+    case 'reverse_suture_hands':
+      return specimenAssetUrl('suture_hand');
+    case 'reverse_leech_clerks':
+      return specimenAssetUrl('leech_clerk');
+    case 'burst_weeping_lamps':
+      return specimenAssetUrl('weeping_lamp');
+    case 'backflood_sump_siphons':
+      return specimenAssetUrl('sump_siphon');
+    case 'rip_choir_tendrils':
+      return graftAssetUrl('tendril');
+    case 'rupture_choir_lungs':
+      return graftAssetUrl('choir_lung');
+    case 'unstitch_first_incision':
+    case 'unstitch_suture_line':
+    case 'unstitch_stillness_line':
+      return ARC3_BREACH_ASSET_URLS.ruptureTornSuture;
+    case 'unstitch_marrow_line':
+      return ARC3_BREACH_ASSET_URLS.ruptureSplinteredRib;
+    case 'break_floor_grate_throat':
+      return ARC3_BREACH_ASSET_URLS.ruptureArterialWell;
+    case 'split_bricked_jamb':
+      return ARC3_BREACH_ASSET_URLS.openSeam;
+    default:
+      return act.linkedCreature
+        ? specimenAssetUrl(act.linkedCreature)
+        : ARC3_BREACH_ASSET_URLS.ruptureTornSuture;
+  }
+}
+
+export function arc3WedgeAssetUrl(stratumId) {
+  switch (stratumId) {
+    case 'broken_grout':
+      return exhibitAssetUrl('tax_plat_1998');
+    case 'unstitched_seam':
+      return exhibitAssetUrl('second_chair_polaroid');
+    case 'splintered_ribs':
+      return exhibitAssetUrl('reel_four_waveform');
+    case 'shared_pulse':
+      return exhibitAssetUrl('drainage_loop_blueprint');
+    case 'the_open_seam':
+    default:
+      return ARC3_BREACH_ASSET_URLS.wedgeFileZero;
+  }
 }
 

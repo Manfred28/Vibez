@@ -297,14 +297,40 @@ test('Arc 2 Slow-Boil Quarantine keeps grotesque Room spoilers strictly out of C
     }
   }
 
-  // Enamel exhibit anomaly must NEVER spawn in Cases I–III
-  for (const angle of [1, 2, 3]) {
+  // EX-09 (Personnel Sign-Off Card), Matching Hand, and Clause IV must never spoil the File #00 thumb-scar/valve premise early
+  const ex09 = CASE_EXHIBITS.find((e) => e.id === 'intake_thumb_cast');
+  assert.equal(ex09.title, 'Personnel Sign-Off Card');
+  const ex09Copy = `${ex09.title} ${ex09.caption}`.toLowerCase();
+  for (const spoiler of ['wax', 'thumb', 'scar', 'valve']) {
+    assert.equal(ex09Copy.includes(spoiler), false, `EX-09 must not leak spoiler term "${spoiler}"`);
+  }
+  const matchingHandEntry = realCatalog.entries.find((e) => e.id === 'dlg_arc2_corr_matching_hand');
+  assert.ok(matchingHandEntry, 'Expected dlg_arc2_corr_matching_hand');
+  const matchingHandBody = matchingHandEntry.lines.join(' ').toLowerCase();
+  for (const spoiler of ['wax', 'thumb', 'scar', 'valve']) {
+    assert.equal(
+      matchingHandBody.includes(spoiler),
+      false,
+      `dlg_arc2_corr_matching_hand must not prematurely spoil "${spoiler}" in Case IV`,
+    );
+  }
+  const clause4 = AUDIT_REDACTIONS.find((r) => r.id === 'clause_intake');
+  assert.equal(
+    clause4.revealedText.toLowerCase().includes("investigator's own signature"),
+    false,
+    'Clause IV must not prematurely spoil File #00 ownership in Case IV',
+  );
+
+  // Enamel exhibit anomaly must NEVER spawn in Cases I–IV (quarantined until Case V)
+  for (const angle of [1, 2, 3, 4]) {
     let state = devAssignArc2Resources(
       devSetActiveArc(initialState(realCatalog), GAME_ARCS.ARC_2_INVESTIGATION, realCatalog),
       { caseAngle: angle },
       realCatalog,
     );
-    assert.ok(arc2HauntDepth(state.arc2) <= 0.56, `Case ${angle} hauntDepth must stay quarantined`);
+    if (angle <= 3) {
+      assert.ok(arc2HauntDepth(state.arc2) <= 0.56, `Case ${angle} hauntDepth must stay quarantined`);
+    }
     for (let i = 0; i < 40; i += 1) {
       state = { ...state, arc2: { ...state.arc2, activeDeskAnomalies: [] } };
       state = devSpawnDeskAnomaly(state);

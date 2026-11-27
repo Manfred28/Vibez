@@ -339,9 +339,16 @@
     <string name="arc3_rupture_torn_suture_cd">Tear bleeding surgical suture open</string>
     <string name="arc3_rupture_arterial_well_cd">Breach arterial well beneath cracked tile</string>
     <string name="art_wall_arc3_breach_early_cd">Wet tiled chamber wall cracking with fresh crimson seepage</string>
+    <string name="art_wall_arc3_breach_mid_cd">Tiled chamber wall split along torn stitched seams weeping crimson streaks</string>
     <string name="art_wall_arc3_breach_deep_cd">Torn subterranean chamber wall split open by arterial crimson fissures</string>
     <string name="art_arc3_crimson_flood_cd">Abstract full-bleed crimson liquid field with deep dark red currents</string>
+    <string name="art_arc3_wrench_valve_cd">Corroded iron wall valve strained counter-clockwise with crimson seepage</string>
+    <string name="art_arc3_open_seam_cd">Torn brick and tile cavity pulsing dark crimson where the valve sheared free</string>
+    <string name="art_arc3_shattered_jar_cd">Shattered glass specimen jar and spilled crimson brine on rusted iron shelf</string>
+    <string name="art_arc3_wedge_file_zero_cd">Blood-soaked File #00 manila folder jammed into weeping cracked tiles</string>
     <string name="art_rupture_clotting_seam_cd">Freshly splitting plaster crack oozing dark red clotting fibers</string>
+    <string name="art_rupture_splintered_rib_cd">Splintered calcified rib jutting violently from wet blood-streaked plaster</string>
+    <string name="art_rupture_torn_suture_cd">Snapped surgical bone-thread sutures splitting open over glistening crimson seam</string>
     <string name="art_rupture_arterial_well_cd">Sunken dark crimson arterial well pulsing beneath cracked masonry</string>
     <string name="drip_arc3_speaker">THE SEAM</string>
     <string name="drip_arc3_rupture_clot">Wet mortar peels back; the clotting hesitates.</string>

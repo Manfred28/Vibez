@@ -152,25 +152,39 @@ internal fun Arc3BreachCanvas(
     val canvasW = maxWidth
     val canvasH = maxHeight
 
-    // 1. Progressive blood-seeping wall photography (Early -> Deep -> Flood)
+    // 1. Progressive blood-seeping wall photography (Early -> Mid -> Deep -> Flood)
+    val midBlend =
+      when {
+        breach.isInFinale || breach.currentStratum >= 3 -> 1f
+        breach.currentStratum == 2 -> breach.stratumProgress.coerceIn(0f, 1f)
+        else -> 0f
+      }
     val deepBlend =
       when {
-        breach.isInFinale -> 1f
-        breach.currentStratum >= 3 -> ((breach.currentStratum - 2) * 0.45f).coerceIn(0f, 1f)
+        breach.isInFinale || breach.currentStratum >= 4 -> 1f
+        breach.currentStratum == 3 -> breach.stratumProgress.coerceIn(0f, 1f)
         else -> 0f
       }
     Image(
       painter = painterResource(id = R.drawable.img_wall_arc3_breach_early),
       contentDescription = stringResource(R.string.art_wall_arc3_breach_early_cd),
       contentScale = ContentScale.Crop,
-      modifier = Modifier.fillMaxSize().alpha(0.78f * (1f - deepBlend * 0.65f)).testTag("art_arc3_breach_wall"),
+      modifier = Modifier.fillMaxSize().alpha(0.82f * (1f - midBlend * 0.72f)).testTag("art_arc3_breach_wall"),
     )
+    if (midBlend > 0.01f) {
+      Image(
+        painter = painterResource(id = R.drawable.img_wall_arc3_breach_mid),
+        contentDescription = stringResource(R.string.art_wall_arc3_breach_mid_cd),
+        contentScale = ContentScale.Crop,
+        modifier = Modifier.fillMaxSize().alpha(midBlend * (1f - deepBlend * 0.72f) * 0.86f),
+      )
+    }
     if (deepBlend > 0.01f) {
       Image(
         painter = painterResource(id = R.drawable.img_wall_arc3_breach_deep),
         contentDescription = stringResource(R.string.art_wall_arc3_breach_deep_cd),
         contentScale = ContentScale.Crop,
-        modifier = Modifier.fillMaxSize().alpha(deepBlend * 0.88f),
+        modifier = Modifier.fillMaxSize().alpha(deepBlend * 0.90f),
       )
     }
 
@@ -541,7 +555,7 @@ private fun Arc3FocalBreachTrigger(
     ) {
       Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         if (!isValveSheared) {
-          // Counter-clockwise shuddering iron valve
+          // Counter-clockwise shuddering iron valve weeping crimson from cracked tile
           Box(
             modifier =
               Modifier.fillMaxSize().graphicsLayer {
@@ -549,19 +563,19 @@ private fun Arc3FocalBreachTrigger(
               }
           ) {
             Image(
-              painter = painterResource(id = R.drawable.img_recessed_valve),
+              painter = painterResource(id = R.drawable.img_arc3_wrench_valve),
               contentDescription = null,
               contentScale = ContentScale.Crop,
-              modifier = Modifier.fillMaxSize().alpha(if (isPressed) 0.44f else 0.58f),
+              modifier = Modifier.fillMaxSize().alpha(if (isPressed) 0.56f else 0.72f),
             )
           }
         } else {
-          // Sheared Open Seam pulsing arterial red in Strata IV-V
+          // Sheared Open Seam cavity pulsing dark arterial red in Strata IV-V
           Image(
-            painter = painterResource(id = R.drawable.img_rupture_arterial_well),
+            painter = painterResource(id = R.drawable.img_arc3_open_seam),
             contentDescription = null,
             contentScale = ContentScale.Crop,
-            modifier = Modifier.fillMaxSize().alpha(0.76f),
+            modifier = Modifier.fillMaxSize().alpha(0.84f),
           )
         }
 
@@ -656,26 +670,21 @@ private fun Arc3ShelfRow(
                 .alpha(if (ownedInArc1) 0.88f else 0.50f),
           )
         } else {
-          // Shattered glass shards + spilled crimson brine on iron ledge
-          Canvas(modifier = Modifier.fillMaxSize()) {
-            drawOval(
-              color = ArterialCrimson.copy(alpha = 0.72f),
-              topLeft = Offset(2.dp.toPx(), size.height - 9.dp.toPx()),
-              size = Size(size.width - 4.dp.toPx(), 7.dp.toPx()),
-            )
-            drawLine(
-              color = BloodSoakedPaper.copy(alpha = 0.75f),
-              start = Offset(4.dp.toPx(), size.height - 4.dp.toPx()),
-              end = Offset(10.dp.toPx(), size.height - 12.dp.toPx()),
-              strokeWidth = 1.4.dp.toPx(),
-            )
-            drawLine(
-              color = BloodSoakedPaper.copy(alpha = 0.65f),
-              start = Offset(size.width - 5.dp.toPx(), size.height - 5.dp.toPx()),
-              end = Offset(size.width - 11.dp.toPx(), size.height - 10.dp.toPx()),
-              strokeWidth = 1.2.dp.toPx(),
-            )
-          }
+          // Bespoke macro shattered glass jar & spilled crimson brine on rusted iron ledge
+          Image(
+            painter = painterResource(id = R.drawable.img_arc3_shattered_jar),
+            contentDescription = null,
+            contentScale = ContentScale.Crop,
+            modifier =
+              Modifier.fillMaxSize()
+                .clip(RoundedCornerShape(topStart = 7.dp, topEnd = 7.dp, bottomStart = 3.dp, bottomEnd = 3.dp))
+                .border(
+                  0.8.dp,
+                  ArterialCrimson.copy(alpha = 0.65f),
+                  RoundedCornerShape(topStart = 7.dp, topEnd = 7.dp, bottomStart = 3.dp, bottomEnd = 3.dp),
+                )
+                .alpha(0.82f),
+          )
         }
       }
     }
@@ -693,8 +702,8 @@ private fun BreachRuptureNode(
   val resId =
     when (rupture.type) {
       BreachRuptureType.CLOTTING_SEAM -> R.drawable.img_rupture_clotting_seam
-      BreachRuptureType.SPLINTERED_RIB -> R.drawable.img_anomaly_chitin_rib
-      BreachRuptureType.TORN_SUTURE -> R.drawable.img_rupture_clotting_seam
+      BreachRuptureType.SPLINTERED_RIB -> R.drawable.img_rupture_splintered_rib
+      BreachRuptureType.TORN_SUTURE -> R.drawable.img_rupture_torn_suture
       BreachRuptureType.ARTERIAL_WELL -> R.drawable.img_rupture_arterial_well
     }
   val cd =
@@ -715,7 +724,6 @@ private fun BreachRuptureNode(
           val s = 0.96f + b * 0.08f
           scaleX = s
           scaleY = s
-          if (rupture.type == BreachRuptureType.TORN_SUTURE) rotationZ = 42f
         }
         .testTag("arc3_rupture_${rupture.type.id}_${rupture.id}")
         .semantics { contentDescription = cd }

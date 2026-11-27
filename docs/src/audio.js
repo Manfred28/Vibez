@@ -15,16 +15,16 @@ import {
   readMutedPreference,
   resolveTransitionCues,
   writeMutedPreference,
-} from './audio/cueResolver.js?v=3.15';
+} from './audio/cueResolver.js?v=3.16';
 import {
   IRON_MODE_RATIOS,
   createCrackleNoiseBuffer,
   createDspPrimitives,
   createNoiseBuffer,
-} from './audio/dspPrimitives.js?v=3.15';
-import { renderArc1Cue } from './audio/arc1CueBank.js?v=3.15';
-import { renderArc2Cue } from './audio/arc2CueBank.js?v=3.15';
-import { renderArc3Cue } from './audio/arc3CueBank.js?v=3.15';
+} from './audio/dspPrimitives.js?v=3.16';
+import { renderArc1Cue } from './audio/arc1CueBank.js?v=3.16';
+import { renderArc2Cue } from './audio/arc2CueBank.js?v=3.16';
+import { renderArc3Cue } from './audio/arc3CueBank.js?v=3.16';
 
 export {
   AUDIO_MUTE_STORAGE_KEY,

@@ -29,13 +29,19 @@ import {
   arc3WrenchFractureYield,
   formatCompactDecimal,
   formatInteger,
-} from '../engine.js?v=3.15';
-import { breachRuptureAssetUrl, jarAssetUrl } from '../version.js?v=3.15';
+} from '../engine.js?v=3.16';
+import {
+  ARC3_BREACH_ASSET_URLS,
+  arc3UnmakeAssetUrl,
+  arc3WedgeAssetUrl,
+  breachRuptureAssetUrl,
+  jarAssetUrl,
+} from '../version.js?v=3.16';
 import {
   arc3UnlockKeys,
   markTabSeen,
   shouldAlertArc3Tab,
-} from './tabAlerts.js?v=3.15';
+} from './tabAlerts.js?v=3.16';
 
 const ARC3_TABS = [
   { id: 'unmake', label: 'UNMAKE' },
@@ -81,18 +87,13 @@ export function createArc3BreachUi(els, handlers) {
       const shattered = arc3IsJarShattered(breach, jar.id);
       const slot = document.createElement('div');
       slot.className = `arc3-jar-slot${shattered ? ' is-shattered' : ''}`;
-      if (shattered) {
-        slot.innerHTML = '<span class="arc3-jar-shard">✕</span>';
-        slot.title = `${jar.title} (Shattered)`;
-      } else {
-        const img = document.createElement('img');
-        img.className = 'arc3-jar-img';
-        img.src = jarAssetUrl(jar.id);
-        img.alt = '';
-        img.draggable = false;
-        slot.appendChild(img);
-        slot.title = jar.title;
-      }
+      const img = document.createElement('img');
+      img.className = `arc3-jar-img${shattered ? ' is-shattered' : ''}`;
+      img.src = shattered ? ARC3_BREACH_ASSET_URLS.shatteredJar : jarAssetUrl(jar.id);
+      img.alt = '';
+      img.draggable = false;
+      slot.appendChild(img);
+      slot.title = shattered ? `${jar.title} (Shattered)` : jar.title;
       els.arc3JarShelves.appendChild(slot);
     }
   }
@@ -212,6 +213,16 @@ export function createArc3BreachUi(els, handlers) {
         btn.className = `deck-row arc3-unmake-row${done ? ' is-done' : ''}${affordable ? ' deck-row--accent' : ''}`;
         btn.disabled = done || !affordable;
 
+        const thumbFrame = document.createElement('span');
+        thumbFrame.className = `arc3-thumb-frame${done ? ' is-done' : ''}${affordable ? ' is-accent' : ''}`;
+        thumbFrame.setAttribute('aria-hidden', 'true');
+        const thumbImg = document.createElement('img');
+        thumbImg.className = 'arc3-thumb-img';
+        thumbImg.src = arc3UnmakeAssetUrl(act, done);
+        thumbImg.alt = '';
+        thumbImg.draggable = false;
+        thumbFrame.appendChild(thumbImg);
+
         const body = document.createElement('div');
         body.className = 'deck-row-main';
 
@@ -257,7 +268,7 @@ export function createArc3BreachUi(els, handlers) {
         pill.className = 'deck-row-pill';
         pill.textContent = done ? 'UNMADE' : `${formatBleedValue(act.hemorrhageCost)} HEM`;
 
-        btn.append(body, pill);
+        btn.append(thumbFrame, body, pill);
         if (!done) {
           btn.addEventListener('click', () => handlers.onPerformArc3Unmake?.(act.id));
         }
@@ -290,6 +301,22 @@ export function createArc3BreachUi(els, handlers) {
       const card = document.createElement('div');
       card.className = `arc3-wedge-card${isLocked ? ' is-locked' : ''}${isReady ? ' is-ready' : ''}`;
 
+      const cardRow = document.createElement('div');
+      cardRow.className = 'arc3-wedge-row';
+
+      const thumbFrame = document.createElement('span');
+      thumbFrame.className = `arc3-thumb-frame${isLocked || isCurrent ? ' is-accent' : ''}${!isLocked && !isCurrent ? ' is-done' : ''}`;
+      thumbFrame.setAttribute('aria-hidden', 'true');
+      const thumbImg = document.createElement('img');
+      thumbImg.className = 'arc3-thumb-img';
+      thumbImg.src = arc3WedgeAssetUrl(stratum.id);
+      thumbImg.alt = '';
+      thumbImg.draggable = false;
+      thumbFrame.appendChild(thumbImg);
+
+      const textCol = document.createElement('div');
+      textCol.className = 'arc3-wedge-body';
+
       const top = document.createElement('div');
       top.className = 'arc3-wedge-head';
       const name = document.createElement('span');
@@ -310,7 +337,9 @@ export function createArc3BreachUi(els, handlers) {
       caption.className = 'deck-row-desc';
       caption.textContent = stratum.wedgeCaption;
 
-      card.append(top, caption);
+      textCol.append(top, caption);
+      cardRow.append(thumbFrame, textCol);
+      card.append(cardRow);
 
       if (isReady) {
         const driveBtn = document.createElement('button');
@@ -473,6 +502,15 @@ export function createArc3BreachUi(els, handlers) {
     if (!inFinale && !submerged) {
       if (els.arc3WrenchBtn) {
         els.arc3WrenchBtn.classList.toggle('arc3-wrench-btn--sheared', sheared);
+      }
+      if (els.arc3WrenchArt) {
+        const targetSrc = sheared
+          ? ARC3_BREACH_ASSET_URLS.openSeam
+          : ARC3_BREACH_ASSET_URLS.wrenchValve;
+        if (els.arc3WrenchArt.dataset.artKey !== targetSrc) {
+          els.arc3WrenchArt.dataset.artKey = targetSrc;
+          els.arc3WrenchArt.src = targetSrc;
+        }
       }
       if (els.arc3WrenchYield) {
         els.arc3WrenchYield.textContent = `+${formatCompactDecimal(arc3WrenchFractureYield(state))}`;

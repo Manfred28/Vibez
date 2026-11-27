@@ -73,7 +73,7 @@ import {
   unlockExhibit,
   unlockScarNode,
   wrenchArc3Breach,
-} from './engine.js?v=3.15';
+} from './engine.js?v=3.16';
 import {
   drawArc3BreachBackdrop,
   drawChamberBackdrop,
@@ -82,15 +82,15 @@ import {
   drawInvestigatorDeskBackdrop,
   drawLeechClerks,
   drawValveAndHands,
-} from './chamberCanvas.js?v=3.15';
-import { createUiController } from './ui.js?v=3.15';
+} from './chamberCanvas.js?v=3.16';
+import { createUiController } from './ui.js?v=3.16';
 import {
   SOUND_ACTION_HINTS,
   SOUND_CUES,
   computeAmbientProfile,
   createWebAudioEngine,
   resolveTransitionCues,
-} from './audio.js?v=3.15';
+} from './audio.js?v=3.16';
 import {
   ANOMALY_ASSET_URLS,
   ARC2_STAMP_ASSET_URL,
@@ -106,7 +106,7 @@ import {
   RELIC_ASSET_URLS,
   SPECIMEN_ASSET_URLS,
   WALL_ASSET_URLS,
-} from './version.js?v=3.15';
+} from './version.js?v=3.16';
 
 const SAVE_STORAGE_KEY_V2 = 'unnamed_organ_save_v2';
 const SAVE_STORAGE_KEY_V1 = 'unnamed_organ_save_v1';
@@ -203,11 +203,11 @@ async function main() {
     ...Object.values(CONTACT_ASSET_URLS),
     ARC2_STAMP_ASSET_URL,
     ARC3_CONVERGENCE_ASSET_URL,
-    ARC3_BREACH_ASSET_URLS.ruptureClottingSeam,
-    ARC3_BREACH_ASSET_URLS.ruptureArterialWell,
+    ...Object.values(ARC3_BREACH_ASSET_URLS),
   ].map(preloadWallImage);
   const arc3Images = {
     wallEarly: preloadWallImage(ARC3_BREACH_ASSET_URLS.wallEarly),
+    wallMid: preloadWallImage(ARC3_BREACH_ASSET_URLS.wallMid),
     wallDeep: preloadWallImage(ARC3_BREACH_ASSET_URLS.wallDeep),
     crimsonFlood: preloadWallImage(ARC3_BREACH_ASSET_URLS.crimsonFlood),
   };

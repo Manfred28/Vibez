@@ -154,7 +154,7 @@ class Arc2InvestigatorEngineTest {
     val context = ApplicationProvider.getApplicationContext<Context>()
     val catalog = AssetDialogueRepository(context).loadCatalog()
 
-    for (angle in 1..3) {
+    for (angle in 1..4) {
       var state =
         OrganDevEngine.assignArc2Resources(
           OrganDevEngine.setActiveArc(
@@ -165,10 +165,12 @@ class Arc2InvestigatorEngineTest {
           caseAngle = angle,
           catalog = catalog,
         )
-      assertTrue(
-        "Case $angle hauntDepth must stay quarantined <= 0.56 (got ${state.arc2.hauntDepth})",
-        state.arc2.hauntDepth <= 0.56f,
-      )
+      if (angle <= 3) {
+        assertTrue(
+          "Case $angle hauntDepth must stay quarantined <= 0.56 (got ${state.arc2.hauntDepth})",
+          state.arc2.hauntDepth <= 0.56f,
+        )
+      }
       repeat(40) {
         state = state.copy(arc2 = state.arc2.copy(activeDeskAnomalies = emptyList()))
         state = OrganDevEngine.spawnDeskAnomaly(state)

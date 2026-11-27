@@ -38,9 +38,9 @@ import {
   formatCompactDecimal,
   formatInteger,
   matchCorroborationPair,
-} from '../engine.js?v=3.15';
-import { contactAssetUrl, deskAnomalyAssetUrl, exhibitAssetUrl } from '../version.js?v=3.15';
-import { arc2UnlockKeys, markTabSeen, shouldAlertArc2Tab } from './tabAlerts.js?v=3.15';
+} from '../engine.js?v=3.16';
+import { contactAssetUrl, deskAnomalyAssetUrl, exhibitAssetUrl } from '../version.js?v=3.16';
+import { arc2UnlockKeys, markTabSeen, shouldAlertArc2Tab } from './tabAlerts.js?v=3.16';
 
 export function createArc2InvestigatorUi(els, handlers) {
   let selectedArc2Tab = 'contacts';

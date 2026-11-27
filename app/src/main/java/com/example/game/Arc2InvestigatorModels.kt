@@ -199,7 +199,7 @@ enum class CaseExhibit(
     id = "reel_four_waveform",
     shortLabel = "EX-08",
     title = "Reel 4 Trace",
-    caption = "Paper oscillograph showing an unhurried rhythmic thump beneath forty minutes of static.",
+    caption = "Paper oscillograph logging a slow metallic knock every six seconds beneath forty minutes of basement static.",
     isKeystone = true,
     unlockCaseAngle = 4,
     silenceCost = 0.0,
@@ -209,8 +209,8 @@ enum class CaseExhibit(
   INTAKE_THUMB_CAST(
     id = "intake_thumb_cast",
     shortLabel = "EX-09",
-    title = "Grey Wax Cast",
-    caption = "Cold wax impression bearing a faint transverse ridge across the left thumb.",
+    title = "Personnel Sign-Off Card",
+    caption = "Damp precinct sign-off card misfiled in the bottom drawer, its margin tallies slanted in familiar blue ink.",
     isKeystone = false,
     unlockCaseAngle = 4,
     silenceCost = 2_200.0,
@@ -379,7 +379,7 @@ enum class AuditRedaction(
   CLAUSE_INTAKE(
     id = "clause_intake",
     label = "CLAUSE IV · SUBJECT INTAKE",
-    revealedText = "File #00 remains open under the investigator's own signature; no transfer out was ever countersigned.",
+    revealedText = "Internal folder #00 remains open under an unverified precinct signature; no transfer out was ever countersigned.",
     silenceCost = 6_200.0,
     effectSummary = "+80% Leads/s · +60% Silence · Unseals Audit",
   );
@@ -391,13 +391,13 @@ enum class AuditRedaction(
 
 /**
  * 4 interactive Desk Anomalies gated strictly by Case Angle & Lamp posture.
- * Grotesque enamel/molar anomaly only surfaces from Case IV+ once Slow Boil reaches self-implication.
+ * Grotesque enamel/molar anomaly only surfaces from Case V once Internal Audit begins.
  */
 enum class DeskAnomalyType(val id: String, val unlockCaseAngle: Int) {
   EVIDENCE_ENVELOPE("evidence_envelope", 1),
   FOGGED_SPECTACLES("fogged_spectacles", 2),
   REEL_TAPE("reel_tape", 3),
-  ENAMEL_EXHIBIT("enamel_exhibit", 4);
+  ENAMEL_EXHIBIT("enamel_exhibit", 5);
 
   companion object {
     fun byId(id: String): DeskAnomalyType? =

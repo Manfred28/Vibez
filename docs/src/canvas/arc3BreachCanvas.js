@@ -6,14 +6,14 @@
  *   chamber and swallowing the full viewport during the 5-pull dissolution finale.
  */
 
-import { drawCoverImage, syncCanvasSize } from './canvasShared.js?v=3.15';
+import { drawCoverImage, syncCanvasSize } from './canvasShared.js?v=3.16';
 import {
   arc3FloodLevel,
   arc3IsActivelyClotting,
   arc3IsInFinale,
   arc3StratumProgress,
   arc3UnstitchedScarCount,
-} from '../engine/arc3Models.js?v=3.15';
+} from '../engine/arc3Models.js?v=3.16';
 
 const SCAR_SLASHES = [
   [0.14, 0.2, 0.34, 0.42],
@@ -40,16 +40,12 @@ export function drawArc3BreachBackdrop(canvas, breachImages, state, breath = 0, 
   ctx.fillStyle = '#0D0607';
   ctx.fillRect(0, 0, width, height);
 
-  // Progressive wall cross-fade: wallEarly -> wallDeep -> crimsonFlood
-  const earlyAlpha = stratum <= 2 ? 0.92 : stratum === 3 ? Math.max(0.15, 0.75 - progress * 0.55) : 0.08;
-  const deepAlpha =
-    stratum <= 1
-      ? 0.0
-      : stratum === 2
-        ? progress * 0.45
-        : stratum === 3
-          ? 0.45 + progress * 0.45
-          : 0.92;
+  // Progressive wall cross-fade: wallEarly -> wallMid -> wallDeep -> crimsonFlood
+  const midBlend = inFinale || stratum >= 3 ? 1.0 : stratum === 2 ? progress : 0.0;
+  const deepBlend = inFinale || stratum >= 4 ? 1.0 : stratum === 3 ? progress : 0.0;
+  const earlyAlpha = 0.88 * (1 - midBlend * 0.78);
+  const midAlpha = midBlend * (1 - deepBlend * 0.78) * 0.9;
+  const deepAlpha = deepBlend * 0.92;
   const floodPhotoAlpha = inFinale
     ? 0.55 + Math.min(0.45, (breach.finalPullsCompleted ?? 0) * 0.09)
     : stratum >= 4
@@ -58,6 +54,9 @@ export function drawArc3BreachBackdrop(canvas, breachImages, state, breath = 0, 
 
   if (breachImages?.wallEarly && earlyAlpha > 0.01) {
     drawCoverImage(ctx, breachImages.wallEarly, width, height, earlyAlpha);
+  }
+  if (breachImages?.wallMid && midAlpha > 0.01) {
+    drawCoverImage(ctx, breachImages.wallMid, width, height, midAlpha);
   }
   if (breachImages?.wallDeep && deepAlpha > 0.01) {
     drawCoverImage(ctx, breachImages.wallDeep, width, height, deepAlpha);

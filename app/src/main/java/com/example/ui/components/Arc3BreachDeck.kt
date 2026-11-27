@@ -1,15 +1,21 @@
 package com.example.ui.components
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -24,7 +30,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
@@ -34,6 +44,7 @@ import com.example.game.Arc3DeckTab
 import com.example.game.Arc3Stratum
 import com.example.game.Arc3UnmakeAct
 import com.example.game.Arc3UnmakeCategory
+import com.example.game.CreatureType
 import com.example.game.OrganGameState
 import com.example.ui.theme.ArterialCrimson
 import com.example.ui.theme.ArterialShadow
@@ -182,6 +193,11 @@ private fun Arc3UnmakePanel(
               horizontalArrangement = Arrangement.spacedBy(10.dp),
               verticalAlignment = Alignment.CenterVertically,
             ) {
+              Arc3ThumbnailFrame(
+                drawableRes = arc3UnmakeDrawableRes(act, completed),
+                accent = completed || canPerform,
+                dimmed = completed,
+              )
               Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
                 Row(
                   horizontalArrangement = Arrangement.spacedBy(6.dp),
@@ -364,9 +380,14 @@ private fun Arc3WedgesPanel(
       ) {
         Row(
           modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 9.dp),
-          horizontalArrangement = Arrangement.SpaceBetween,
+          horizontalArrangement = Arrangement.spacedBy(10.dp),
           verticalAlignment = Alignment.CenterVertically,
         ) {
+          Arc3ThumbnailFrame(
+            drawableRes = arc3WedgeDrawableRes(stratum),
+            accent = locked || isCurrent,
+            dimmed = !locked && !isCurrent,
+          )
           Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Text(
               text = stratum.wedgeTitle,
@@ -393,3 +414,71 @@ private fun Arc3WedgesPanel(
     }
   }
 }
+
+@Composable
+private fun Arc3ThumbnailFrame(
+  drawableRes: Int,
+  accent: Boolean,
+  dimmed: Boolean,
+) {
+  val frameShape = RoundedCornerShape(3.dp)
+  Box(
+    modifier =
+      Modifier.size(44.dp)
+        .clip(frameShape)
+        .background(ArterialShadow)
+        .border(
+          width = 1.dp,
+          color = if (accent) ArterialCrimson.copy(alpha = 0.85f) else MaterialTheme.colorScheme.outlineVariant,
+          shape = frameShape,
+        )
+  ) {
+    Image(
+      painter = painterResource(id = drawableRes),
+      contentDescription = null,
+      contentScale = ContentScale.Crop,
+      modifier = Modifier.fillMaxSize().alpha(if (dimmed) 0.56f else 0.92f),
+    )
+  }
+}
+
+internal fun arc3UnmakeDrawableRes(act: Arc3UnmakeAct, completed: Boolean): Int {
+  if (act.category == Arc3UnmakeCategory.SHATTER_JAR) {
+    if (completed) return R.drawable.img_arc3_shattered_jar
+    val jar = act.linkedJar
+    if (jar != null) return specimenJarDrawableRes(jar)
+    return R.drawable.img_arc3_shattered_jar
+  }
+  return when (act) {
+    Arc3UnmakeAct.REVERSE_SUTURE_HANDS -> R.drawable.img_suture_hand
+    Arc3UnmakeAct.REVERSE_LEECH_CLERKS -> R.drawable.img_leech_clerk
+    Arc3UnmakeAct.BURST_WEEPING_LAMPS -> R.drawable.img_weeping_lamp
+    Arc3UnmakeAct.BACKFLOOD_SUMP_SIPHONS -> R.drawable.img_sump_siphon
+    Arc3UnmakeAct.RIP_CHOIR_TENDRILS -> R.drawable.img_graft_tendril
+    Arc3UnmakeAct.RUPTURE_CHOIR_LUNGS -> R.drawable.img_graft_choir_lung
+    Arc3UnmakeAct.UNSTITCH_FIRST_INCISION,
+    Arc3UnmakeAct.UNSTITCH_SUTURE_LINE,
+    Arc3UnmakeAct.UNSTITCH_STILLNESS_LINE -> R.drawable.img_rupture_torn_suture
+    Arc3UnmakeAct.UNSTITCH_MARROW_LINE -> R.drawable.img_rupture_splintered_rib
+    Arc3UnmakeAct.BREAK_FLOOR_GRATE_THROAT -> R.drawable.img_rupture_arterial_well
+    Arc3UnmakeAct.SPLIT_BRICKED_JAMB -> R.drawable.img_arc3_open_seam
+    else -> {
+      when (act.linkedCreature) {
+        CreatureType.SUTURE_HAND -> R.drawable.img_suture_hand
+        CreatureType.LEECH_CLERK -> R.drawable.img_leech_clerk
+        CreatureType.WEEPING_LAMP -> R.drawable.img_weeping_lamp
+        CreatureType.SUMP_SIPHON -> R.drawable.img_sump_siphon
+        null -> R.drawable.img_rupture_torn_suture
+      }
+    }
+  }
+}
+
+internal fun arc3WedgeDrawableRes(stratum: Arc3Stratum): Int =
+  when (stratum) {
+    Arc3Stratum.BROKEN_GROUT -> R.drawable.img_exhibit_tax_plat_1998
+    Arc3Stratum.UNSTITCHED_SEAM -> R.drawable.img_exhibit_second_chair_polaroid
+    Arc3Stratum.SPLINTERED_RIBS -> R.drawable.img_exhibit_reel_four_waveform
+    Arc3Stratum.SHARED_PULSE -> R.drawable.img_exhibit_drainage_loop_blueprint
+    Arc3Stratum.THE_OPEN_SEAM -> R.drawable.img_arc3_wedge_file_zero
+  }

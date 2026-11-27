@@ -13,8 +13,8 @@ import {
   drawCoverImage,
   rgba,
   syncCanvasSize,
-} from './canvasShared.js?v=3.15';
-import { arc2HauntDepth } from '../engine/arc2Models.js?v=3.15';
+} from './canvasShared.js?v=3.16';
+import { arc2HauntDepth } from '../engine/arc2Models.js?v=3.16';
 
 export function computeDeskLayerAlphas(
   caseAngle,

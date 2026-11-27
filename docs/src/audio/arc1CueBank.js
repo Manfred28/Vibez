@@ -2,7 +2,7 @@
  * Arc 1 Chamber procedural foley cue synthesizer bank.
  */
 
-import { SOUND_CUES } from './cueResolver.js?v=3.15';
+import { SOUND_CUES } from './cueResolver.js?v=3.16';
 
 export function renderArc1Cue(cue, phase, pitch, now, dsp) {
   const {

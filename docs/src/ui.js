@@ -4,7 +4,7 @@
  * under `./ui/` while preserving the exact public export surface.
  */
 
-import { GAME_ARCS } from './engine.js?v=3.15';
+import { GAME_ARCS } from './engine.js?v=3.16';
 import {
   REPEAT_EVENT_DRIP_CHANCE,
   STORY_DRIP_QUEUE_GAP_MS,
@@ -13,7 +13,7 @@ import {
   createDrippingMarginController,
   createStoryDripQueue,
   shouldTriggerEventDrip,
-} from './ui/drippingMargin.js?v=3.15';
+} from './ui/drippingMargin.js?v=3.16';
 import {
   arc1UnlockKeys,
   arc2UnlockKeys,
@@ -24,16 +24,16 @@ import {
   shouldAlertArc1Tab,
   shouldAlertArc2Tab,
   shouldAlertArc3Tab,
-} from './ui/tabAlerts.js?v=3.15';
+} from './ui/tabAlerts.js?v=3.16';
 import {
   DEEP_SHELF_JARS,
   FOUNDATIONAL_SHELF_JARS,
   createArc1ChamberUi,
   partitionChamberShelfJars,
-} from './ui/arc1ChamberUi.js?v=3.15';
-import { createArc2InvestigatorUi } from './ui/arc2InvestigatorUi.js?v=3.15';
-import { createArc3BreachUi } from './ui/arc3BreachUi.js?v=3.15';
-import { createSharedChromeUi } from './ui/sharedChromeUi.js?v=3.15';
+} from './ui/arc1ChamberUi.js?v=3.16';
+import { createArc2InvestigatorUi } from './ui/arc2InvestigatorUi.js?v=3.16';
+import { createArc3BreachUi } from './ui/arc3BreachUi.js?v=3.16';
+import { createSharedChromeUi } from './ui/sharedChromeUi.js?v=3.16';
 
 export {
   DEEP_SHELF_JARS,
@@ -124,6 +124,7 @@ export function createUiController(handlers) {
     arc3SurgeBadge: document.getElementById('arc3-surge-badge'),
     arc3WrenchArena: document.getElementById('arc3-wrench-arena'),
     arc3WrenchBtn: document.getElementById('arc3-wrench-btn'),
+    arc3WrenchArt: document.getElementById('arc3-wrench-art'),
     arc3WrenchYield: document.getElementById('arc3-wrench-yield'),
     arc3WrenchSub: document.getElementById('arc3-wrench-sub'),
     arc3ResidueLayer: document.getElementById('arc3-residue-layer'),

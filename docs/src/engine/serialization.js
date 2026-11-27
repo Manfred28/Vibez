@@ -3,7 +3,7 @@
  * Slow Boil codec seam preserving Arc 1 state untouched).
  */
 
-import { GAME_ARCS, ORGAN_BALANCE, REPEATABLE_SCAR_GRAFTS } from './constants.js?v=3.15';
+import { GAME_ARCS, ORGAN_BALANCE, REPEATABLE_SCAR_GRAFTS } from './constants.js?v=3.16';
 import {
   ARC2_BALANCE,
   AUDIT_REDACTIONS,
@@ -12,15 +12,15 @@ import {
   DESK_ANOMALY_TYPES,
   canonicalPairKey,
   initialArc2State,
-} from './arc2Models.js?v=3.15';
+} from './arc2Models.js?v=3.16';
 import {
   ARC3_BALANCE,
   ARC3_STRATA,
   ARC3_UNMAKE_ACTS,
   BREACH_RUPTURE_LIST,
   initialArc3State,
-} from './arc3Models.js?v=3.15';
-import { finalizeProgression, initialState } from './progression.js?v=3.15';
+} from './arc3Models.js?v=3.16';
+import { finalizeProgression, initialState } from './progression.js?v=3.16';
 
 const VALID_EXHIBIT_IDS = new Set(CASE_EXHIBITS.map((e) => e.id));
 const VALID_CORR_IDS = new Set(CORROBORATIONS.map((c) => c.id));

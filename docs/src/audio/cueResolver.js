@@ -3,7 +3,7 @@
  * for "The Tending of the Unnamed Organ" (1:1 parity with Android SoundCueResolver).
  */
 
-import { CREATURE_TYPES, GAME_ARCS, WALL_ANOMALY_TYPES } from '../engine/constants.js?v=3.15';
+import { CREATURE_TYPES, GAME_ARCS, WALL_ANOMALY_TYPES } from '../engine/constants.js?v=3.16';
 import {
   DESK_ANOMALY_TYPES,
   INVESTIGATOR_CONTACTS,
@@ -11,13 +11,13 @@ import {
   arc2IsReelScrubbing,
   arc2IsSilenceActive,
   matchCorroborationPair,
-} from '../engine/arc2Models.js?v=3.15';
+} from '../engine/arc2Models.js?v=3.16';
 import {
   arc3FloodLevel,
   arc3IsActivelyClotting,
   arc3ShatteredJarCount,
   arc3TotalRuptureInteractions,
-} from '../engine/arc3Models.js?v=3.15';
+} from '../engine/arc3Models.js?v=3.16';
 
 export const AUDIO_MUTE_STORAGE_KEY = 'unnamed_organ_audio_muted_v1';
 

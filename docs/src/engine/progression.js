@@ -8,20 +8,20 @@ import {
   GAME_ARCS,
   ORGAN_BALANCE,
   PHASE_THRESHOLDS,
-} from './constants.js?v=3.15';
-import { initialArc2State } from './arc2Models.js?v=3.15';
+} from './constants.js?v=3.16';
+import { initialArc2State } from './arc2Models.js?v=3.16';
 import {
   arc3ShatteredJarCount,
   arc3TotalRuptureInteractions,
   arc3UnstitchedScarCount,
   initialArc3State,
-} from './arc3Models.js?v=3.15';
+} from './arc3Models.js?v=3.16';
 import {
   creatureCount,
   cycleLifetimeIchorDisplay,
   hasNode,
   nextExcisionMilestone,
-} from './arc1Math.js?v=3.15';
+} from './arc1Math.js?v=3.16';
 
 export function phaseForCount(count) {
   const safe = Math.max(0, Math.floor(count));

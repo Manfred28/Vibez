@@ -3,7 +3,7 @@
  * (1:1 parity with Android Arc3BreachEngine.kt).
  */
 
-import { GAME_ARCS } from './constants.js?v=3.15';
+import { GAME_ARCS } from './constants.js?v=3.16';
 import {
   ARC3_BALANCE,
   ARC3_STRATA,
@@ -22,8 +22,8 @@ import {
   arc3WrenchFractureYield,
   arc3WrenchHemorrhageYield,
   initialArc3State,
-} from './arc3Models.js?v=3.15';
-import { finalizeProgression } from './progression.js?v=3.15';
+} from './arc3Models.js?v=3.16';
+import { finalizeProgression } from './progression.js?v=3.16';
 
 const RUPTURE_ANCHORS = Object.freeze([
   [0.16, 0.22],

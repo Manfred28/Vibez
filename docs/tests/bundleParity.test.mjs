@@ -20,6 +20,8 @@ import {
   SPECIMEN_ASSET_URLS,
   WALL_ASSET_URLS,
   anomalyAssetUrl,
+  arc3UnmakeAssetUrl,
+  arc3WedgeAssetUrl,
   breachRuptureAssetUrl,
   contactAssetUrl,
   deskAnomalyAssetUrl,
@@ -129,9 +131,16 @@ test('GitHub Pages static bundle integrity and Android dialogues.json parity', (
     'assets/img_arc2_case_stamp.jpg',
     'assets/img_arc3_convergence.jpg',
     'assets/img_wall_arc3_breach_early.jpg',
+    'assets/img_wall_arc3_breach_mid.jpg',
     'assets/img_wall_arc3_breach_deep.jpg',
     'assets/img_arc3_crimson_flood.jpg',
+    'assets/img_arc3_wrench_valve.jpg',
+    'assets/img_arc3_open_seam.jpg',
+    'assets/img_arc3_shattered_jar.jpg',
+    'assets/img_arc3_wedge_file_zero.jpg',
     'assets/img_rupture_clotting_seam.jpg',
+    'assets/img_rupture_splintered_rib.jpg',
+    'assets/img_rupture_torn_suture.jpg',
     'assets/img_rupture_arterial_well.jpg',
     'assets/icon.png',
     'assets/jetbrains_mono.ttf',
@@ -195,9 +204,16 @@ test('GitHub Pages static bundle integrity and Android dialogues.json parity', (
     'img_arc2_case_stamp.jpg',
     'img_arc3_convergence.jpg',
     'img_wall_arc3_breach_early.jpg',
+    'img_wall_arc3_breach_mid.jpg',
     'img_wall_arc3_breach_deep.jpg',
     'img_arc3_crimson_flood.jpg',
+    'img_arc3_wrench_valve.jpg',
+    'img_arc3_open_seam.jpg',
+    'img_arc3_shattered_jar.jpg',
+    'img_arc3_wedge_file_zero.jpg',
     'img_rupture_clotting_seam.jpg',
+    'img_rupture_splintered_rib.jpg',
+    'img_rupture_torn_suture.jpg',
     'img_rupture_arterial_well.jpg',
   ]) {
     const webBuf = fs.readFileSync(path.join(docsDir, 'assets', imgFile));
@@ -230,6 +246,7 @@ test('GitHub Pages static bundle integrity and Android dialogues.json parity', (
   assert.ok(html.includes('id="chamber-jar-shelves"'));
   assert.ok(html.includes('src="./assets/img_recessed_valve.jpg"'));
   assert.ok(html.includes(`src="./assets/img_arc2_case_stamp.jpg?v=${ASSET_VERSION}"`));
+  assert.ok(html.includes(`src="./assets/img_arc3_wrench_valve.jpg?v=${ASSET_VERSION}"`));
   assert.ok(html.includes('id="arc3-breach-canvas"'), 'Web UI must include Arc 3 Breach canvas');
   assert.ok(html.includes('id="arc3-flood-canvas"'), 'Web UI must include Arc 3 Crimson Flood canvas');
   assert.ok(html.includes('id="arc3-submerged-overlay"'), 'Web UI must include Arc 3 Submerged aftermath overlay');
@@ -272,14 +289,30 @@ test('Centralized asset versioning and browser-safe static ESM invariants hold a
   assert.equal(contactAssetUrl('night_archivist'), `./assets/img_contact_night_archivist.jpg?v=${ASSET_VERSION}`);
   assert.equal(ARC2_STAMP_ASSET_URL, `./assets/img_arc2_case_stamp.jpg?v=${ASSET_VERSION}`);
   assert.equal(ARC3_CONVERGENCE_ASSET_URL, `./assets/img_arc3_convergence.jpg?v=${ASSET_VERSION}`);
-  assert.equal(Object.keys(ARC3_BREACH_ASSET_URLS).length, 5);
+  assert.equal(Object.keys(ARC3_BREACH_ASSET_URLS).length, 12);
   assert.equal(
     breachRuptureAssetUrl('clotting_seam'),
     `./assets/img_rupture_clotting_seam.jpg?v=${ASSET_VERSION}`,
   );
   assert.equal(
+    breachRuptureAssetUrl('splintered_rib'),
+    `./assets/img_rupture_splintered_rib.jpg?v=${ASSET_VERSION}`,
+  );
+  assert.equal(
+    breachRuptureAssetUrl('torn_suture'),
+    `./assets/img_rupture_torn_suture.jpg?v=${ASSET_VERSION}`,
+  );
+  assert.equal(
     breachRuptureAssetUrl('arterial_well'),
     `./assets/img_rupture_arterial_well.jpg?v=${ASSET_VERSION}`,
+  );
+  assert.equal(
+    arc3UnmakeAssetUrl({ id: 'shatter_yesterdays_dust', category: 'shatter_jar', linkedJar: 'yesterdays_dust' }, true),
+    `./assets/img_arc3_shattered_jar.jpg?v=${ASSET_VERSION}`,
+  );
+  assert.equal(
+    arc3WedgeAssetUrl('the_open_seam'),
+    `./assets/img_arc3_wedge_file_zero.jpg?v=${ASSET_VERSION}`,
   );
   assert.equal(Object.keys(WALL_ASSET_URLS).length, 5);
   assert.equal(Object.keys(ANOMALY_ASSET_URLS).length, 4);

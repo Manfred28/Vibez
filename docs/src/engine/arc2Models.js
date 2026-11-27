@@ -192,7 +192,7 @@ export const CASE_EXHIBITS = Object.freeze([
     id: 'reel_four_waveform',
     shortLabel: 'EX-08',
     title: 'Reel 4 Trace',
-    caption: 'Paper oscillograph showing an unhurried rhythmic thump beneath forty minutes of static.',
+    caption: 'Paper oscillograph logging a slow metallic knock every six seconds beneath forty minutes of basement static.',
     isKeystone: true,
     unlockCaseAngle: 4,
     silenceCost: 0.0,
@@ -202,8 +202,8 @@ export const CASE_EXHIBITS = Object.freeze([
   Object.freeze({
     id: 'intake_thumb_cast',
     shortLabel: 'EX-09',
-    title: 'Grey Wax Cast',
-    caption: 'Cold wax impression bearing a faint transverse ridge across the left thumb.',
+    title: 'Personnel Sign-Off Card',
+    caption: 'Damp precinct sign-off card misfiled in the bottom drawer, its margin tallies slanted in familiar blue ink.',
     isKeystone: false,
     unlockCaseAngle: 4,
     silenceCost: 2200.0,
@@ -340,7 +340,7 @@ export const AUDIT_REDACTIONS = Object.freeze([
     id: 'clause_intake',
     label: 'CLAUSE IV · SUBJECT INTAKE',
     revealedText:
-      "File #00 remains open under the investigator's own signature; no transfer out was ever countersigned.",
+      'Internal folder #00 remains open under an unverified precinct signature; no transfer out was ever countersigned.',
     silenceCost: 6200.0,
     effectSummary: '+80% Leads/s · +60% Silence · Unseals Audit',
   }),
@@ -370,7 +370,7 @@ export const DESK_ANOMALY_TYPES = Object.freeze({
   }),
   ENAMEL_EXHIBIT: Object.freeze({
     id: 'enamel_exhibit',
-    unlockCaseAngle: 4,
+    unlockCaseAngle: 5,
     label: 'BAG',
     ariaLabel: 'Bag cold enamel exhibit surfaced on desk',
     dripLine: 'A cold smooth fragment sits in your evidence tray, dry and uncatalogued.',

@@ -2,13 +2,13 @@
  * Clinical Dev Console state helpers (direct jumps, resource grants, anomaly triggers, and wipe).
  */
 
-import { GAME_ARCS, SCAR_NODES } from './constants.js?v=3.15';
-import { CASE_EXHIBITS, initialArc2State } from './arc2Models.js?v=3.15';
-import { ARC3_STRATA, initialArc3State } from './arc3Models.js?v=3.15';
-import { finalizeProgression, initialState } from './progression.js?v=3.15';
-import { spawnImmediateWallAnomaly } from './arc1Engine.js?v=3.15';
-import { spawnImmediateDeskAnomaly } from './arc2Engine.js?v=3.15';
-import { spawnImmediateBreachRupture } from './arc3Engine.js?v=3.15';
+import { GAME_ARCS, SCAR_NODES } from './constants.js?v=3.16';
+import { CASE_EXHIBITS, initialArc2State } from './arc2Models.js?v=3.16';
+import { ARC3_STRATA, initialArc3State } from './arc3Models.js?v=3.16';
+import { finalizeProgression, initialState } from './progression.js?v=3.16';
+import { spawnImmediateWallAnomaly } from './arc1Engine.js?v=3.16';
+import { spawnImmediateDeskAnomaly } from './arc2Engine.js?v=3.16';
+import { spawnImmediateBreachRupture } from './arc3Engine.js?v=3.16';
 
 export function devSetActiveArc(state, arcId, catalog) {
   const adjusted = { ...state, activeArc: arcId };

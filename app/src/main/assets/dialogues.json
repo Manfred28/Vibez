@@ -1269,7 +1269,7 @@
       "speaker": "Corkboard // Sub-Surface Cadence",
       "lines": [
         "Linking the condensation swab to Reel 4's waveform shows the humidity peaks on the exact beat of the buried thump.",
-        "Whatever sits below the parcel is breathing damp air straight up through the masonry."
+        "Whatever sits below the parcel draws a slow, damp draft straight up through the masonry."
       ]
     },
     {
@@ -1406,7 +1406,7 @@
       "once": true,
       "speaker": "Solvent Clause IV",
       "lines": [
-        "The last black bar runs down the margin like diluted soot: \"File #00 remains open under the investigator's own signature; no transfer out was ever countersigned.\"",
+        "The last black bar runs down the margin like diluted soot: \"Internal folder #00 remains open under an unverified precinct signature; no transfer out was ever countersigned.\"",
         "Only one folder remains in the bottom drawer, wet through the manila tab."
       ]
     },
@@ -1468,14 +1468,14 @@
       "once": true,
       "speaker": "Corkboard // Sub-Basement Seam",
       "lines": [
-        "Red twine binds the closed drainage blueprint to the grey wax thumb cast. Between the pins, the corkboard weeps a slow, mineral salt.",
+        "Red twine binds the closed drainage blueprint to the misfiled personnel card. Between the pins, the corkboard weeps a slow, mineral salt.",
         "Hydro-Ward IV was never a separate precinct. It is the other side of this blotter."
       ]
     },
     {
       "id": "dlg_arc2_corr_matching_hand",
-      "phase": 6,
-      "mood": "hopeless",
+      "phase": 5,
+      "mood": "existential",
       "trigger": {
         "type": "corroboration_discovered",
         "target": "matching_hand",
@@ -1484,8 +1484,8 @@
       "once": true,
       "speaker": "Corkboard // Matching Hand",
       "lines": [
-        "You lay your left hand beside the wax cast and the water-stained petition. The pale transverse scar across your thumb fits the impression without a millimeter of slack.",
-        "You wrote the plea for salvation from the valve, and opened the case file to pretend someone outside heard it."
+        "Pinned beside the water-stained petition, the misfiled personnel card carries the exact same rightward slant on the fourteenth—and the same hesitant break in the ink.",
+        "You set your pen down because you cannot tell whether you are comparing two clerks, or auditing your own ledger."
       ]
     },
     {
@@ -1494,7 +1494,7 @@
       "mood": "hopeless",
       "trigger": {
         "type": "arc2_silence_reached",
-        "threshold": 2000
+        "threshold": 9000
       },
       "once": true,
       "speaker": "Black Windowpane",
