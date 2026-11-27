@@ -67,6 +67,13 @@ internal fun InvestigatorContactsPanel(
         enabled = canAfford,
         accent = false,
         testTag = "recruit_${contact.id}",
+        leadingArtwork = {
+          ContactPortraitThumb(
+            contact = contact,
+            active = canAfford || count > 0,
+            size = 48.dp,
+          )
+        },
         onClick = { actions.onRecruitContact(contact) },
       )
       if (desk.isBulkWarrantUnlocked) {

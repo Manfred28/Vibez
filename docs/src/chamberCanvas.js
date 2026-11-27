@@ -10,15 +10,19 @@ export {
   drawLeechClerks,
   drawValveAndHands,
   getWeepingLampLayout,
-} from './canvas/arc1ChamberCanvas.js?v=3.14';
+} from './canvas/arc1ChamberCanvas.js?v=3.15';
 export {
   drawActionArtwork,
   drawAnomalyGlyph,
   drawSumpSiphonPortrait,
   drawWeepingLampPortrait,
-} from './canvas/arc1PortraitsCanvas.js?v=3.14';
+} from './canvas/arc1PortraitsCanvas.js?v=3.15';
 export {
   computeDeskLayerAlphas,
   drawDeskAnomalyGlyph,
   drawInvestigatorDeskBackdrop,
-} from './canvas/arc2DeskCanvas.js?v=3.14';
+} from './canvas/arc2DeskCanvas.js?v=3.15';
+export {
+  drawArc3BreachBackdrop,
+  drawCrimsonFloodCanvas,
+} from './canvas/arc3BreachCanvas.js?v=3.15';

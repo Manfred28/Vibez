@@ -3,7 +3,7 @@
  * Slow Boil codec seam preserving Arc 1 state untouched).
  */
 
-import { GAME_ARCS, ORGAN_BALANCE, REPEATABLE_SCAR_GRAFTS } from './constants.js?v=3.14';
+import { GAME_ARCS, ORGAN_BALANCE, REPEATABLE_SCAR_GRAFTS } from './constants.js?v=3.15';
 import {
   ARC2_BALANCE,
   AUDIT_REDACTIONS,
@@ -12,13 +12,23 @@ import {
   DESK_ANOMALY_TYPES,
   canonicalPairKey,
   initialArc2State,
-} from './arc2Models.js?v=3.14';
-import { finalizeProgression, initialState } from './progression.js?v=3.14';
+} from './arc2Models.js?v=3.15';
+import {
+  ARC3_BALANCE,
+  ARC3_STRATA,
+  ARC3_UNMAKE_ACTS,
+  BREACH_RUPTURE_LIST,
+  initialArc3State,
+} from './arc3Models.js?v=3.15';
+import { finalizeProgression, initialState } from './progression.js?v=3.15';
 
 const VALID_EXHIBIT_IDS = new Set(CASE_EXHIBITS.map((e) => e.id));
 const VALID_CORR_IDS = new Set(CORROBORATIONS.map((c) => c.id));
 const VALID_REDACTION_IDS = new Set(AUDIT_REDACTIONS.map((r) => r.id));
 const VALID_ANOMALY_IDS = new Set(Object.values(DESK_ANOMALY_TYPES).map((t) => t.id));
+const VALID_ARC3_STRATUM_IDS = new Set(ARC3_STRATA.map((s) => s.id));
+const VALID_ARC3_UNMAKE_IDS = new Set(ARC3_UNMAKE_ACTS.map((a) => a.id));
+const VALID_ARC3_RUPTURE_IDS = new Set(BREACH_RUPTURE_LIST.map((r) => r.id));
 
 function normalizeAnomalyTypeId(rawId) {
   if (rawId === 'red_string') return DESK_ANOMALY_TYPES.ENAMEL_EXHIBIT.id;
@@ -153,9 +163,80 @@ export function decodeArc2State(rawArc2, schemaVersion = 3) {
   };
 }
 
+export function encodeArc3State(arc3) {
+  return arc3 ?? initialArc3State();
+}
+
+export function decodeArc3State(rawArc3) {
+  if (!rawArc3 || typeof rawArc3 !== 'object') return initialArc3State();
+  const src = rawArc3;
+  const lockedWedges = Array.isArray(src.lockedWedges)
+    ? Array.from(new Set(src.lockedWedges.filter((id) => VALID_ARC3_STRATUM_IDS.has(id))))
+    : [];
+  const completedUnmakes = Array.isArray(src.completedUnmakes)
+    ? Array.from(new Set(src.completedUnmakes.filter((id) => VALID_ARC3_UNMAKE_IDS.has(id))))
+    : [];
+  const activeRuptures = Array.isArray(src.activeRuptures)
+    ? src.activeRuptures
+        .map((r) => {
+          if (!r || !VALID_ARC3_RUPTURE_IDS.has(r.type)) return null;
+          return {
+            id: Math.max(1, Math.floor(Number(r.id) || 1)),
+            type: r.type,
+            xFraction: Math.max(0.08, Math.min(0.92, Number(r.xFraction) || 0.2)),
+            yFraction: Math.max(0.14, Math.min(0.75, Number(r.yFraction) || 0.3)),
+            remainingSeconds: Math.max(
+              0.5,
+              Number(r.remainingSeconds) || ARC3_BALANCE.RUPTURE_LIFETIME_SEC,
+            ),
+          };
+        })
+        .filter(Boolean)
+    : [];
+  const ruptureInteractions = {};
+  if (src.ruptureInteractions && typeof src.ruptureInteractions === 'object') {
+    for (const [key, val] of Object.entries(src.ruptureInteractions)) {
+      const count = Math.max(0, Math.floor(Number(val) || 0));
+      if (VALID_ARC3_RUPTURE_IDS.has(key) && count > 0) {
+        ruptureInteractions[key] = count;
+      }
+    }
+  }
+  const finalPullsCompleted = Math.max(
+    0,
+    Math.min(ARC3_BALANCE.FINAL_PULLS_TOTAL, Math.floor(Number(src.finalPullsCompleted) || 0)),
+  );
+  return {
+    ...initialArc3State(),
+    currentStratum: Math.max(1, Math.min(5, Math.floor(Number(src.currentStratum) || 1))),
+    lockedWedges,
+    fracture: Math.max(0, Number(src.fracture) || 0),
+    hemorrhage: Math.max(0, Number(src.hemorrhage) || 0),
+    lifetimeHemorrhage: Math.max(0, Number(src.lifetimeHemorrhage) || 0),
+    wrenchCount: Math.max(0, Math.floor(Number(src.wrenchCount) || 0)),
+    momentumCharge: Math.max(0, Math.min(1, Number(src.momentumCharge) || 0)),
+    secondsSinceLastAction: Math.max(0, Number(src.secondsSinceLastAction) || 0),
+    clotFreezeRemainingSeconds: Math.max(0, Number(src.clotFreezeRemainingSeconds) || 0),
+    ribForceRemainingSeconds: Math.max(0, Number(src.ribForceRemainingSeconds) || 0),
+    frenzyRemainingSeconds: Math.max(0, Number(src.frenzyRemainingSeconds) || 0),
+    completedUnmakes,
+    activeRuptures,
+    ruptureInteractions,
+    secondsUntilNextRupture: Math.max(
+      0,
+      Number(src.secondsUntilNextRupture) || ARC3_BALANCE.FIRST_RUPTURE_DELAY_SEC,
+    ),
+    nextRuptureId: Math.max(1, Math.floor(Number(src.nextRuptureId) || 1)),
+    finalPullsCompleted,
+    finalPullCooldownSeconds: Math.max(0, Number(src.finalPullCooldownSeconds) || 0),
+    submersionComplete:
+      Boolean(src.submersionComplete) || finalPullsCompleted >= ARC3_BALANCE.FINAL_PULLS_TOTAL,
+  };
+}
+
 export function serializeState(state) {
   return JSON.stringify({
-    version: 3,
+    version: 4,
     activeArc: state.activeArc,
     ichor: state.ichor,
     cycleLifetimeIchor: state.cycleLifetimeIchor,
@@ -192,6 +273,7 @@ export function serializeState(state) {
     marrowBloomCount: state.marrowBloomCount,
     unredactedDossierLines: state.unredactedDossierLines,
     arc2: encodeArc2State(state.arc2),
+    arc3: encodeArc3State(state.arc3),
     triggeredDialogueIds: state.triggeredDialogueIds,
     activeDialogueId: state.activeDialogue?.id ?? null,
     discoveredDialogueIds: state.discoveredDialogues.map((d) => d.id),
@@ -224,6 +306,7 @@ export function deserializeState(rawJson, catalog) {
         : scarLifetime;
 
     const arc2 = decodeArc2State(data.arc2, schemaVersion);
+    const arc3 = decodeArc3State(data.arc3);
 
     const validArc = Object.values(GAME_ARCS).includes(data.activeArc)
       ? data.activeArc
@@ -288,6 +371,7 @@ export function deserializeState(rawJson, catalog) {
         ? [...data.unredactedDossierLines]
         : [],
       arc2,
+      arc3,
       triggeredDialogueIds: Array.isArray(data.triggeredDialogueIds)
         ? [...data.triggeredDialogueIds]
         : [],

@@ -16,12 +16,16 @@ import androidx.test.core.app.ApplicationProvider
 import com.example.audio.InMemoryAudioEngine
 import com.example.data.Arc1SaveCodec
 import com.example.data.Arc2SaveCodec
+import com.example.data.Arc3SaveCodec
 import com.example.data.AssetDialogueRepository
 import com.example.data.DialogueCatalog
 import com.example.data.OrganStateSerializer
 import com.example.game.ActiveDeskAnomaly
 import com.example.game.Arc2DeskState
 import com.example.game.Arc2InvestigatorEngine
+import com.example.game.Arc3BreachState
+import com.example.game.Arc3Stratum
+import com.example.game.Arc3UnmakeAct
 import com.example.game.AuditRedaction
 import com.example.game.CaseExhibit
 import com.example.game.CorroborationId
@@ -32,6 +36,7 @@ import com.example.game.GameArc
 import com.example.game.InvestigatorContact
 import com.example.game.OrganGameEngine
 import com.example.game.ScarNodeId
+import com.example.ui.Arc3BreachActions
 import com.example.ui.Arc3ConvergenceScreen
 import com.example.ui.InvestigatorActions
 import com.example.ui.InvestigatorScreen
@@ -72,7 +77,7 @@ class Step0bExtensionSeamsTest {
     assertEquals(3, migratedV1.creatureCount(CreatureType.SUTURE_HAND))
     assertEquals(0.0, migratedV1.arc2.leads, 0.001)
 
-    // 2. Native v3 round-trip via isolated Arc1SaveCodec + Arc2SaveCodec
+    // 2. Native v4 round-trip via isolated Arc1SaveCodec + Arc2SaveCodec + Arc3SaveCodec
     val richState =
       OrganGameEngine.initialState(catalog).copy(
         activeArc = GameArc.ARC_2_INVESTIGATION,
@@ -97,42 +102,67 @@ class Step0bExtensionSeamsTest {
             deskAnomalyInteractions = mapOf(DeskAnomalyType.EVIDENCE_ENVELOPE to 3),
             fileZeroRevealed = false,
           ),
+        arc3 =
+          Arc3BreachState(
+            currentStratum = 2,
+            lockedWedges = setOf(Arc3Stratum.BROKEN_GROUT),
+            fracture = 180.0,
+            hemorrhage = 420.0,
+            lifetimeHemorrhage = 610.0,
+            wrenchCount = 19,
+            completedUnmakes = setOf(Arc3UnmakeAct.SHATTER_YESTERDAYS_DUST),
+          ),
       )
-    val serializedV3 = OrganStateSerializer.serialize(richState)
-    val parsedV3 = JSONObject(serializedV3)
-    assertEquals(3, OrganStateSerializer.detectSchemaVersion(parsedV3))
-    val restoredV3 = OrganStateSerializer.deserialize(serializedV3, catalog)
-    assertNotNull(restoredV3)
-    assertEquals(GameArc.ARC_2_INVESTIGATION, restoredV3!!.activeArc)
-    assertEquals(14L, restoredV3.scarTissue)
-    assertEquals(9L, restoredV3.availableScarTissue)
-    assertEquals(320.0, restoredV3.arc2.leads, 0.001)
-    assertEquals(2, restoredV3.arc2.contactCount(InvestigatorContact.NIGHT_ARCHIVIST))
-    assertEquals(3, restoredV3.arc2.caseAngle)
-    assertEquals(2, restoredV3.arc2.completedCasePivots)
-    assertEquals(false, restoredV3.arc2.lampOn)
-    assertTrue(CorroborationId.SMUDGED_LEDGER_DATE in restoredV3.arc2.discoveredCorroborations)
-
-    // Direct codec isolation check
-    val isolatedArc2 = Arc2SaveCodec.decode(Arc2SaveCodec.encode(richState.arc2), schemaVersion = 3)
-    assertEquals(richState.arc2.leads, isolatedArc2.leads, 0.001)
-    assertEquals(richState.arc2.completedCasePivots, isolatedArc2.completedCasePivots)
-    val isolatedArc1 = Arc1SaveCodec.decode(parsedV3, schemaVersion = 3)
-    assertEquals(richState.scarTissue, isolatedArc1.scarTissue)
-
-    // 3. Forward-compatible v4 payload with extra Arc 2 keys preserves Arc 1 & Arc 2 cleanly
-    val v4Root = JSONObject(serializedV3)
-    v4Root.put("schemaVersion", 4)
-    val v4Arc2 = v4Root.getJSONObject("arc2")
-    v4Arc2.put("futureFlag", true)
-    assertEquals(4, OrganStateSerializer.detectSchemaVersion(v4Root))
-
-    val restoredV4 = OrganStateSerializer.deserialize(v4Root.toString(), catalog)
+    val serializedV4 = OrganStateSerializer.serialize(richState)
+    val parsedV4 = JSONObject(serializedV4)
+    assertEquals(4, OrganStateSerializer.detectSchemaVersion(parsedV4))
+    val restoredV4 = OrganStateSerializer.deserialize(serializedV4, catalog)
     assertNotNull(restoredV4)
-    assertEquals(14L, restoredV4!!.scarTissue)
+    assertEquals(GameArc.ARC_2_INVESTIGATION, restoredV4!!.activeArc)
+    assertEquals(14L, restoredV4.scarTissue)
     assertEquals(9L, restoredV4.availableScarTissue)
     assertEquals(320.0, restoredV4.arc2.leads, 0.001)
+    assertEquals(2, restoredV4.arc2.contactCount(InvestigatorContact.NIGHT_ARCHIVIST))
+    assertEquals(3, restoredV4.arc2.caseAngle)
     assertEquals(2, restoredV4.arc2.completedCasePivots)
+    assertEquals(false, restoredV4.arc2.lampOn)
+    assertTrue(CorroborationId.SMUDGED_LEDGER_DATE in restoredV4.arc2.discoveredCorroborations)
+    assertEquals(2, restoredV4.arc3.currentStratum)
+    assertTrue(Arc3Stratum.BROKEN_GROUT in restoredV4.arc3.lockedWedges)
+    assertTrue(Arc3UnmakeAct.SHATTER_YESTERDAYS_DUST in restoredV4.arc3.completedUnmakes)
+
+    // Direct codec isolation check
+    val isolatedArc2 = Arc2SaveCodec.decode(Arc2SaveCodec.encode(richState.arc2), schemaVersion = 4)
+    assertEquals(richState.arc2.leads, isolatedArc2.leads, 0.001)
+    assertEquals(richState.arc2.completedCasePivots, isolatedArc2.completedCasePivots)
+    val isolatedArc3 = Arc3SaveCodec.decode(Arc3SaveCodec.encode(richState.arc3))
+    assertEquals(2, isolatedArc3.currentStratum)
+    assertEquals(19, isolatedArc3.wrenchCount)
+    val isolatedArc1 = Arc1SaveCodec.decode(parsedV4, schemaVersion = 4)
+    assertEquals(richState.scarTissue, isolatedArc1.scarTissue)
+
+    // 3. v3 -> v4 migration (missing arc3 object defaults cleanly to fresh Stratum I)
+    val v3Root = JSONObject(serializedV4)
+    v3Root.put("schemaVersion", 3)
+    v3Root.remove("arc3")
+    assertEquals(3, OrganStateSerializer.detectSchemaVersion(v3Root))
+    val migratedV3 = OrganStateSerializer.deserialize(v3Root.toString(), catalog)
+    assertNotNull(migratedV3)
+    assertEquals(1, migratedV3!!.arc3.currentStratum)
+    assertTrue(migratedV3.arc3.lockedWedges.isEmpty())
+
+    // 4. Forward-compatible v5 payload with extra keys preserves Arc 1, Arc 2, and Arc 3 cleanly
+    val v5Root = JSONObject(serializedV4)
+    v5Root.put("schemaVersion", 5)
+    v5Root.getJSONObject("arc3").put("futureFlag", true)
+    assertEquals(5, OrganStateSerializer.detectSchemaVersion(v5Root))
+
+    val restoredV5 = OrganStateSerializer.deserialize(v5Root.toString(), catalog)
+    assertNotNull(restoredV5)
+    assertEquals(14L, restoredV5!!.scarTissue)
+    assertEquals(9L, restoredV5.availableScarTissue)
+    assertEquals(320.0, restoredV5.arc2.leads, 0.001)
+    assertEquals(2, restoredV5.arc3.currentStratum)
   }
 
   @Test
@@ -273,10 +303,10 @@ class Step0bExtensionSeamsTest {
     var devOpened = 0
 
     composeTestRule.setContent {
-      BleakTheme(phase = 6) {
+      BleakTheme(phase = 7, breachMode = true) {
         Arc3ConvergenceScreen(
           state = state,
-          onSwitchArc = {},
+          actions = Arc3BreachActions(),
           onOpenDevTools = { devOpened++ },
           isAudioMuted = false,
           onToggleAudioMute = { muteToggled++ },

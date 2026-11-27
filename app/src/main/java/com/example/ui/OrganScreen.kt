@@ -123,14 +123,15 @@ fun OrganRoute(modifier: Modifier = Modifier, viewModel: OrganViewModel? = null)
   }
 
   val isInvestigator = uiState.activeArc == GameArc.ARC_2_INVESTIGATION
+  val isBreach = uiState.activeArc == GameArc.ARC_3_CONVERGENCE
   val themePhase =
     when (uiState.activeArc) {
       GameArc.ARC_1_CHAMBER -> uiState.phase
       GameArc.ARC_2_INVESTIGATION -> if (uiState.arc2.fileZeroRevealed) 6 else 5
-      GameArc.ARC_3_CONVERGENCE -> 6
+      GameArc.ARC_3_CONVERGENCE -> 7
     }
 
-  BleakTheme(phase = themePhase, investigatorMode = isInvestigator) {
+  BleakTheme(phase = themePhase, investigatorMode = isInvestigator, breachMode = isBreach) {
     when (uiState.activeArc) {
       GameArc.ARC_1_CHAMBER ->
         OrganScreen(
@@ -146,6 +147,7 @@ fun OrganRoute(modifier: Modifier = Modifier, viewModel: OrganViewModel? = null)
           onBuyRepeatableScarGraft = resolvedViewModel::buyRepeatableScarGraft,
           onToggleDrainSeal = resolvedViewModel::toggleDrainSeal,
           onDredgeSump = resolvedViewModel::dredgeSump,
+          onInspectRelic = resolvedViewModel::playRelicInspectCue,
           onSetEchoDiversion = resolvedViewModel::setEchoDiversion,
           onActivateValveClamp = resolvedViewModel::activateValveClamp,
           onPerformChoirLungGraft = resolvedViewModel::performChoirLungGraft,
@@ -168,7 +170,7 @@ fun OrganRoute(modifier: Modifier = Modifier, viewModel: OrganViewModel? = null)
       GameArc.ARC_3_CONVERGENCE ->
         Arc3ConvergenceScreen(
           state = uiState,
-          onSwitchArc = resolvedViewModel::devSetActiveArc,
+          actions = resolvedViewModel.arc3BreachActions,
           onOpenDevTools = { devToolsVisible = true },
           isAudioMuted = isAudioMuted,
           onToggleAudioMute = resolvedViewModel::toggleAudioMuted,
@@ -189,6 +191,11 @@ fun OrganRoute(modifier: Modifier = Modifier, viewModel: OrganViewModel? = null)
         onToggleArc2Lamp = resolvedViewModel::devToggleArc2Lamp,
         onResetArc2 = resolvedViewModel::devResetArc2,
         onSpawnDeskAnomaly = resolvedViewModel::devSpawnDeskAnomaly,
+        onSetArc3Stratum = resolvedViewModel::devSetArc3Stratum,
+        onAssignArc3Resources = resolvedViewModel::devAssignArc3Resources,
+        onJumpArc3Finale = resolvedViewModel::devJumpArc3Finale,
+        onSpawnBreachRupture = resolvedViewModel::devSpawnBreachRupture,
+        onResetArc3 = resolvedViewModel::devResetArc3,
         onAdvanceTime = resolvedViewModel::advanceTime,
         onResetAll = resolvedViewModel::devResetAll,
         onDismiss = { devToolsVisible = false },
@@ -211,6 +218,7 @@ fun OrganScreen(
   onBuyRepeatableScarGraft: (RepeatableScarGraft) -> Unit = {},
   onToggleDrainSeal: () -> Unit = {},
   onDredgeSump: () -> Unit = {},
+  onInspectRelic: () -> Unit = {},
   onSetEchoDiversion: (Int) -> Unit = {},
   onActivateValveClamp: () -> Unit = {},
   onPerformChoirLungGraft: () -> Unit = {},
@@ -381,6 +389,7 @@ fun OrganScreen(
             onBuyRepeatableScarGraft = onBuyRepeatableScarGraft,
             onToggleDrainSeal = onToggleDrainSeal,
             onDredgeSump = onDredgeSump,
+            onInspectRelic = onInspectRelic,
             onSetEchoDiversion = onSetEchoDiversion,
             onActivateValveClamp = onActivateValveClamp,
             onPerformChoirLungGraft = onPerformChoirLungGraft,

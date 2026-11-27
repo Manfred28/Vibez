@@ -6,11 +6,14 @@ import androidx.lifecycle.viewModelScope
 import com.example.audio.InMemoryAudioEngine
 import com.example.audio.OrganAudioEngine
 import com.example.audio.SoundActionHint
+import com.example.audio.SoundCue
 import com.example.audio.SoundCueResolver
 import com.example.data.DialogueCatalog
 import com.example.data.DialogueRepository
 import com.example.data.OrganSaveRepository
 import com.example.game.Arc2InvestigatorEngine
+import com.example.game.Arc3BreachEngine
+import com.example.game.Arc3UnmakeAct
 import com.example.game.AuditRedaction
 import com.example.game.CaseExhibit
 import com.example.game.CreatureType
@@ -82,6 +85,10 @@ class OrganViewModel(
 
   fun setAudioForegroundActive(active: Boolean) {
     audioEngine.setForegroundActive(active)
+  }
+
+  fun playRelicInspectCue() {
+    audioEngine.playCues(listOf(SoundCue.RELIC_INSPECT), _uiState.value.phase)
   }
 
   private fun dispatchAudioTransition(
@@ -309,6 +316,42 @@ class OrganViewModel(
       Arc2InvestigatorEngine.enterArc3Convergence(it, catalog)
     }
 
+  // --- Arc 3 Breach Actions ("The Unmaking") ---
+  val arc3BreachActions: Arc3BreachActions =
+    Arc3BreachActions(
+      onWrenchBreach = ::wrenchArc3Breach,
+      onPerformUnmake = ::performArc3Unmake,
+      onTearRupture = ::tearArc3Rupture,
+      onDriveWedge = ::driveArc3Wedge,
+      onPerformFinalPull = ::performArc3FinalPull,
+      onSwitchArc = ::devSetActiveArc,
+    )
+
+  fun wrenchArc3Breach() =
+    mutate(persistImmediately = false, actionHint = SoundActionHint.ARC3_WRENCH) {
+      Arc3BreachEngine.wrenchBreach(it, catalog)
+    }
+
+  fun performArc3Unmake(act: Arc3UnmakeAct) =
+    mutate(actionHint = SoundActionHint.ARC3_UNMAKE) {
+      Arc3BreachEngine.performUnmake(it, act, catalog)
+    }
+
+  fun tearArc3Rupture(ruptureId: Long) =
+    mutate(actionHint = SoundActionHint.ARC3_RUPTURE_TEAR) {
+      Arc3BreachEngine.tearBreachRupture(it, ruptureId, catalog)
+    }
+
+  fun driveArc3Wedge() =
+    mutate(actionHint = SoundActionHint.ARC3_WEDGE_DRIVE) {
+      Arc3BreachEngine.driveMemoryWedge(it, catalog)
+    }
+
+  fun performArc3FinalPull() =
+    mutate(actionHint = SoundActionHint.ARC3_FINAL_PULL) {
+      Arc3BreachEngine.performFinalPull(it, catalog)
+    }
+
   // --- Dev Testing Console Actions ---
   fun devSetActiveArc(arc: GameArc) =
     mutate(actionHint = SoundActionHint.DEV) { OrganDevEngine.setActiveArc(it, arc, catalog) }
@@ -360,6 +403,23 @@ class OrganViewModel(
 
   fun devSpawnDeskAnomaly() =
     mutate(actionHint = SoundActionHint.DEV) { OrganDevEngine.spawnDeskAnomaly(it) }
+
+  fun devSetArc3Stratum(stratum: Int) =
+    mutate(actionHint = SoundActionHint.DEV) { OrganDevEngine.setArc3Stratum(it, stratum, catalog) }
+
+  fun devAssignArc3Resources(hemorrhage: Double? = null, fillFracture: Boolean = false) =
+    mutate(actionHint = SoundActionHint.DEV) {
+      OrganDevEngine.assignArc3Resources(it, hemorrhage, fillFracture, catalog)
+    }
+
+  fun devJumpArc3Finale(submerged: Boolean = false) =
+    mutate(actionHint = SoundActionHint.DEV) { OrganDevEngine.jumpArc3Finale(it, submerged, catalog) }
+
+  fun devSpawnBreachRupture() =
+    mutate(actionHint = SoundActionHint.DEV) { OrganDevEngine.spawnBreachRupture(it) }
+
+  fun devResetArc3() =
+    mutate(actionHint = SoundActionHint.DEV) { OrganDevEngine.resetArc3(it, catalog) }
 
   fun devResetAll() {
     secondsSinceLastAutosave = 0.0

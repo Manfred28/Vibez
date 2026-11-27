@@ -23,6 +23,7 @@ object ProceduralFoleySynth {
     val pDark = 1.0 - (phase.coerceIn(0, 4) * 0.035)
     return Arc1FoleyCueBank.synthesize(cue, pitch, pDark, phase)
       ?: Arc2FoleyCueBank.synthesize(cue, pitch)
+      ?: Arc3FoleyCueBank.synthesize(cue, pitch)
       ?: error("Unhandled procedural sound cue: ${cue.id}")
   }
 

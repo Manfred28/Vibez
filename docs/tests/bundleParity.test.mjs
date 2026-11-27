@@ -5,17 +5,29 @@ import path from 'node:path';
 
 import {
   ANOMALY_ASSET_URLS,
+  ARC2_STAMP_ASSET_URL,
+  ARC3_BREACH_ASSET_URLS,
+  ARC3_CONVERGENCE_ASSET_URL,
   ASSET_VERSION,
+  CONTACT_ASSET_URLS,
   DESK_ANOMALY_ASSET_URLS,
   DESK_STAGE_ASSET_URLS,
   DIALOGUES_ASSET_URL,
   EXHIBIT_ASSET_URLS,
+  GRAFT_ASSET_URLS,
   JAR_ASSET_URLS,
+  RELIC_ASSET_URLS,
+  SPECIMEN_ASSET_URLS,
   WALL_ASSET_URLS,
   anomalyAssetUrl,
+  breachRuptureAssetUrl,
+  contactAssetUrl,
   deskAnomalyAssetUrl,
   exhibitAssetUrl,
+  graftAssetUrl,
   jarAssetUrl,
+  relicAssetUrl,
+  specimenAssetUrl,
   versionedAssetUrl,
 } from '../src/version.js';
 import {
@@ -41,6 +53,8 @@ test('GitHub Pages static bundle integrity and Android dialogues.json parity', (
     'src/engine/progression.js',
     'src/engine/arc1Engine.js',
     'src/engine/arc2Engine.js',
+    'src/engine/arc3Models.js',
+    'src/engine/arc3Engine.js',
     'src/engine/devEngine.js',
     'src/engine/serialization.js',
     'src/chamberCanvas.js',
@@ -48,16 +62,19 @@ test('GitHub Pages static bundle integrity and Android dialogues.json parity', (
     'src/canvas/arc1ChamberCanvas.js',
     'src/canvas/arc1PortraitsCanvas.js',
     'src/canvas/arc2DeskCanvas.js',
+    'src/canvas/arc3BreachCanvas.js',
     'src/audio.js',
     'src/audio/cueResolver.js',
     'src/audio/dspPrimitives.js',
     'src/audio/arc1CueBank.js',
     'src/audio/arc2CueBank.js',
+    'src/audio/arc3CueBank.js',
     'src/ui.js',
     'src/ui/drippingMargin.js',
     'src/ui/tabAlerts.js',
     'src/ui/arc1ChamberUi.js',
     'src/ui/arc2InvestigatorUi.js',
+    'src/ui/arc3BreachUi.js',
     'src/ui/sharedChromeUi.js',
     'src/app.js',
     'assets/dialogues.json',
@@ -98,6 +115,24 @@ test('GitHub Pages static bundle integrity and Android dialogues.json parity', (
     'assets/img_recessed_valve.jpg',
     'assets/img_suture_hand.jpg',
     'assets/img_leech_clerk.jpg',
+    'assets/img_weeping_lamp.jpg',
+    'assets/img_sump_siphon.jpg',
+    'assets/img_graft_tendril.jpg',
+    'assets/img_graft_choir_lung.jpg',
+    'assets/img_relic_patient_wristband.jpg',
+    'assets/img_relic_brass_ward_key.jpg',
+    'assets/img_relic_caretaker_logbook.jpg',
+    'assets/img_contact_night_archivist.jpg',
+    'assets/img_contact_bribed_orderly.jpg',
+    'assets/img_contact_microfilm_scanner.jpg',
+    'assets/img_contact_audio_transcriber.jpg',
+    'assets/img_arc2_case_stamp.jpg',
+    'assets/img_arc3_convergence.jpg',
+    'assets/img_wall_arc3_breach_early.jpg',
+    'assets/img_wall_arc3_breach_deep.jpg',
+    'assets/img_arc3_crimson_flood.jpg',
+    'assets/img_rupture_clotting_seam.jpg',
+    'assets/img_rupture_arterial_well.jpg',
     'assets/icon.png',
     'assets/jetbrains_mono.ttf',
   ];
@@ -107,7 +142,7 @@ test('GitHub Pages static bundle integrity and Android dialogues.json parity', (
     assert.ok(fs.existsSync(abs), `Missing required GitHub Pages file: docs/${rel}`);
   }
 
-  // Verify all 15 Arc 1 + 19 Arc 2 photographic JPEGs match Android byte-for-byte
+  // Verify all 50 photographic JPEGs (Arc 1 + Arc 2 + Arc 3) match Android byte-for-byte
   for (const imgFile of [
     'img_wall_phase1.jpg',
     'img_wall_fleshy.jpg',
@@ -124,6 +159,16 @@ test('GitHub Pages static bundle integrity and Android dialogues.json parity', (
     'img_jar_salt_from_the_grout.jpg',
     'img_jar_a_borrowed_pulse.jpg',
     'img_jar_the_uncounted_hour.jpg',
+    'img_recessed_valve.jpg',
+    'img_suture_hand.jpg',
+    'img_leech_clerk.jpg',
+    'img_weeping_lamp.jpg',
+    'img_sump_siphon.jpg',
+    'img_graft_tendril.jpg',
+    'img_graft_choir_lung.jpg',
+    'img_relic_patient_wristband.jpg',
+    'img_relic_brass_ward_key.jpg',
+    'img_relic_caretaker_logbook.jpg',
     'img_desk_case1.jpg',
     'img_desk_case2.jpg',
     'img_desk_case3.jpg',
@@ -143,6 +188,17 @@ test('GitHub Pages static bundle integrity and Android dialogues.json parity', (
     'img_exhibit_reel_four_waveform.jpg',
     'img_exhibit_intake_thumb_cast.jpg',
     'img_exhibit_drainage_loop_blueprint.jpg',
+    'img_contact_night_archivist.jpg',
+    'img_contact_bribed_orderly.jpg',
+    'img_contact_microfilm_scanner.jpg',
+    'img_contact_audio_transcriber.jpg',
+    'img_arc2_case_stamp.jpg',
+    'img_arc3_convergence.jpg',
+    'img_wall_arc3_breach_early.jpg',
+    'img_wall_arc3_breach_deep.jpg',
+    'img_arc3_crimson_flood.jpg',
+    'img_rupture_clotting_seam.jpg',
+    'img_rupture_arterial_well.jpg',
   ]) {
     const webBuf = fs.readFileSync(path.join(docsDir, 'assets', imgFile));
     const androidBuf = fs.readFileSync(
@@ -157,8 +213,8 @@ test('GitHub Pages static bundle integrity and Android dialogues.json parity', (
   const androidRaw = fs.readFileSync(androidDialoguesPath, 'utf8').trim();
   assert.equal(webRaw, androidRaw, 'docs/assets/dialogues.json must match app/src/main/assets/dialogues.json');
   assert.ok(realCatalog.schemaVersion >= 3);
-  assert.equal(realCatalog.phases.length, 7);
-  assert.ok(realCatalog.entries.length >= 45);
+  assert.equal(realCatalog.phases.length, 8);
+  assert.ok(realCatalog.entries.length >= 105);
 
   // Verify root index.html redirects to ./docs/ when GitHub Pages serves from /(root)
   const rootIndexPath = path.join(repoRoot, 'index.html');
@@ -173,6 +229,10 @@ test('GitHub Pages static bundle integrity and Android dialogues.json parity', (
   assert.ok(html.includes(`content="${ASSET_VERSION}"`), 'index.html app-build meta must match ASSET_VERSION');
   assert.ok(html.includes('id="chamber-jar-shelves"'));
   assert.ok(html.includes('src="./assets/img_recessed_valve.jpg"'));
+  assert.ok(html.includes(`src="./assets/img_arc2_case_stamp.jpg?v=${ASSET_VERSION}"`));
+  assert.ok(html.includes('id="arc3-breach-canvas"'), 'Web UI must include Arc 3 Breach canvas');
+  assert.ok(html.includes('id="arc3-flood-canvas"'), 'Web UI must include Arc 3 Crimson Flood canvas');
+  assert.ok(html.includes('id="arc3-submerged-overlay"'), 'Web UI must include Arc 3 Submerged aftermath overlay');
   assert.ok(html.includes('THE COUNTING ROOM'));
   assert.ok(html.includes('id="phase-progress-fill"'), 'Diegetic progress bar must be restored in header');
   assert.ok(html.includes('NEXT: UNCANNY DRIFT · 0 / 75'), 'Header must display diegetic next stage progress');
@@ -202,12 +262,35 @@ test('Centralized asset versioning and browser-safe static ESM invariants hold a
     exhibitAssetUrl('water_stained_petition'),
     `./assets/img_exhibit_water_stained_petition.jpg?v=${ASSET_VERSION}`,
   );
+  assert.equal(specimenAssetUrl('weeping_lamp'), `./assets/img_weeping_lamp.jpg?v=${ASSET_VERSION}`);
+  assert.equal(specimenAssetUrl('sump_siphon'), `./assets/img_sump_siphon.jpg?v=${ASSET_VERSION}`);
+  assert.equal(graftAssetUrl('tendril'), `./assets/img_graft_tendril.jpg?v=${ASSET_VERSION}`);
+  assert.equal(graftAssetUrl('choir_lung'), `./assets/img_graft_choir_lung.jpg?v=${ASSET_VERSION}`);
+  assert.equal(relicAssetUrl('patient_wristband'), `./assets/img_relic_patient_wristband.jpg?v=${ASSET_VERSION}`);
+  assert.equal(relicAssetUrl('brass_ward_key'), `./assets/img_relic_brass_ward_key.jpg?v=${ASSET_VERSION}`);
+  assert.equal(relicAssetUrl('bleeding_logbook'), `./assets/img_relic_caretaker_logbook.jpg?v=${ASSET_VERSION}`);
+  assert.equal(contactAssetUrl('night_archivist'), `./assets/img_contact_night_archivist.jpg?v=${ASSET_VERSION}`);
+  assert.equal(ARC2_STAMP_ASSET_URL, `./assets/img_arc2_case_stamp.jpg?v=${ASSET_VERSION}`);
+  assert.equal(ARC3_CONVERGENCE_ASSET_URL, `./assets/img_arc3_convergence.jpg?v=${ASSET_VERSION}`);
+  assert.equal(Object.keys(ARC3_BREACH_ASSET_URLS).length, 5);
+  assert.equal(
+    breachRuptureAssetUrl('clotting_seam'),
+    `./assets/img_rupture_clotting_seam.jpg?v=${ASSET_VERSION}`,
+  );
+  assert.equal(
+    breachRuptureAssetUrl('arterial_well'),
+    `./assets/img_rupture_arterial_well.jpg?v=${ASSET_VERSION}`,
+  );
   assert.equal(Object.keys(WALL_ASSET_URLS).length, 5);
   assert.equal(Object.keys(ANOMALY_ASSET_URLS).length, 4);
   assert.equal(Object.keys(JAR_ASSET_URLS).length, 6);
+  assert.equal(Object.keys(SPECIMEN_ASSET_URLS).length, 4);
+  assert.equal(Object.keys(GRAFT_ASSET_URLS).length, 2);
+  assert.equal(Object.keys(RELIC_ASSET_URLS).length, 3);
   assert.equal(Object.keys(DESK_STAGE_ASSET_URLS).length, 5);
   assert.equal(Object.keys(DESK_ANOMALY_ASSET_URLS).length, 4);
   assert.equal(Object.keys(EXHIBIT_ASSET_URLS).length, 10);
+  assert.equal(Object.keys(CONTACT_ASSET_URLS).length, 4);
 
   const srcDir = path.join(docsDir, 'src');
   const jsFiles = listJsFiles(srcDir);
@@ -247,9 +330,16 @@ test('Centralized asset versioning and browser-safe static ESM invariants hold a
     'WALL_ASSET_URLS',
     'ANOMALY_ASSET_URLS',
     'JAR_ASSET_URLS',
+    'SPECIMEN_ASSET_URLS',
+    'GRAFT_ASSET_URLS',
+    'RELIC_ASSET_URLS',
     'DESK_STAGE_ASSET_URLS',
     'DESK_ANOMALY_ASSET_URLS',
     'EXHIBIT_ASSET_URLS',
+    'CONTACT_ASSET_URLS',
+    'ARC2_STAMP_ASSET_URL',
+    'ARC3_CONVERGENCE_ASSET_URL',
+    'ARC3_BREACH_ASSET_URLS',
   ]) {
     assert.ok(appSrc.includes(token), `docs/src/app.js must use ${token} from version.js`);
   }

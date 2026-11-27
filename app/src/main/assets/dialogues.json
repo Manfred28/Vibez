@@ -37,6 +37,11 @@
       "id": 6,
       "name": "File #00",
       "intensity": "dissociative"
+    },
+    {
+      "id": 7,
+      "name": "The Breach",
+      "intensity": "rupture"
     }
   ],
   "entries": [
@@ -1515,18 +1520,303 @@
     },
     {
       "id": "dlg_arc3_convergence",
-      "phase": 6,
-      "mood": "surreal",
+      "phase": 7,
+      "mood": "existential",
       "trigger": {
         "type": "arc_entered",
         "target": "arc_3",
         "threshold": 1
       },
       "once": true,
-      "speaker": "Threshold // Unsealed",
+      "speaker": "Memory Returned",
       "lines": [
-        "The rain-streaked office and the windowless tiled room occupy the same inch of cold air.",
-        "Both ledgers keep counting. Whatever wakes beyond File #00 waits past this seam."
+        "The fourth-floor office folds back into wet tile. There was never a streetlamp outside the glass—only the recessed valve warming beneath your palms.",
+        "No blade this time. No tidy cut back to a bare floor. You grip the rusted iron backward and pull against the thread."
+      ]
+    },
+    {
+      "id": "dlg_arc3_first_wrench",
+      "phase": 7,
+      "mood": "grotesque",
+      "trigger": {
+        "type": "arc3_wrench_count",
+        "threshold": 3
+      },
+      "once": true,
+      "speaker": "Jammed Iron",
+      "lines": [
+        "The valve screams counter-clockwise, flaking wet grey grout into your collar. What spills out around the flange is no longer dead black ichor.",
+        "It runs warm and bright red across the floor tiles, and the plaster immediately begins creeping forward to seal the gap."
+      ]
+    },
+    {
+      "id": "dlg_arc3_first_jar_shatter",
+      "phase": 7,
+      "mood": "depressive",
+      "trigger": {
+        "type": "arc3_jars_shattered",
+        "threshold": 1
+      },
+      "once": true,
+      "speaker": "Broken Wax Seal",
+      "lines": [
+        "Glass breaks against the baseboard in a dull wet burst. All the quiet you bottled to endure this room spills black-and-red across the concrete.",
+        "Without its calm, the mortar loses its hold for a heartbeat."
+      ]
+    },
+    {
+      "id": "dlg_arc3_three_jars_shattered",
+      "phase": 7,
+      "mood": "existential",
+      "trigger": {
+        "type": "arc3_jars_shattered",
+        "threshold": 3
+      },
+      "once": true,
+      "speaker": "Left Shelf // Empty",
+      "lines": [
+        "Yesterday's dust, unspent breath, the name you almost kept—all three lie in jagged rings along the floor.",
+        "Every comfort you sealed away to survive the chamber was only glue holding the tiles shut."
+      ]
+    },
+    {
+      "id": "dlg_arc3_all_jars_shattered",
+      "phase": 7,
+      "mood": "hopeless",
+      "trigger": {
+        "type": "arc3_jars_shattered",
+        "threshold": 6
+      },
+      "once": true,
+      "speaker": "Shattered Baseboards",
+      "lines": [
+        "Not one unbroken jar remains on either shelf, down to the uncounted hour.",
+        "Nothing in the room is still anymore; even the damp concrete shudders under your shoes."
+      ]
+    },
+    {
+      "id": "dlg_arc3_first_rupture",
+      "phase": 7,
+      "mood": "grotesque",
+      "trigger": {
+        "type": "arc3_rupture_interacted",
+        "threshold": 1
+      },
+      "once": true,
+      "speaker": "Torn Clot",
+      "lines": [
+        "You hook your fingers into the closing seam before the warm plaster can knit over it. Pale threads snap with a wet shudder.",
+        "The wall flinches like a ribcage holding its breath, then bleeds faster."
+      ]
+    },
+    {
+      "id": "dlg_arc3_first_unmake",
+      "phase": 7,
+      "mood": "grotesque",
+      "trigger": {
+        "type": "arc3_unmake_count",
+        "threshold": 2
+      },
+      "once": true,
+      "speaker": "Reversed Apparatus",
+      "lines": [
+        "You force the stitched hands backward until their knuckles scrape mortar from the joints instead of turning the wheel.",
+        "Everything you grew to tend this room tears just as eagerly in the opposite direction."
+      ]
+    },
+    {
+      "id": "dlg_arc3_scar_unstitched",
+      "phase": 7,
+      "mood": "existential",
+      "trigger": {
+        "type": "arc3_scars_unstitched",
+        "threshold": 1
+      },
+      "once": true,
+      "speaker": "Unstitched Keloid",
+      "lines": [
+        "You rip open the pale scar ridge you spent cycles sewing into the tile.",
+        "The room does not reset to cold sterile slate anymore; it stays open, raw, and rising around your ankles."
+      ]
+    },
+    {
+      "id": "dlg_arc3_wedge_1_plat",
+      "phase": 7,
+      "mood": "uncanny",
+      "trigger": {
+        "type": "arc3_wedge_locked",
+        "threshold": 1
+      },
+      "once": true,
+      "speaker": "Wedge I // 1998 Tax Plat",
+      "lines": [
+        "You fold the 1998 parcel map thick and jam it deep into the cracked grout so the plaster cannot close behind you.",
+        "Dark red seeps up the ink lines where the annex doorway used to be drawn."
+      ]
+    },
+    {
+      "id": "dlg_arc3_wedge_2_chair",
+      "phase": 7,
+      "mood": "heavy",
+      "trigger": {
+        "type": "arc3_wedge_locked",
+        "threshold": 2
+      },
+      "once": true,
+      "speaker": "Wedge II // Second Chair",
+      "lines": [
+        "The Polaroid of the second wooden chair wedges tight between two torn scar seams, propping the cavity wide.",
+        "Warm crimson pools over the rusted floor grate now; nothing drains away down there—it only comes back up."
+      ]
+    },
+    {
+      "id": "dlg_arc3_wedge_3_reel",
+      "phase": 7,
+      "mood": "surreal",
+      "trigger": {
+        "type": "arc3_wedge_locked",
+        "threshold": 3
+      },
+      "once": true,
+      "speaker": "Wedge III // Reel 4",
+      "lines": [
+        "You pack slack magnetic ribbon between splintered calcified ribs. Through the widening fracture behind the bricked doorway outline, you hear cold city rain—or blood roaring inside your ears.",
+        "Neither sound lets you tell which side of the mortar is outside."
+      ]
+    },
+    {
+      "id": "dlg_arc3_stratum_4_pulse",
+      "phase": 7,
+      "mood": "existential",
+      "trigger": {
+        "type": "arc3_stratum_reached",
+        "threshold": 4
+      },
+      "once": true,
+      "speaker": "Sheared Flange",
+      "lines": [
+        "The eight iron bolts shear clean off the wall. Nothing stands between your hands and the raw, pulsing seam now.",
+        "Your left-thumb scar burns in exact rhythm with the widening tear—and the red rising past your knees feels unmistakably body-warm."
+      ]
+    },
+    {
+      "id": "dlg_arc3_wedge_4_drainage",
+      "phase": 7,
+      "mood": "hopeless",
+      "trigger": {
+        "type": "arc3_wedge_locked",
+        "threshold": 4
+      },
+      "once": true,
+      "speaker": "Wedge IV // Closed Drainage Plat",
+      "lines": [
+        "The closed-loop blueprint turns pulp-soft the instant you brace it into the ribs. Every channel on the paper is submerged now.",
+        "You cannot tell if the room is hemorrhaging into the city, or if you have been tearing open the only vessel holding you together."
+      ]
+    },
+    {
+      "id": "dlg_arc3_scars_deep",
+      "phase": 7,
+      "mood": "grotesque",
+      "trigger": {
+        "type": "arc3_scars_unstitched",
+        "threshold": 4
+      },
+      "once": true,
+      "speaker": "No Seams Left",
+      "lines": [
+        "Four great scar lines hang open across the masonry; the floor grate and ossified throat have split below the tide.",
+        "Every beat you force into the wall answers straight inside your own ribs."
+      ]
+    },
+    {
+      "id": "dlg_arc3_wedge_5_file_zero",
+      "phase": 7,
+      "mood": "hopeless",
+      "trigger": {
+        "type": "arc3_wedge_locked",
+        "threshold": 5
+      },
+      "once": true,
+      "speaker": "Wedge V // File #00",
+      "lines": [
+        "You drive your own intake sheet straight into the open seam. Your badge number, the Day 14 margin slant, the plea for salvation—all of it drinks dark red and dissolves.",
+        "The clotting stops. Nothing tries to heal anymore. Only the last weight remains to pull open."
+      ]
+    },
+    {
+      "id": "dlg_arc3_final_pull_1",
+      "phase": 7,
+      "mood": "heavy",
+      "trigger": {
+        "type": "arc3_final_pull",
+        "threshold": 1
+      },
+      "once": true,
+      "speaker": "The Open Seam [I]",
+      "lines": [
+        "First pull. The ceiling strip goes out under a slow crimson swell.",
+        "Warmth spills over your collar and fills your sleeves, heavy as rain-soaked wool."
+      ]
+    },
+    {
+      "id": "dlg_arc3_final_pull_2",
+      "phase": 7,
+      "mood": "surreal",
+      "trigger": {
+        "type": "arc3_final_pull",
+        "threshold": 2
+      },
+      "once": true,
+      "speaker": "The Open Seam [II]",
+      "lines": [
+        "Second pull. The shattered shelves and sheared iron wheel disappear beneath the red.",
+        "Something vast loosens its grip—or your own fingers finally let go of the margin."
+      ]
+    },
+    {
+      "id": "dlg_arc3_final_pull_3",
+      "phase": 7,
+      "mood": "existential",
+      "trigger": {
+        "type": "arc3_final_pull",
+        "threshold": 3
+      },
+      "once": true,
+      "speaker": "The Open Seam [III]",
+      "lines": [
+        "Third pull. The wall's pulse and yours fall out of double-time into a single slow throb.",
+        "You cannot tell if the air rushing past your throat is cold Fourth Street rain or the room breathing out for the last time."
+      ]
+    },
+    {
+      "id": "dlg_arc3_final_pull_4",
+      "phase": 7,
+      "mood": "hopeless",
+      "trigger": {
+        "type": "arc3_final_pull",
+        "threshold": 4
+      },
+      "once": true,
+      "speaker": "The Open Seam [IV]",
+      "lines": [
+        "Fourth pull. Only dark crimson fills every corner now—no brick, no tile, no blotter, no door.",
+        "Somewhere in the deep red tide, a pulse slows and steadies."
+      ]
+    },
+    {
+      "id": "dlg_arc3_submersion_end",
+      "phase": 7,
+      "mood": "hopeless",
+      "trigger": {
+        "type": "arc3_final_pull",
+        "threshold": 5
+      },
+      "once": true,
+      "speaker": "Submerged // Unrecorded",
+      "lines": [
+        "The last seam parts without a sound. Thick, quiet crimson closes cleanly over everything.",
+        "Whether the chamber finally bled out around you—or you bled out inside the room—no ledger remains dry enough to say."
       ]
     }
   ]

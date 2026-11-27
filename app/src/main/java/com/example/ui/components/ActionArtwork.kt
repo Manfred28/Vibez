@@ -13,7 +13,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
@@ -22,11 +21,11 @@ import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.ColorMatrix
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.example.R
 import com.example.game.DredgedRelic
@@ -118,7 +117,19 @@ internal fun JarArtworkEmblem(
   }
 }
 
-/** Framed 40dp procedural medallion for Choir-Tendril & Choir-Lung Grafting actions. */
+@DrawableRes
+internal fun graftDrawableRes(isLung: Boolean): Int =
+  if (isLung) R.drawable.img_graft_choir_lung else R.drawable.img_graft_tendril
+
+@DrawableRes
+internal fun dredgedRelicDrawableRes(relic: DredgedRelic): Int =
+  when (relic) {
+    DredgedRelic.PATIENT_WRISTBAND -> R.drawable.img_relic_patient_wristband
+    DredgedRelic.BRASS_WARD_KEY -> R.drawable.img_relic_brass_ward_key
+    DredgedRelic.BLEEDING_LOGBOOK -> R.drawable.img_relic_caretaker_logbook
+  }
+
+/** Framed 42dp wet-lab macro specimen portrait for Choir-Tendril & Choir-Lung Grafting actions. */
 @Composable
 internal fun GraftArtworkEmblem(
   isLung: Boolean,
@@ -127,62 +138,52 @@ internal fun GraftArtworkEmblem(
   modifier: Modifier = Modifier,
 ) {
   val cs = MaterialTheme.colorScheme
-  val path = remember { Path() }
   val borderColor =
     when {
       onCooldown -> cs.outline
       ready -> cs.tertiary
       else -> cs.outlineVariant
     }
+  val mutedFilter =
+    remember {
+      ColorFilter.colorMatrix(ColorMatrix().apply { setToSaturation(0.28f) })
+    }
+  val active = ready && !onCooldown
 
   Surface(
-    modifier = modifier.size(40.dp).testTag(if (isLung) "art_graft_lung" else "art_graft_tendril"),
+    modifier = modifier.size(42.dp).testTag(if (isLung) "art_graft_lung" else "art_graft_tendril"),
     shape = MaterialTheme.shapes.extraSmall,
-    color = cs.background.copy(alpha = 0.90f),
+    color = Color(0xFF070808),
     border = BorderStroke(1.dp, borderColor),
   ) {
-    Canvas(modifier = Modifier.fillMaxSize()) {
-      val cx = size.width * 0.5f
-      val cy = size.height * 0.5f
-      val accent = if (ready && !onCooldown) cs.tertiary else cs.onSurfaceVariant
-
-      if (!isLung) {
-        // Braided twin-strand suture tendril
-        path.rewind()
-        path.moveTo(8.dp.toPx(), 33.dp.toPx())
-        path.cubicTo(14.dp.toPx(), 10.dp.toPx(), 26.dp.toPx(), 30.dp.toPx(), 32.dp.toPx(), 7.dp.toPx())
-        drawPath(path, accent.copy(alpha = 0.92f), style = Stroke(2.6.dp.toPx(), cap = StrokeCap.Round))
-
-        path.rewind()
-        path.moveTo(11.dp.toPx(), 35.dp.toPx())
-        path.cubicTo(22.dp.toPx(), 28.dp.toPx(), 16.dp.toPx(), 12.dp.toPx(), 29.dp.toPx(), 6.dp.toPx())
-        drawPath(path, cs.primary.copy(alpha = 0.72f), style = Stroke(1.7.dp.toPx(), cap = StrokeCap.Round))
-
-        // Suture cross-ticks binding the braid
-        for (i in 0..2) {
-          val tx = (14 + i * 6).dp.toPx()
-          val ty = (26 - i * 6).dp.toPx()
-          drawLine(cs.onBackground.copy(alpha = 0.8f), Offset(tx - 3.dp.toPx(), ty - 2.dp.toPx()), Offset(tx + 3.dp.toPx(), ty + 2.dp.toPx()), 1.1.dp.toPx())
+    Box(modifier = Modifier.fillMaxSize()) {
+      Image(
+        painter = painterResource(id = graftDrawableRes(isLung)),
+        contentDescription =
+          stringResource(if (isLung) R.string.art_graft_lung_cd else R.string.art_graft_tendril_cd),
+        contentScale = ContentScale.Crop,
+        colorFilter = if (active) null else mutedFilter,
+        modifier = Modifier.fillMaxSize().alpha(if (active) 0.96f else if (onCooldown) 0.66f else 0.52f),
+      )
+      Canvas(modifier = Modifier.fillMaxSize()) {
+        drawRect(
+          brush =
+            Brush.radialGradient(
+              colors =
+                listOf(
+                  Color.Transparent,
+                  Color(0xFF070808).copy(alpha = if (active) 0.40f else 0.62f),
+                ),
+              center = Offset(size.width * 0.5f, size.height * 0.5f),
+              radius = size.maxDimension * 0.68f,
+            )
+        )
+        if (active) {
+          drawRect(
+            color = cs.tertiary.copy(alpha = 0.24f),
+            style = Stroke(width = 1.dp.toPx()),
+          )
         }
-      } else {
-        // Paired ribbed Choir-Lung lobes around central windpipe
-        drawLine(cs.onBackground.copy(alpha = 0.75f), Offset(cx, 6.dp.toPx()), Offset(cx, 20.dp.toPx()), 2.dp.toPx(), StrokeCap.Round)
-        path.rewind()
-        path.moveTo(cx - 2.dp.toPx(), 14.dp.toPx())
-        path.cubicTo(cx - 14.dp.toPx(), 13.dp.toPx(), cx - 15.dp.toPx(), 32.dp.toPx(), cx - 3.dp.toPx(), 33.dp.toPx())
-        path.close()
-        drawPath(path, accent.copy(alpha = 0.42f))
-        drawPath(path, accent.copy(alpha = 0.92f), style = Stroke(1.3.dp.toPx()))
-
-        path.rewind()
-        path.moveTo(cx + 2.dp.toPx(), 14.dp.toPx())
-        path.cubicTo(cx + 14.dp.toPx(), 13.dp.toPx(), cx + 15.dp.toPx(), 32.dp.toPx(), cx + 3.dp.toPx(), 33.dp.toPx())
-        path.close()
-        drawPath(path, accent.copy(alpha = 0.42f))
-        drawPath(path, accent.copy(alpha = 0.92f), style = Stroke(1.3.dp.toPx()))
-
-        // Hanging stillness droplet below center
-        drawCircle(cs.primary.copy(alpha = 0.85f), radius = 2.dp.toPx(), center = Offset(cx, cy + 12.dp.toPx()))
       }
     }
   }
@@ -263,7 +264,7 @@ internal fun RiteArtworkEmblem(
   }
 }
 
-/** Framed 26dp clinical icon emblem for Dredged Relics (tappable inspection chips). */
+/** Framed 34dp wet-lab macro specimen portrait for Dredged Relics (tappable inspection chips). */
 @Composable
 internal fun RelicArtworkEmblem(
   relic: DredgedRelic,
@@ -271,35 +272,44 @@ internal fun RelicArtworkEmblem(
   modifier: Modifier = Modifier,
 ) {
   val cs = MaterialTheme.colorScheme
-  Box(modifier = modifier.size(22.dp)) {
-    Canvas(modifier = Modifier.fillMaxSize()) {
-      val cx = size.width * 0.5f
-      val cy = size.height * 0.5f
-      val ink = if (owned) cs.primary else cs.onSurfaceVariant.copy(alpha = 0.55f)
+  val sunkenFilter =
+    remember {
+      ColorFilter.colorMatrix(ColorMatrix().apply { setToSaturation(0.18f) })
+    }
+  val cd =
+    when (relic) {
+      DredgedRelic.PATIENT_WRISTBAND -> stringResource(R.string.art_relic_wristband_cd)
+      DredgedRelic.BRASS_WARD_KEY -> stringResource(R.string.art_relic_brass_key_cd)
+      DredgedRelic.BLEEDING_LOGBOOK -> stringResource(R.string.art_relic_logbook_cd)
+    }
 
-      when (relic) {
-        DredgedRelic.PATIENT_WRISTBAND -> {
-          drawRoundRect(
-            color = ink,
-            topLeft = Offset(2.dp.toPx(), 6.dp.toPx()),
-            size = Size(18.dp.toPx(), 10.dp.toPx()),
-            cornerRadius = CornerRadius(4.dp.toPx(), 4.dp.toPx()),
-            style = Stroke(1.4.dp.toPx()),
-          )
-          drawLine(ink, Offset(7.dp.toPx(), 11.dp.toPx()), Offset(15.dp.toPx(), 11.dp.toPx()), 1.2.dp.toPx())
-        }
-        DredgedRelic.BRASS_WARD_KEY -> {
-          drawCircle(ink, radius = 4.dp.toPx(), center = Offset(7.dp.toPx(), cy), style = Stroke(1.4.dp.toPx()))
-          drawLine(ink, Offset(11.dp.toPx(), cy), Offset(19.dp.toPx(), cy), 1.5.dp.toPx(), StrokeCap.Round)
-          drawLine(ink, Offset(15.dp.toPx(), cy), Offset(15.dp.toPx(), cy + 3.5.dp.toPx()), 1.4.dp.toPx())
-          drawLine(ink, Offset(18.dp.toPx(), cy), Offset(18.dp.toPx(), cy + 2.8.dp.toPx()), 1.4.dp.toPx())
-        }
-        DredgedRelic.BLEEDING_LOGBOOK -> {
-          drawRect(ink, topLeft = Offset(4.dp.toPx(), 3.dp.toPx()), size = Size(14.dp.toPx(), 16.dp.toPx()), style = Stroke(1.4.dp.toPx()))
-          drawLine(ink, Offset(7.dp.toPx(), 7.dp.toPx()), Offset(15.dp.toPx(), 7.dp.toPx()), 1.1.dp.toPx())
-          drawLine(ink, Offset(7.dp.toPx(), 11.dp.toPx()), Offset(15.dp.toPx(), 11.dp.toPx()), 1.1.dp.toPx())
-          drawLine(ink, Offset(7.dp.toPx(), 15.dp.toPx()), Offset(12.dp.toPx(), 15.dp.toPx()), 1.1.dp.toPx())
-        }
+  Surface(
+    modifier = modifier.size(34.dp).testTag("art_relic_${relic.id}"),
+    shape = MaterialTheme.shapes.extraSmall,
+    color = Color(0xFF070808),
+    border = BorderStroke(1.dp, if (owned) cs.primary.copy(alpha = 0.72f) else cs.outlineVariant),
+  ) {
+    Box(modifier = Modifier.fillMaxSize()) {
+      Image(
+        painter = painterResource(id = dredgedRelicDrawableRes(relic)),
+        contentDescription = cd,
+        contentScale = ContentScale.Crop,
+        colorFilter = if (owned) null else sunkenFilter,
+        modifier = Modifier.fillMaxSize().alpha(if (owned) 0.95f else 0.42f),
+      )
+      Canvas(modifier = Modifier.fillMaxSize()) {
+        drawRect(
+          brush =
+            Brush.radialGradient(
+              colors =
+                listOf(
+                  Color.Transparent,
+                  Color(0xFF070808).copy(alpha = if (owned) 0.36f else 0.68f),
+                ),
+              center = Offset(size.width * 0.5f, size.height * 0.5f),
+              radius = size.maxDimension * 0.70f,
+            )
+        )
       }
     }
   }

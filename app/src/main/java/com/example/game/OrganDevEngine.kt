@@ -172,5 +172,74 @@ object OrganDevEngine {
   fun spawnDeskAnomaly(state: OrganGameState): OrganGameState =
     state.copy(arc2 = Arc2InvestigatorEngine.spawnImmediateDeskAnomaly(state.arc2))
 
+  fun setArc3Stratum(
+    state: OrganGameState,
+    stratum: Int,
+    catalog: DialogueCatalog,
+  ): OrganGameState {
+    val clamped = stratum.coerceIn(1, Arc3Stratum.entries.size)
+    val locked = Arc3Stratum.entries.filter { it.number < clamped }.toSet()
+    val nextArc3 =
+      state.arc3.copy(
+        currentStratum = clamped,
+        lockedWedges = locked,
+        fracture = 0.0,
+        finalPullsCompleted = 0,
+        finalPullCooldownSeconds = 0.0,
+        submersionComplete = false,
+      )
+    return OrganGameEngine.finalizeExternalTransition(
+      state.copy(activeArc = GameArc.ARC_3_CONVERGENCE, arc3 = nextArc3),
+      catalog,
+    )
+  }
+
+  fun assignArc3Resources(
+    state: OrganGameState,
+    hemorrhage: Double? = null,
+    fillFracture: Boolean = false,
+    catalog: DialogueCatalog,
+  ): OrganGameState {
+    val breach = state.arc3
+    val nextHem = hemorrhage?.coerceAtLeast(0.0) ?: breach.hemorrhage
+    val nextFracture =
+      if (fillFracture && !breach.isInFinale) breach.activeStratum.fractureGoal else breach.fracture
+    val nextArc3 =
+      breach.copy(
+        hemorrhage = nextHem,
+        lifetimeHemorrhage = max(breach.lifetimeHemorrhage, nextHem),
+        fracture = nextFracture,
+        secondsSinceLastAction = 0.0,
+      )
+    return OrganGameEngine.finalizeExternalTransition(state.copy(arc3 = nextArc3), catalog)
+  }
+
+  fun jumpArc3Finale(
+    state: OrganGameState,
+    submerged: Boolean,
+    catalog: DialogueCatalog,
+  ): OrganGameState {
+    val nextArc3 =
+      state.arc3.copy(
+        currentStratum = Arc3Stratum.THE_OPEN_SEAM.number,
+        lockedWedges = Arc3Stratum.entries.toSet(),
+        fracture = 0.0,
+        activeRuptures = emptyList(),
+        finalPullsCompleted = if (submerged) Arc3Balance.FINAL_PULLS_TOTAL else 0,
+        finalPullCooldownSeconds = 0.0,
+        submersionComplete = submerged,
+      )
+    return OrganGameEngine.finalizeExternalTransition(
+      state.copy(activeArc = GameArc.ARC_3_CONVERGENCE, arc3 = nextArc3),
+      catalog,
+    )
+  }
+
+  fun spawnBreachRupture(state: OrganGameState): OrganGameState =
+    state.copy(arc3 = Arc3BreachEngine.spawnImmediateRupture(state.arc3))
+
+  fun resetArc3(state: OrganGameState, catalog: DialogueCatalog): OrganGameState =
+    OrganGameEngine.finalizeExternalTransition(state.copy(arc3 = Arc3BreachState()), catalog)
+
   fun resetAll(catalog: DialogueCatalog): OrganGameState = OrganGameEngine.initialState(catalog)
 }

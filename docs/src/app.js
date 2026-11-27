@@ -8,12 +8,16 @@
  */
 
 import {
+  BREACH_RUPTURE_TYPES,
   CREATURE_TYPES,
   DESK_ANOMALY_TYPES,
   GAME_ARCS,
   WALL_ANOMALY_TYPES,
   activateValveClamp,
   arc2InspectYield,
+  arc3ActiveStratum,
+  arc3FloodLevel,
+  arc3WrenchFractureYield,
   bottleJar,
   buyCreature,
   buyMaxCreature,
@@ -22,17 +26,23 @@ import {
   deserializeState,
   devAssignArc1Resources,
   devAssignArc2Resources,
+  devAssignArc3Resources,
+  devJumpArc3Finale,
   devResetAll,
   devResetArc2,
+  devResetArc3,
   devSetActiveArc,
   devSetAllScarNodes,
   devSetArc2AllExhibits,
+  devSetArc3Stratum,
   devSetHighestMilestone,
+  devSpawnBreachRupture,
   devSpawnDeskAnomaly,
   devSpawnWallAnomaly,
   devToggleArc2Lamp,
   dissolveRedaction,
   dredgeSump,
+  driveMemoryWedge,
   enterArc3Convergence,
   formatCompactDecimal,
   formatValveYield,
@@ -42,6 +52,8 @@ import {
   interactDeskAnomaly,
   manualTapYield,
   offerToThroat,
+  performArc3FinalPull,
+  performArc3Unmake,
   performBreachToArc2,
   performChoirLungGraft,
   performExcision,
@@ -52,6 +64,7 @@ import {
   recruitMaxContact,
   serializeState,
   setEchoDiversion,
+  tearBreachRupture,
   tick,
   toggleDrainSeal,
   toggleExhibitPair,
@@ -59,30 +72,41 @@ import {
   triggerReelScrub,
   unlockExhibit,
   unlockScarNode,
-} from './engine.js?v=3.14';
+  wrenchArc3Breach,
+} from './engine.js?v=3.15';
 import {
+  drawArc3BreachBackdrop,
   drawChamberBackdrop,
+  drawCrimsonFloodCanvas,
   drawForegroundLampsAndSacrifice,
   drawInvestigatorDeskBackdrop,
   drawLeechClerks,
   drawValveAndHands,
-} from './chamberCanvas.js?v=3.14';
-import { createUiController } from './ui.js?v=3.14';
+} from './chamberCanvas.js?v=3.15';
+import { createUiController } from './ui.js?v=3.15';
 import {
   SOUND_ACTION_HINTS,
+  SOUND_CUES,
   computeAmbientProfile,
   createWebAudioEngine,
   resolveTransitionCues,
-} from './audio.js?v=3.14';
+} from './audio.js?v=3.15';
 import {
   ANOMALY_ASSET_URLS,
+  ARC2_STAMP_ASSET_URL,
+  ARC3_BREACH_ASSET_URLS,
+  ARC3_CONVERGENCE_ASSET_URL,
+  CONTACT_ASSET_URLS,
   DESK_ANOMALY_ASSET_URLS,
   DESK_STAGE_ASSET_URLS,
   DIALOGUES_ASSET_URL,
   EXHIBIT_ASSET_URLS,
+  GRAFT_ASSET_URLS,
   JAR_ASSET_URLS,
+  RELIC_ASSET_URLS,
+  SPECIMEN_ASSET_URLS,
   WALL_ASSET_URLS,
-} from './version.js?v=3.14';
+} from './version.js?v=3.15';
 
 const SAVE_STORAGE_KEY_V2 = 'unnamed_organ_save_v2';
 const SAVE_STORAGE_KEY_V1 = 'unnamed_organ_save_v1';
@@ -172,20 +196,44 @@ async function main() {
   };
   const deskAnomalyImages = Object.values(DESK_ANOMALY_ASSET_URLS).map(preloadWallImage);
   const exhibitImages = Object.values(EXHIBIT_ASSET_URLS).map(preloadWallImage);
+  const extraPhotographicAssets = [
+    ...Object.values(SPECIMEN_ASSET_URLS),
+    ...Object.values(GRAFT_ASSET_URLS),
+    ...Object.values(RELIC_ASSET_URLS),
+    ...Object.values(CONTACT_ASSET_URLS),
+    ARC2_STAMP_ASSET_URL,
+    ARC3_CONVERGENCE_ASSET_URL,
+    ARC3_BREACH_ASSET_URLS.ruptureClottingSeam,
+    ARC3_BREACH_ASSET_URLS.ruptureArterialWell,
+  ].map(preloadWallImage);
+  const arc3Images = {
+    wallEarly: preloadWallImage(ARC3_BREACH_ASSET_URLS.wallEarly),
+    wallDeep: preloadWallImage(ARC3_BREACH_ASSET_URLS.wallDeep),
+    crimsonFlood: preloadWallImage(ARC3_BREACH_ASSET_URLS.crimsonFlood),
+  };
   void deskAnomalyImages;
   void exhibitImages;
+  void extraPhotographicAssets;
 
   const backdropCanvas = document.getElementById('chamber-backdrop-canvas');
   const lampsForegroundCanvas = document.getElementById('lamps-foreground-canvas');
   const valveHandsCanvas = document.getElementById('valve-hands-canvas');
   const leechCanvas = document.getElementById('leech-overlay-canvas');
   const deskCanvas = document.getElementById('investigator-desk-canvas');
+  const arc3BreachCanvas = document.getElementById('arc3-breach-canvas');
+  const arc3FloodCanvas = document.getElementById('arc3-flood-canvas');
+  const arc3SubmergedCanvas = document.getElementById('arc3-submerged-canvas');
   const valveWheelRotator = document.getElementById('valve-wheel-rotator');
+  const arc3ValveRotator = document.getElementById('arc3-valve-rotator');
 
   const valveBtn = document.getElementById('valve-button');
   const lampToggleBtn = document.getElementById('lamp-toggle-btn');
   const inspectCaseBtn = document.getElementById('inspect-case-btn');
   const enterArc3Btn = document.getElementById('enter-arc3-btn');
+  const arc3WrenchBtn = document.getElementById('arc3-wrench-btn');
+  const arc3DriveBannerBtn = document.getElementById('arc3-drive-banner-btn');
+  const arc3FinalPullBtn = document.getElementById('arc3-final-pull-btn');
+  const arc3SubmergedArchiveBtn = document.getElementById('arc3-submerged-archive-btn');
   const arc3BackDeskBtn = document.getElementById('arc3-back-desk-btn');
   const arc3BackChamberBtn = document.getElementById('arc3-back-chamber-btn');
 
@@ -239,6 +287,7 @@ async function main() {
   let autosaveAccumulator = 0;
   let hasUnsavedChanges = false;
   let valveAngleDeg = 0;
+  let arc3ValveAngleDeg = 0;
   let handCyclePhase = 0;
   let leechPatrolPhase = 0;
   let lastEchoPulses = state.echoPulsesTriggered;
@@ -342,6 +391,10 @@ async function main() {
         'sump_dredge',
       );
     },
+    onInspectRelic() {
+      audio.unlock();
+      audio.playCues([SOUND_CUES.RELIC_INSPECT], state.phase);
+    },
     onSetEchoDiversion(pct) {
       applyState(setEchoDiversion(state, pct, catalog), {
         action: SOUND_ACTION_HINTS.ECHO_DIVERSION,
@@ -429,6 +482,31 @@ async function main() {
     onPivotNextCase() {
       applyState(pivotNextCase(state, catalog), { action: SOUND_ACTION_HINTS.ARC2_CHAPTER });
     },
+    onPerformArc3Unmake(actId) {
+      audio.unlock();
+      applyState(performArc3Unmake(state, actId, catalog), {
+        action: SOUND_ACTION_HINTS.ARC3_UNMAKE,
+      });
+    },
+    onTearBreachRupture(ruptureId) {
+      audio.unlock();
+      const target = (state.arc3?.activeRuptures ?? []).find((r) => r.id === ruptureId);
+      const meta = target
+        ? Object.values(BREACH_RUPTURE_TYPES).find((t) => t.id === target.type)
+        : null;
+      applyState(tearBreachRupture(state, ruptureId, catalog), {
+        action: SOUND_ACTION_HINTS.ARC3_RUPTURE,
+      });
+      if (meta?.dripLine) {
+        ui.triggerEventDrip(meta.dripLine, 'BREACH', `rupture_${meta.id}`);
+      }
+    },
+    onDriveMemoryWedge() {
+      audio.unlock();
+      applyState(driveMemoryWedge(state, catalog), {
+        action: SOUND_ACTION_HINTS.ARC3_WEDGE,
+      });
+    },
     onRequestRender() {
       ui.render(state);
     },
@@ -474,9 +552,42 @@ async function main() {
   }
   inspectCaseBtn.addEventListener('click', triggerCaseInspect);
   inspectCaseBtn.addEventListener('keydown', preventSpaceButtonActivation);
+  function triggerArc3Wrench() {
+    if (state.activeArc !== GAME_ARCS.ARC_3_CONVERGENCE) return;
+    audio.unlock();
+    arc3ValveAngleDeg = (arc3ValveAngleDeg - 28) % 360000;
+    const yieldLabel = formatCompactDecimal(arc3WrenchFractureYield(state));
+    applyState(wrenchArc3Breach(state, catalog), {
+      persist: false,
+      action: SOUND_ACTION_HINTS.ARC3_WRENCH,
+    });
+    ui.spawnArc3Residue(yieldLabel);
+  }
+
   enterArc3Btn.addEventListener('click', () =>
     applyState(enterArc3Convergence(state, catalog), { action: SOUND_ACTION_HINTS.ARC3_ENTER }),
   );
+  if (arc3WrenchBtn) {
+    arc3WrenchBtn.addEventListener('click', triggerArc3Wrench);
+    arc3WrenchBtn.addEventListener('keydown', preventSpaceButtonActivation);
+  }
+  if (arc3DriveBannerBtn) {
+    arc3DriveBannerBtn.addEventListener('click', () => {
+      audio.unlock();
+      applyState(driveMemoryWedge(state, catalog), { action: SOUND_ACTION_HINTS.ARC3_WEDGE });
+    });
+  }
+  if (arc3FinalPullBtn) {
+    arc3FinalPullBtn.addEventListener('click', () => {
+      audio.unlock();
+      applyState(performArc3FinalPull(state, catalog), {
+        action: SOUND_ACTION_HINTS.ARC3_FINAL_PULL,
+      });
+    });
+  }
+  if (arc3SubmergedArchiveBtn) {
+    arc3SubmergedArchiveBtn.addEventListener('click', () => ui.openArchive(state));
+  }
   arc3BackDeskBtn.addEventListener('click', () =>
     applyState(devSetActiveArc(state, GAME_ARCS.ARC_2_INVESTIGATION, catalog)),
   );
@@ -595,6 +706,53 @@ async function main() {
   if (devResetArc2Btn) {
     devResetArc2Btn.addEventListener('click', () => {
       applyState(devResetArc2(state, catalog));
+    });
+  }
+  const devApplyArc3Btn = document.getElementById('dev-apply-arc3-btn');
+  if (devApplyArc3Btn) {
+    devApplyArc3Btn.addEventListener('click', () => {
+      const hemRaw = document.getElementById('dev-hemorrhage-input')?.value ?? '';
+      const fracRaw = document.getElementById('dev-fracture-input')?.value ?? '';
+      applyState(
+        devAssignArc3Resources(
+          state,
+          {
+            hemorrhage: hemRaw !== '' ? Number(hemRaw) : null,
+            fracture: fracRaw !== '' ? Number(fracRaw) : null,
+          },
+          catalog,
+        ),
+      );
+    });
+  }
+  for (const btn of devModal.querySelectorAll('[data-dev-stratum]')) {
+    btn.addEventListener('click', () => {
+      applyState(devSetArc3Stratum(state, Number(btn.dataset.devStratum), catalog));
+    });
+  }
+  const devArc3FillBtn = document.getElementById('dev-arc3-fill-fracture-btn');
+  if (devArc3FillBtn) {
+    devArc3FillBtn.addEventListener('click', () => {
+      const goal = arc3ActiveStratum(state.arc3).fractureGoal;
+      applyState(devAssignArc3Resources(state, { fracture: goal }, catalog));
+    });
+  }
+  const devArc3FinaleBtn = document.getElementById('dev-arc3-finale-btn');
+  if (devArc3FinaleBtn) {
+    devArc3FinaleBtn.addEventListener('click', () => {
+      applyState(devJumpArc3Finale(state, catalog));
+    });
+  }
+  const devSpawnRuptureBtn = document.getElementById('dev-spawn-rupture-btn');
+  if (devSpawnRuptureBtn) {
+    devSpawnRuptureBtn.addEventListener('click', () => {
+      applyState(devSpawnBreachRupture(state));
+    });
+  }
+  const devResetArc3Btn = document.getElementById('dev-reset-arc3-btn');
+  if (devResetArc3Btn) {
+    devResetArc3Btn.addEventListener('click', () => {
+      applyState(devResetArc3(state, catalog));
     });
   }
   document.getElementById('dev-spawn-wall-btn').addEventListener('click', () => {
@@ -775,6 +933,19 @@ async function main() {
       } else if (state.activeArc === GAME_ARCS.ARC_2_INVESTIGATION) {
         drawInvestigatorDeskBackdrop(deskCanvas, deskImages, state, breath, dropPhase);
         ui.renderAnimatedDeskGlyphs(breath);
+      } else if (state.activeArc === GAME_ARCS.ARC_3_CONVERGENCE) {
+        const wavePhase = ((now - breathOrigin) % 4400) / 4400;
+        const crimsonPulse = computeArterialPulse(now);
+        const flood = arc3FloodLevel(state.arc3);
+        if (arc3ValveRotator) {
+          arc3ValveRotator.style.transform = `rotate(${(arc3ValveAngleDeg % 360).toFixed(2)}deg)`;
+        }
+        if (state.arc3?.submersionComplete) {
+          drawCrimsonFloodCanvas(arc3SubmergedCanvas, 1.0, wavePhase, crimsonPulse, arc3Images.crimsonFlood);
+        } else {
+          drawArc3BreachBackdrop(arc3BreachCanvas, arc3Images, state, breath, wavePhase);
+          drawCrimsonFloodCanvas(arc3FloodCanvas, flood, wavePhase, crimsonPulse, arc3Images.crimsonFlood);
+        }
       }
     }
 

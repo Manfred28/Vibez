@@ -7,15 +7,15 @@
  * - 7-segment patrolling Leech-Clerks around the recessed counter bezel
  */
 
-import { CREATURE_TYPES } from '../engine/constants.js?v=3.14';
-import { creatureCount } from '../engine/arc1Math.js?v=3.14';
+import { CREATURE_TYPES } from '../engine/constants.js?v=3.15';
+import { creatureCount } from '../engine/arc1Math.js?v=3.15';
 import {
   PALETTE,
   drawCoverImage,
   drawRoundedRectPath,
   rgba,
   syncCanvasSize,
-} from './canvasShared.js?v=3.14';
+} from './canvasShared.js?v=3.15';
 
 export function computeWallLayerAlphas(phase, highestExcisionMilestone, cycle = 0) {
   const clampedPhase = Math.max(0, Math.min(4, Math.floor(phase || 0)));

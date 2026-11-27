@@ -8,14 +8,20 @@ import {
   GAME_ARCS,
   ORGAN_BALANCE,
   PHASE_THRESHOLDS,
-} from './constants.js?v=3.14';
-import { initialArc2State } from './arc2Models.js?v=3.14';
+} from './constants.js?v=3.15';
+import { initialArc2State } from './arc2Models.js?v=3.15';
+import {
+  arc3ShatteredJarCount,
+  arc3TotalRuptureInteractions,
+  arc3UnstitchedScarCount,
+  initialArc3State,
+} from './arc3Models.js?v=3.15';
 import {
   creatureCount,
   cycleLifetimeIchorDisplay,
   hasNode,
   nextExcisionMilestone,
-} from './arc1Math.js?v=3.14';
+} from './arc1Math.js?v=3.15';
 
 export function phaseForCount(count) {
   const safe = Math.max(0, Math.floor(count));
@@ -91,6 +97,7 @@ export function initialState(catalog) {
     marrowBloomCount: 0,
     unredactedDossierLines: [],
     arc2: initialArc2State(),
+    arc3: initialArc3State(),
     activeDialogue: null,
     discoveredDialogues: [],
     triggeredDialogueIds: [],
@@ -170,6 +177,30 @@ export function isTriggerSatisfied(state, entry) {
       const normalizedTarget = trigger.target === 'red_string' ? 'enamel_exhibit' : trigger.target;
       return (state.arc2.deskAnomalyInteractions?.[normalizedTarget] ?? 0) >= trigger.threshold;
     }
+    case 'arc3_wrench_count':
+      return (state.arc3?.wrenchCount ?? 0) >= trigger.threshold;
+    case 'arc3_jars_shattered':
+      return arc3ShatteredJarCount(state.arc3) >= trigger.threshold;
+    case 'arc3_unmake_count':
+      return (state.arc3?.completedUnmakes?.length ?? 0) >= trigger.threshold;
+    case 'arc3_scars_unstitched':
+      return arc3UnstitchedScarCount(state.arc3) >= trigger.threshold;
+    case 'arc3_rupture_interacted': {
+      const target = trigger.target;
+      if (target) {
+        return (state.arc3?.ruptureInteractions?.[target] ?? 0) >= trigger.threshold;
+      }
+      return arc3TotalRuptureInteractions(state.arc3) >= trigger.threshold;
+    }
+    case 'arc3_wedge_locked':
+      return (state.arc3?.lockedWedges?.length ?? 0) >= trigger.threshold;
+    case 'arc3_stratum_reached':
+      return (
+        state.activeArc === GAME_ARCS.ARC_3_CONVERGENCE &&
+        (state.arc3?.currentStratum ?? 1) >= trigger.threshold
+      );
+    case 'arc3_final_pull':
+      return (state.arc3?.finalPullsCompleted ?? 0) >= trigger.threshold;
     default:
       return false;
   }

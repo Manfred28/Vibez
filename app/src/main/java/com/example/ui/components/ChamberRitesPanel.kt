@@ -50,6 +50,7 @@ fun ChamberRitesPanel(
   onSetEchoDiversion: (Int) -> Unit,
   onActivateValveClamp: () -> Unit,
   onOfferToThroat: (CultDossierLine) -> Unit,
+  onInspectRelic: () -> Unit = {},
   modifier: Modifier = Modifier,
 ) {
   val colorScheme = MaterialTheme.colorScheme
@@ -130,6 +131,9 @@ fun ChamberRitesPanel(
                   .minimumInteractiveComponentSize()
                   .testTag("relic_inspect_${relic.id}")
                   .clickable(role = Role.Button) {
+                    if (!selected) {
+                      onInspectRelic()
+                    }
                     inspectedRelic = if (selected) null else relic
                   },
               shape = MaterialTheme.shapes.extraSmall,

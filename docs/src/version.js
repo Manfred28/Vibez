@@ -4,7 +4,7 @@
  * stay synchronized across HTML, JS modules, and static artwork.
  */
 
-export const ASSET_VERSION = '3.14';
+export const ASSET_VERSION = '3.15';
 
 export function versionedAssetUrl(relativePath) {
   const separator = relativePath.includes('?') ? '&' : '?';
@@ -37,6 +37,24 @@ export const JAR_ASSET_URLS = Object.freeze({
   the_uncounted_hour: versionedAssetUrl('./assets/img_jar_the_uncounted_hour.jpg'),
 });
 
+export const SPECIMEN_ASSET_URLS = Object.freeze({
+  suture_hand: versionedAssetUrl('./assets/img_suture_hand.jpg'),
+  leech_clerk: versionedAssetUrl('./assets/img_leech_clerk.jpg'),
+  weeping_lamp: versionedAssetUrl('./assets/img_weeping_lamp.jpg'),
+  sump_siphon: versionedAssetUrl('./assets/img_sump_siphon.jpg'),
+});
+
+export const GRAFT_ASSET_URLS = Object.freeze({
+  tendril: versionedAssetUrl('./assets/img_graft_tendril.jpg'),
+  choir_lung: versionedAssetUrl('./assets/img_graft_choir_lung.jpg'),
+});
+
+export const RELIC_ASSET_URLS = Object.freeze({
+  patient_wristband: versionedAssetUrl('./assets/img_relic_patient_wristband.jpg'),
+  brass_ward_key: versionedAssetUrl('./assets/img_relic_brass_ward_key.jpg'),
+  bleeding_logbook: versionedAssetUrl('./assets/img_relic_caretaker_logbook.jpg'),
+});
+
 export const DESK_STAGE_ASSET_URLS = Object.freeze({
   case1: versionedAssetUrl('./assets/img_desk_case1.jpg'),
   case2: versionedAssetUrl('./assets/img_desk_case2.jpg'),
@@ -65,12 +83,42 @@ export const EXHIBIT_ASSET_URLS = Object.freeze({
   drainage_loop_blueprint: versionedAssetUrl('./assets/img_exhibit_drainage_loop_blueprint.jpg'),
 });
 
+export const CONTACT_ASSET_URLS = Object.freeze({
+  night_archivist: versionedAssetUrl('./assets/img_contact_night_archivist.jpg'),
+  bribed_orderly: versionedAssetUrl('./assets/img_contact_bribed_orderly.jpg'),
+  microfilm_scanner: versionedAssetUrl('./assets/img_contact_microfilm_scanner.jpg'),
+  audio_transcriber: versionedAssetUrl('./assets/img_contact_audio_transcriber.jpg'),
+});
+
+export const ARC2_STAMP_ASSET_URL = versionedAssetUrl('./assets/img_arc2_case_stamp.jpg');
+export const ARC3_CONVERGENCE_ASSET_URL = versionedAssetUrl('./assets/img_arc3_convergence.jpg');
+
+export const ARC3_BREACH_ASSET_URLS = Object.freeze({
+  wallEarly: versionedAssetUrl('./assets/img_wall_arc3_breach_early.jpg'),
+  wallDeep: versionedAssetUrl('./assets/img_wall_arc3_breach_deep.jpg'),
+  crimsonFlood: versionedAssetUrl('./assets/img_arc3_crimson_flood.jpg'),
+  ruptureClottingSeam: versionedAssetUrl('./assets/img_rupture_clotting_seam.jpg'),
+  ruptureArterialWell: versionedAssetUrl('./assets/img_rupture_arterial_well.jpg'),
+});
+
 export function anomalyAssetUrl(type) {
   return ANOMALY_ASSET_URLS[type] ?? versionedAssetUrl(`./assets/img_anomaly_${type}.jpg`);
 }
 
 export function jarAssetUrl(jarId) {
   return JAR_ASSET_URLS[jarId] ?? versionedAssetUrl(`./assets/img_jar_${jarId}.jpg`);
+}
+
+export function specimenAssetUrl(creatureId) {
+  return SPECIMEN_ASSET_URLS[creatureId] ?? versionedAssetUrl(`./assets/img_${creatureId}.jpg`);
+}
+
+export function graftAssetUrl(graftId) {
+  return GRAFT_ASSET_URLS[graftId] ?? versionedAssetUrl(`./assets/img_graft_${graftId}.jpg`);
+}
+
+export function relicAssetUrl(relicId) {
+  return RELIC_ASSET_URLS[relicId] ?? versionedAssetUrl(`./assets/img_relic_${relicId}.jpg`);
 }
 
 export function deskAnomalyAssetUrl(type) {
@@ -80,3 +128,18 @@ export function deskAnomalyAssetUrl(type) {
 export function exhibitAssetUrl(exhibitId) {
   return EXHIBIT_ASSET_URLS[exhibitId] ?? versionedAssetUrl(`./assets/img_exhibit_${exhibitId}.jpg`);
 }
+
+export function contactAssetUrl(contactId) {
+  return CONTACT_ASSET_URLS[contactId] ?? versionedAssetUrl(`./assets/img_contact_${contactId}.jpg`);
+}
+
+export function breachRuptureAssetUrl(ruptureType) {
+  if (ruptureType === 'clotting_seam' || ruptureType === 'torn_suture') {
+    return ARC3_BREACH_ASSET_URLS.ruptureClottingSeam;
+  }
+  if (ruptureType === 'splintered_rib') {
+    return ANOMALY_ASSET_URLS.chitin_rib;
+  }
+  return ARC3_BREACH_ASSET_URLS.ruptureArterialWell;
+}
+

@@ -15,7 +15,7 @@ import {
   jarById,
   repeatableGraftById,
   scarNodeById,
-} from './constants.js?v=3.14';
+} from './constants.js?v=3.15';
 
 export function hasNode(state, nodeId) {
   return Array.isArray(state.unlockedScarNodes) && state.unlockedScarNodes.includes(nodeId);

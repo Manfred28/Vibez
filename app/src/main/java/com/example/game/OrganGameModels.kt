@@ -166,6 +166,8 @@ data class OrganGameState(
   val unredactedDossierLines: Set<CultDossierLine> = emptySet(),
   // Arc 2: Haunted Investigator Desk state
   val arc2: Arc2DeskState = Arc2DeskState(),
+  // Arc 3: The Unmaking (No-Reset Breach & Crimson Flood) state
+  val arc3: Arc3BreachState = Arc3BreachState(),
   // Shared Progress-Bound Narrative Ledger
   val activeDialogue: DialogueEntry? = null,
   val discoveredDialogues: List<DialogueEntry> = emptyList(),

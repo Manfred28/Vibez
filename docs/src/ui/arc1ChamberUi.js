@@ -71,14 +71,16 @@ import {
   stillnessDisplay,
   totalCreatureIchorPerSec,
   valveClampDurationSec,
-} from '../engine.js?v=3.14';
+} from '../engine.js?v=3.15';
+import { drawActionArtwork } from '../chamberCanvas.js?v=3.15';
 import {
-  drawActionArtwork,
-  drawSumpSiphonPortrait,
-  drawWeepingLampPortrait,
-} from '../chamberCanvas.js?v=3.14';
-import { anomalyAssetUrl, jarAssetUrl } from '../version.js?v=3.14';
-import { arc1UnlockKeys, markTabSeen, shouldAlertArc1Tab } from './tabAlerts.js?v=3.14';
+  anomalyAssetUrl,
+  graftAssetUrl,
+  jarAssetUrl,
+  relicAssetUrl,
+  specimenAssetUrl,
+} from '../version.js?v=3.15';
+import { arc1UnlockKeys, markTabSeen, shouldAlertArc1Tab } from './tabAlerts.js?v=3.15';
 
 export const FOUNDATIONAL_SHELF_JARS = Object.freeze([
   'yesterdays_dust',
@@ -121,11 +123,6 @@ export function createArc1ChamberUi(els, handlers) {
   const seenArc1Keys = new Map();
   const deckTabButtons = new Map();
   const mountedWallAnomalyIds = new Set();
-
-  let lampPortraitCanvas = null;
-  let siphonPortraitCanvas = null;
-  let lastLampWeeping = null;
-  let lastSiphonActive = null;
 
   // Cached element references for active Arc 1 deck panels (avoids 10Hz DOM queries)
   let organismCardRefs = [];
@@ -393,10 +390,6 @@ export function createArc1ChamberUi(els, handlers) {
 
   function buildOrganismCards(state, visibleCreatures) {
     els.deckContent.innerHTML = '';
-    lampPortraitCanvas = null;
-    siphonPortraitCanvas = null;
-    lastLampWeeping = null;
-    lastSiphonActive = null;
     organismCardRefs = [];
     organismGraftRefs = { graftRef: null, lungRef: null };
 
@@ -428,19 +421,11 @@ export function createArc1ChamberUi(els, handlers) {
       const viewport = document.createElement('div');
       viewport.className = 'specimen-viewport';
       viewport.dataset.role = 'viewport';
-      if (spec.portrait) {
-        const img = document.createElement('img');
-        img.src = spec.portrait;
-        img.alt = spec.portraitAlt;
-        viewport.appendChild(img);
-      } else {
-        const canvas = document.createElement('canvas');
-        canvas.setAttribute('role', 'img');
-        canvas.setAttribute('aria-label', spec.portraitAlt);
-        viewport.appendChild(canvas);
-        if (spec.id === CREATURE_TYPES.WEEPING_LAMP.id) lampPortraitCanvas = canvas;
-        if (spec.id === CREATURE_TYPES.SUMP_SIPHON.id) siphonPortraitCanvas = canvas;
-      }
+      const img = document.createElement('img');
+      img.src = specimenAssetUrl(spec.id);
+      img.alt = spec.portraitAlt;
+      img.draggable = false;
+      viewport.appendChild(img);
 
       const info = document.createElement('div');
       info.className = 'organism-info';
@@ -539,7 +524,15 @@ export function createArc1ChamberUi(els, handlers) {
       graftBtn.className = 'deck-row deck-row--accent';
       graftBtn.dataset.role = 'graft-btn';
       graftBtn.innerHTML = `
-        <canvas class="action-emblem action-emblem--accent" width="38" height="38" aria-hidden="true"></canvas>
+        <span class="graft-photo-frame" data-role="graft-frame" aria-hidden="true">
+          <img
+            class="graft-photo-emblem"
+            src="${graftAssetUrl('tendril')}"
+            alt=""
+            draggable="false"
+            aria-hidden="true"
+          />
+        </span>
         <span class="deck-row-text">
           <span class="deck-row-title" data-role="graft-title"></span>
           <span class="deck-row-sub">Bind 2 Hands &amp; 2 Leeches into one braided hum.</span>
@@ -551,10 +544,9 @@ export function createArc1ChamberUi(els, handlers) {
       `;
       graftBtn.addEventListener('click', () => handlers.onPerformGraft());
       els.deckContent.appendChild(graftBtn);
-      const emblemCanvas = graftBtn.querySelector('canvas');
-      drawActionArtwork(emblemCanvas, 'graft', 'tendril', true);
       graftRef = {
         btn: graftBtn,
+        frameEl: graftBtn.querySelector('[data-role="graft-frame"]'),
         titleEl: graftBtn.querySelector('[data-role="graft-title"]'),
         pillEl: graftBtn.querySelector('[data-role="graft-pill"]'),
         cdTrack: graftBtn.querySelector('[data-role="graft-cd-track"]'),
@@ -569,7 +561,15 @@ export function createArc1ChamberUi(els, handlers) {
       lungBtn.className = 'deck-row deck-row--accent';
       lungBtn.dataset.role = 'choir-lung-btn';
       lungBtn.innerHTML = `
-        <canvas class="action-emblem action-emblem--accent" width="38" height="38" aria-hidden="true"></canvas>
+        <span class="graft-photo-frame" data-role="lung-frame" aria-hidden="true">
+          <img
+            class="graft-photo-emblem"
+            src="${graftAssetUrl('choir_lung')}"
+            alt=""
+            draggable="false"
+            aria-hidden="true"
+          />
+        </span>
         <span class="deck-row-text">
           <span class="deck-row-title" data-role="choir-lung-title"></span>
           <span class="deck-row-sub">Bind 2 Lamps &amp; 1 Tendril; it breathes deepest in quiet.</span>
@@ -581,10 +581,9 @@ export function createArc1ChamberUi(els, handlers) {
       `;
       lungBtn.addEventListener('click', () => handlers.onPerformChoirLung());
       els.deckContent.appendChild(lungBtn);
-      const emblemCanvas = lungBtn.querySelector('canvas');
-      drawActionArtwork(emblemCanvas, 'graft', 'choir_lung', true);
       lungRef = {
         btn: lungBtn,
+        frameEl: lungBtn.querySelector('[data-role="lung-frame"]'),
         titleEl: lungBtn.querySelector('[data-role="choir-lung-title"]'),
         pillEl: lungBtn.querySelector('[data-role="lung-pill"]'),
         cdTrack: lungBtn.querySelector('[data-role="lung-cd-track"]'),
@@ -677,29 +676,15 @@ export function createArc1ChamberUi(els, handlers) {
 
       affordFill.style.width = `${(progress * 100).toFixed(1)}%`;
       affordFill.classList.toggle('afford-bar-fill--ready', canAfford);
-
-      if (
-        id === CREATURE_TYPES.WEEPING_LAMP.id &&
-        lampPortraitCanvas &&
-        (lastLampWeeping !== isWeeping || lampPortraitCanvas.width <= 1)
-      ) {
-        lastLampWeeping = isWeeping;
-        drawWeepingLampPortrait(lampPortraitCanvas, isWeeping);
-      }
-      if (
-        id === CREATURE_TYPES.SUMP_SIPHON.id &&
-        siphonPortraitCanvas &&
-        (lastSiphonActive !== (count > 0) || siphonPortraitCanvas.width <= 1)
-      ) {
-        lastSiphonActive = count > 0;
-        drawSumpSiphonPortrait(siphonPortraitCanvas, count > 0);
-      }
     }
 
     if (organismGraftRefs.graftRef) {
-      const { btn, titleEl, pillEl, cdTrack, cdFill } = organismGraftRefs.graftRef;
+      const { btn, frameEl, titleEl, pillEl, cdTrack, cdFill } = organismGraftRefs.graftRef;
       const onCd = isGraftOnCooldown(state);
-      btn.disabled = !canAffordGraft(state);
+      const ready = canAffordGraft(state);
+      btn.disabled = !ready;
+      frameEl?.classList.toggle('graft-photo-frame--ready', ready);
+      frameEl?.classList.toggle('graft-photo-frame--cooldown', onCd);
       titleEl.textContent = `GRAFTED CHOIR-TENDRIL [${state.graftedTendrils}]`;
       pillEl.textContent = onCd
         ? `SETTLING (${Math.ceil(state.graftCooldownRemainingSeconds)}s)`
@@ -713,9 +698,12 @@ export function createArc1ChamberUi(els, handlers) {
     }
 
     if (organismGraftRefs.lungRef) {
-      const { btn, titleEl, pillEl, cdTrack, cdFill } = organismGraftRefs.lungRef;
+      const { btn, frameEl, titleEl, pillEl, cdTrack, cdFill } = organismGraftRefs.lungRef;
       const onCd = isChoirLungOnCooldown(state);
-      btn.disabled = !canAffordChoirLung(state);
+      const ready = canAffordChoirLung(state);
+      btn.disabled = !ready;
+      frameEl?.classList.toggle('graft-photo-frame--ready', ready);
+      frameEl?.classList.toggle('graft-photo-frame--cooldown', onCd);
       titleEl.textContent = `GRAFTED CHOIR-LUNG [${state.choirLungs}]`;
       pillEl.textContent = onCd
         ? `SETTLING (${Math.ceil(state.choirLungCooldownRemainingSeconds)}s)`
@@ -997,19 +985,28 @@ export function createArc1ChamberUi(els, handlers) {
         chip.className = 'relic-chip';
         chip.dataset.relicId = relic.id;
         chip.innerHTML = `
-          <canvas class="relic-chip-canvas" width="20" height="20" aria-hidden="true"></canvas>
+          <span class="relic-photo-frame" data-role="relic-frame" aria-hidden="true">
+            <img
+              class="relic-photo-emblem"
+              src="${relicAssetUrl(relic.id)}"
+              alt=""
+              draggable="false"
+              aria-hidden="true"
+            />
+          </span>
           <span>${relic.name}</span>
         `;
         chip.addEventListener('click', () => {
-          selectedRelicId = selectedRelicId === relic.id ? null : relic.id;
+          const opening = selectedRelicId !== relic.id;
+          if (opening) handlers.onInspectRelic?.();
+          selectedRelicId = opening ? relic.id : null;
           handlers.onRequestRender();
         });
         chipRow.appendChild(chip);
         relicChips.push({
           relic,
           chip,
-          canvas: chip.querySelector('canvas'),
-          lastDredged: null,
+          frameEl: chip.querySelector('[data-role="relic-frame"]'),
         });
       }
 
@@ -1154,10 +1151,7 @@ export function createArc1ChamberUi(els, handlers) {
         const dredged = state.dredgedRelics.includes(entry.relic.id);
         entry.chip.classList.toggle('relic-chip--dredged', dredged);
         entry.chip.classList.toggle('relic-chip--selected', selectedRelicId === entry.relic.id);
-        if (entry.lastDredged !== dredged || entry.canvas.width <= 1) {
-          entry.lastDredged = dredged;
-          drawActionArtwork(entry.canvas, 'relic', entry.relic.id, dredged);
-        }
+        entry.frameEl?.classList.toggle('is-dredged', dredged);
       }
 
       const inspected = DREDGED_RELICS.find((r) => r.id === selectedRelicId);

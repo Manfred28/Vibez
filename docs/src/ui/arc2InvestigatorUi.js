@@ -38,9 +38,9 @@ import {
   formatCompactDecimal,
   formatInteger,
   matchCorroborationPair,
-} from '../engine.js?v=3.14';
-import { deskAnomalyAssetUrl, exhibitAssetUrl } from '../version.js?v=3.14';
-import { arc2UnlockKeys, markTabSeen, shouldAlertArc2Tab } from './tabAlerts.js?v=3.14';
+} from '../engine.js?v=3.15';
+import { contactAssetUrl, deskAnomalyAssetUrl, exhibitAssetUrl } from '../version.js?v=3.15';
+import { arc2UnlockKeys, markTabSeen, shouldAlertArc2Tab } from './tabAlerts.js?v=3.15';
 
 export function createArc2InvestigatorUi(els, handlers) {
   let selectedArc2Tab = 'contacts';
@@ -358,6 +358,15 @@ export function createArc2InvestigatorUi(els, handlers) {
           btn.className = 'deck-row';
           btn.dataset.contactId = c.id;
           btn.innerHTML = `
+            <span class="contact-portrait-frame" data-role="contact-frame" aria-hidden="true">
+              <img
+                class="contact-portrait-img"
+                src="${contactAssetUrl(c.id)}"
+                alt="${c.name}"
+                loading="lazy"
+                draggable="false"
+              />
+            </span>
             <span class="deck-row-text">
               <span class="deck-row-title" data-role="title"></span>
               <span class="deck-row-sub">${c.desc}</span>
@@ -386,6 +395,7 @@ export function createArc2InvestigatorUi(els, handlers) {
           rows.push({
             spec: c,
             btn,
+            frameEl: btn.querySelector('[data-role="contact-frame"]'),
             warrantBtn,
             titleEl: btn.querySelector('[data-role="title"]'),
             rateEl: btn.querySelector('[data-role="rate"]'),
@@ -516,6 +526,7 @@ export function createArc2InvestigatorUi(els, handlers) {
         const count = arc2ContactCount(desk, row.spec.id);
         const cost = arc2ContactCost(desk, row.spec);
         row.btn.disabled = desk.leads < cost;
+        row.frameEl?.classList.toggle('is-active', desk.leads >= cost || count > 0);
         row.titleEl.textContent = `${row.spec.name} [${count}]`;
         row.rateEl.textContent = `EACH: +${formatCompactDecimal(arc2EffectiveContactRate(desk, row.spec))}/s`;
         row.costEl.textContent = `${formatInteger(cost)} LEADS`;

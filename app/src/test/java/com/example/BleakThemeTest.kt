@@ -10,6 +10,7 @@ import com.example.ui.theme.BleakMonoFontFamily
 import com.example.ui.theme.BleakShapes
 import com.example.ui.theme.BleakTheme
 import com.example.ui.theme.BleakTypography
+import com.example.ui.theme.BreachCrimsonColorScheme
 import com.example.ui.theme.bleakAtmosphereForPhase
 import kotlin.math.max
 import kotlin.math.min
@@ -78,7 +79,7 @@ class BleakThemeTest {
   @Test
   fun bleakAtmosphere_clampsOutOfRangePhasesAndEscalatesIntensityAcrossPhases0To4() {
     assertEquals(0, bleakAtmosphereForPhase(-3).phase)
-    assertEquals(6, bleakAtmosphereForPhase(99).phase)
+    assertEquals(7, bleakAtmosphereForPhase(99).phase)
 
     val atmospheres = (0..4).map { bleakAtmosphereForPhase(it) }
     for (phase in 1..4) {
@@ -124,5 +125,25 @@ class BleakThemeTest {
     assertEquals(BleakColorScheme.background, capturedBackground)
     assertEquals(BleakMonoFontFamily, capturedFontFamily)
     assertEquals(BleakShapes.small, capturedSmallShape)
+  }
+
+  @Test
+  fun bleakThemeComposable_appliesBreachCrimsonColorSchemeAndPhase7AtmosphereInBreachMode() {
+    var capturedAtmosphere: BleakAtmosphere? = null
+    var capturedBackground: Color? = null
+    var capturedPrimary: Color? = null
+
+    composeTestRule.setContent {
+      BleakTheme(phase = 7, breachMode = true) {
+        capturedAtmosphere = BleakTheme.atmosphere
+        capturedBackground = MaterialTheme.colorScheme.background
+        capturedPrimary = MaterialTheme.colorScheme.primary
+      }
+    }
+    composeTestRule.waitForIdle()
+
+    assertEquals(7, capturedAtmosphere?.phase)
+    assertEquals(BreachCrimsonColorScheme.background, capturedBackground)
+    assertEquals(BreachCrimsonColorScheme.primary, capturedPrimary)
   }
 }

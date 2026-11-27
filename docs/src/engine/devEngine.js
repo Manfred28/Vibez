@@ -2,11 +2,13 @@
  * Clinical Dev Console state helpers (direct jumps, resource grants, anomaly triggers, and wipe).
  */
 
-import { GAME_ARCS, SCAR_NODES } from './constants.js?v=3.14';
-import { CASE_EXHIBITS, initialArc2State } from './arc2Models.js?v=3.14';
-import { finalizeProgression, initialState } from './progression.js?v=3.14';
-import { spawnImmediateWallAnomaly } from './arc1Engine.js?v=3.14';
-import { spawnImmediateDeskAnomaly } from './arc2Engine.js?v=3.14';
+import { GAME_ARCS, SCAR_NODES } from './constants.js?v=3.15';
+import { CASE_EXHIBITS, initialArc2State } from './arc2Models.js?v=3.15';
+import { ARC3_STRATA, initialArc3State } from './arc3Models.js?v=3.15';
+import { finalizeProgression, initialState } from './progression.js?v=3.15';
+import { spawnImmediateWallAnomaly } from './arc1Engine.js?v=3.15';
+import { spawnImmediateDeskAnomaly } from './arc2Engine.js?v=3.15';
+import { spawnImmediateBreachRupture } from './arc3Engine.js?v=3.15';
 
 export function devSetActiveArc(state, arcId, catalog) {
   const adjusted = { ...state, activeArc: arcId };
@@ -137,6 +139,64 @@ export function devSpawnWallAnomaly(state) {
 
 export function devSpawnDeskAnomaly(state) {
   return { ...state, arc2: spawnImmediateDeskAnomaly(state.arc2) };
+}
+
+export function devSetArc3Stratum(state, stratum, catalog) {
+  const clamped = Math.max(1, Math.min(5, Math.floor(Number(stratum) || 1)));
+  const locked = ARC3_STRATA.filter((s) => s.number < clamped).map((s) => s.id);
+  const nextBreach = {
+    ...(state.arc3 ?? initialArc3State()),
+    currentStratum: clamped,
+    lockedWedges: locked,
+    fracture: 0.0,
+    finalPullsCompleted: 0,
+    finalPullCooldownSeconds: 0.0,
+    submersionComplete: false,
+    secondsSinceLastAction: 0.0,
+  };
+  return finalizeProgression({ ...state, arc3: nextBreach }, catalog);
+}
+
+export function devAssignArc3Resources(state, { hemorrhage, fracture }, catalog) {
+  const breach = state.arc3 ?? initialArc3State();
+  const nextHem = hemorrhage != null ? Math.max(0, Number(hemorrhage) || 0) : breach.hemorrhage;
+  const activeGoal = (ARC3_STRATA.find((s) => s.number === breach.currentStratum) ?? ARC3_STRATA[4]).fractureGoal;
+  const nextFrac =
+    fracture != null ? Math.max(0, Math.min(activeGoal, Number(fracture) || 0)) : breach.fracture;
+  const nextBreach = {
+    ...breach,
+    hemorrhage: nextHem,
+    lifetimeHemorrhage: Math.max(breach.lifetimeHemorrhage ?? 0, nextHem),
+    fracture: nextFrac,
+    secondsSinceLastAction: 0.0,
+  };
+  return finalizeProgression({ ...state, arc3: nextBreach }, catalog);
+}
+
+export function devJumpArc3Finale(state, catalog) {
+  const nextBreach = {
+    ...(state.arc3 ?? initialArc3State()),
+    currentStratum: 5,
+    lockedWedges: ARC3_STRATA.map((s) => s.id),
+    fracture: 0.0,
+    activeRuptures: [],
+    finalPullsCompleted: 0,
+    finalPullCooldownSeconds: 0.0,
+    submersionComplete: false,
+    secondsSinceLastAction: 0.0,
+  };
+  return finalizeProgression(
+    { ...state, activeArc: GAME_ARCS.ARC_3_CONVERGENCE, arc3: nextBreach },
+    catalog,
+  );
+}
+
+export function devSpawnBreachRupture(state) {
+  return { ...state, arc3: spawnImmediateBreachRupture(state.arc3 ?? initialArc3State()) };
+}
+
+export function devResetArc3(state, catalog) {
+  return finalizeProgression({ ...state, arc3: initialArc3State() }, catalog);
 }
 
 export function devResetAll(catalog) {

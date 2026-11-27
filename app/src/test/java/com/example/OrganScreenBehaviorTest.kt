@@ -10,6 +10,7 @@ import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertContentDescriptionEquals
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.hasAnyDescendant
 import androidx.compose.ui.test.hasClickAction
@@ -600,7 +601,7 @@ class OrganScreenBehaviorTest {
       .assertIsDisplayed()
       .assertTextEquals(fileZeroFragment.lines.joinToString("\n"))
 
-    // Enter Convergence threshold with pure diegetic navigation labels (no ARC 1/2/3)
+    // Enter Arc 3 ("The Unmaking") with pure diegetic navigation labels (no ARC 1/2/3)
     composeTestRule
       .onNodeWithTag("enter_arc3_button")
       .performScrollTo()
@@ -608,9 +609,9 @@ class OrganScreenBehaviorTest {
       .performClick()
     composeTestRule.waitForIdle()
     composeTestRule.onNodeWithTag("arc3_screen").assertIsDisplayed()
-    composeTestRule.onNodeWithText("CONVERGENCE THRESHOLD").performScrollTo().assertIsDisplayed()
-    composeTestRule.onNodeWithText("RETURN TO THE CHAMBER").performScrollTo().assertIsDisplayed()
-    composeTestRule.onNodeWithText("RETURN TO THE DESK").performScrollTo().assertIsDisplayed()
+    composeTestRule.onNodeWithTag("arc3_stratum_header").assertIsDisplayed().assertTextContains("BROKEN GROUT")
+    composeTestRule.onNodeWithTag("arc3_breach_canvas").assertIsDisplayed()
+    composeTestRule.onNodeWithTag("arc3_wrench_button").assertIsDisplayed()
   }
 
   @Test
@@ -2030,5 +2031,71 @@ class OrganScreenBehaviorTest {
     composeTestRule.waitForIdle()
     composeTestRule.onNodeWithTag("desk_stage_photo_5", useUnmergedTree = true).assertIsDisplayed()
     composeTestRule.onNodeWithTag("desk_stage_photo_1", useUnmergedTree = true).assertDoesNotExist()
+  }
+
+  @Test
+  fun bespokePhotographicPortraitsAndBackdrops_renderAcrossArc1Arc2AndArc3() {
+    val viewModel = createViewModel()
+    viewModel.devSetHighestMilestone(5)
+    viewModel.devAssignArc1Resources(ichor = 500_000.0, stillness = 500.0, availableScar = 10L)
+
+    composeTestRule.setContent { OrganRoute(viewModel = viewModel) }
+    composeTestRule.waitForIdle()
+
+    // Arc 1 Organisms & Grafts: Weeping Lamp, Sump Siphon, Choir-Tendril, Choir-Lung macro portraits
+    composeTestRule
+      .onNodeWithTag("art_weeping_lamp", useUnmergedTree = true)
+      .performScrollTo()
+      .assertIsDisplayed()
+    composeTestRule
+      .onNodeWithTag("art_sump_siphon", useUnmergedTree = true)
+      .performScrollTo()
+      .assertIsDisplayed()
+    composeTestRule
+      .onNodeWithTag("art_graft_tendril", useUnmergedTree = true)
+      .performScrollTo()
+      .assertIsDisplayed()
+    composeTestRule
+      .onNodeWithTag("art_graft_lung", useUnmergedTree = true)
+      .performScrollTo()
+      .assertIsDisplayed()
+
+    // Arc 1 Chamber Rites: all 3 Dredged Relic macro specimen portraits
+    composeTestRule.onNodeWithTag("deck_tab_chamber_rites").performScrollTo().performClick()
+    composeTestRule.waitForIdle()
+    composeTestRule
+      .onNodeWithTag("art_relic_patient_wristband", useUnmergedTree = true)
+      .performScrollTo()
+      .assertIsDisplayed()
+    composeTestRule
+      .onNodeWithTag("art_relic_brass_ward_key", useUnmergedTree = true)
+      .performScrollTo()
+      .assertIsDisplayed()
+    composeTestRule
+      .onNodeWithTag("art_relic_bleeding_logbook", useUnmergedTree = true)
+      .performScrollTo()
+      .assertIsDisplayed()
+
+    // Arc 2: Case Stamp centerpiece & Contact macro portrait
+    composeTestRule.runOnIdle {
+      viewModel.devSetActiveArc(GameArc.ARC_2_INVESTIGATION)
+    }
+    composeTestRule.waitForIdle()
+    composeTestRule
+      .onNodeWithTag("art_arc2_case_stamp", useUnmergedTree = true)
+      .assertIsDisplayed()
+    composeTestRule
+      .onNodeWithTag("art_contact_night_archivist", useUnmergedTree = true)
+      .performScrollTo()
+      .assertIsDisplayed()
+
+    // Arc 3: Breach wall photographic backdrop
+    composeTestRule.runOnIdle {
+      viewModel.devSetActiveArc(GameArc.ARC_3_CONVERGENCE)
+    }
+    composeTestRule.waitForIdle()
+    composeTestRule
+      .onNodeWithTag("art_arc3_breach_wall", useUnmergedTree = true)
+      .assertIsDisplayed()
   }
 }

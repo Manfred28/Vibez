@@ -42,6 +42,17 @@
     <string name="art_desk_case3_cd">Basement municipal archive desk with slack magnetic reel-to-reel tape spools</string>
     <string name="art_desk_case4_cd">Rain-soaked desk blotter over drainage blueprints curling to expose cold hairline grout</string>
     <string name="art_desk_case5_cd">Investigator desk peeling back over wet institutional tile with lamp hood weeping grey oil</string>
+    <string name="art_graft_tendril_cd">Braided muscular Choir-Tendril graft macro specimen</string>
+    <string name="art_graft_lung_cd">Translucent ribbed pleural Choir-Lung graft macro specimen</string>
+    <string name="art_relic_wristband_cd">Sodden dredged patient wristband specimen</string>
+    <string name="art_relic_brass_key_cd">Tarnished bent brass ward key dredged from the floor sump</string>
+    <string name="art_relic_logbook_cd">Waterlogged bled-ink caretaker logbook dredged from the floor sump</string>
+    <string name="art_contact_archivist_cd">Noir portrait of the Night Archivist beneath dim fluorescent basement light</string>
+    <string name="art_contact_orderly_cd">Noir portrait of the Municipal Courier in a damp raincoat holding carbon slips</string>
+    <string name="art_contact_scanner_cd">Noir portrait of the Microfilm Reader lit by an amber parcel viewer</string>
+    <string name="art_contact_transcriber_cd">Noir portrait of the Reel Transcriber wearing headphones beside a tape deck</string>
+    <string name="art_arc2_case_stamp_cd">Heavy ink-stained wooden municipal case stamp resting on a damp manila folder</string>
+    <string name="art_arc3_convergence_cd">Threshold seam where wet hospital chamber tiles merge into a rain-lit wooden investigator desk</string>
 
     <!-- Wall anomaly interactive objects & thematic drip lines -->
     <string name="anomaly_tooth_label">PULL</string>
@@ -287,11 +298,59 @@
     <string name="arc2_file_zero_banner">FILE #00 UNSEALED — SUBJECT SCAR MATCHES LEFT THUMB</string>
     <string name="arc2_enter_arc3">STEP PAST THE SEAM</string>
 
-    <!-- Convergence Threshold -->
-    <string name="arc3_title">CONVERGENCE THRESHOLD</string>
-    <string name="arc3_subtitle">The desk blotter and the damp tiled wall share one floor. Both ledgers keep counting—what rises next beyond this seam remains unwritten.</string>
-    <string name="arc3_return_chamber">RETURN TO THE CHAMBER</string>
-    <string name="arc3_return_desk">RETURN TO THE DESK</string>
+    <!-- Arc 3: The Unmaking (Breach & Crimson Flood) -->
+    <string name="arc3_title">THE OPEN SEAM</string>
+    <string name="arc3_subtitle">The room remembers every turn. Pull against the iron until nothing dry remains.</string>
+    <string name="arc3_return_chamber">CHAMBER</string>
+    <string name="arc3_return_desk">DESK</string>
+    <string name="arc3_archive_pill">ARCHIVE</string>
+    <string name="arc3_hemorrhage_label">HEMORRHAGE</string>
+    <string name="arc3_hemorrhage_blur_label">BLOOD LOSS</string>
+    <string name="arc3_fracture_label">FRACTURE</string>
+    <string name="arc3_fracture_blur_label">YOUR PULSE</string>
+    <string name="arc3_clotting_label">CLOTTING -%1$s/s</string>
+    <string name="arc3_coagulation_label">COAGULATION -%1$s/s</string>
+    <string name="arc3_clot_frozen_label">SEAM HELD (%1$ds)</string>
+    <string name="arc3_frenzy_label">TEAR SURGE (%1$ds)</string>
+    <string name="arc3_rib_force_label">RIB LEVER (%1$ds)</string>
+    <string name="arc3_wrench_action">WRENCH</string>
+    <string name="arc3_tear_open_action">PRY OPEN</string>
+    <string name="arc3_wrench_cd">Wrench the breach counter-clockwise to tear the chamber open</string>
+    <string name="arc3_tab_unmake">UNMAKE</string>
+    <string name="arc3_tab_wedges">WEDGES</string>
+    <string name="arc3_wedge_ready_banner">BREACH WIDE ENOUGH — DRIVE MEMORY WEDGE</string>
+    <string name="arc3_wedge_drive_action">DRIVE WEDGE: %1$s</string>
+    <string name="arc3_wedge_locked_badge">PINNED IN SEAM</string>
+    <string name="arc3_wedge_awaiting_badge">UNDRIVEN</string>
+    <string name="arc3_unmake_done_badge">UNMADE</string>
+    <string name="arc3_unmake_action">TEAR · %1$s HEM</string>
+    <string name="arc3_shatter_action">SHATTER · %1$s HEM</string>
+    <string name="arc3_legacy_jar_tag">YOUR WAX SEAL</string>
+    <string name="arc3_legacy_scar_tag">YOUR STITCH</string>
+    <string name="arc3_legacy_corrob_tag">YOUR RED STRING</string>
+    <string name="arc3_finale_header">NOTHING BETWEEN</string>
+    <string name="arc3_finale_pull_label">PULL OPEN</string>
+    <string name="arc3_finale_pull_last_label">LET IT IN</string>
+    <string name="arc3_finale_pull_wait">GIVING WAY…</string>
+    <string name="arc3_finale_pull_cd">Pull the last open seam apart into the crimson flood</string>
+    <string name="arc3_submerged_title">SUBMERGED</string>
+    <string name="arc3_rupture_clotting_seam_cd">Rip clotting seam open before plaster seals</string>
+    <string name="arc3_rupture_splintered_rib_cd">Snap splintered rib out of the chamber wall</string>
+    <string name="arc3_rupture_torn_suture_cd">Tear bleeding surgical suture open</string>
+    <string name="arc3_rupture_arterial_well_cd">Breach arterial well beneath cracked tile</string>
+    <string name="art_wall_arc3_breach_early_cd">Wet tiled chamber wall cracking with fresh crimson seepage</string>
+    <string name="art_wall_arc3_breach_deep_cd">Torn subterranean chamber wall split open by arterial crimson fissures</string>
+    <string name="art_arc3_crimson_flood_cd">Abstract full-bleed crimson liquid field with deep dark red currents</string>
+    <string name="art_rupture_clotting_seam_cd">Freshly splitting plaster crack oozing dark red clotting fibers</string>
+    <string name="art_rupture_arterial_well_cd">Sunken dark crimson arterial well pulsing beneath cracked masonry</string>
+    <string name="drip_arc3_speaker">THE SEAM</string>
+    <string name="drip_arc3_rupture_clot">Wet mortar peels back; the clotting hesitates.</string>
+    <string name="drip_arc3_rupture_rib">Calcified bone snaps dry; your knuckles carry its weight.</string>
+    <string name="drip_arc3_rupture_suture">Old thread rips loose in a warm surge down both forearms.</string>
+    <string name="drip_arc3_rupture_well">Dark red wells straight up out of the grout, warm as skin.</string>
+    <string name="drip_arc3_jar_shatter">Glass splits on wet tile; salt and red mix before you can step back.</string>
+    <string name="drip_arc3_unmake_tear">What used to tend the room now pulls against its hinges.</string>
+    <string name="drip_arc3_wedge_drive">Paper swells crimson inside the crack and refuses to close.</string>
 
     <!-- Clinical Dev Console & Audio Control -->
     <string name="dev_button_label">DEV</string>

@@ -22,10 +22,10 @@ interface OrganSaveRepository {
  * Arc 1 and Arc 2 payloads to [Arc1SaveCodec] and [Arc2SaveCodec].
  */
 object OrganStateSerializer {
-  internal const val SCHEMA_VERSION = 3
+  internal const val SCHEMA_VERSION = 4
   internal const val LEGACY_SCHEMA_VERSION = 1
   internal const val V2_SCHEMA_VERSION = 2
-  internal const val FORWARD_SCHEMA_VERSION = 3
+  internal const val FORWARD_SCHEMA_VERSION = 4
 
   fun serialize(state: OrganGameState): String {
     val root = JSONObject()
@@ -39,6 +39,7 @@ object OrganStateSerializer {
     root.put("triggeredDialogueIds", triggeredArr)
 
     root.put("arc2", Arc2SaveCodec.encode(state.arc2))
+    root.put("arc3", Arc3SaveCodec.encode(state.arc3))
     return root.toString()
   }
 
@@ -88,6 +89,7 @@ object OrganStateSerializer {
 
       val arc1 = Arc1SaveCodec.decode(root, effectiveVersion)
       val desk = Arc2SaveCodec.decode(root.optJSONObject("arc2"), effectiveVersion)
+      val breach = Arc3SaveCodec.decode(root.optJSONObject("arc3"))
 
       val triggeredIds = mutableSetOf<String>()
       root.optJSONArray("triggeredDialogueIds")?.let { arr ->
@@ -128,6 +130,7 @@ object OrganStateSerializer {
           marrowBloomCount = arc1.marrowBloomCount,
           unredactedDossierLines = arc1.unredactedDossierLines,
           arc2 = desk,
+          arc3 = breach,
           activeDialogue = discovered.lastOrNull(),
           discoveredDialogues = discovered,
           triggeredDialogueIds = triggeredIds,

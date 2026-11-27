@@ -41,6 +41,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.R
+import com.example.game.Arc3DeckTab
+import com.example.game.Arc3UnmakeAct
 import com.example.game.AuditRedaction
 import com.example.game.CaseExhibit
 import com.example.game.CreatureType
@@ -191,6 +193,44 @@ object TabAlertEvaluator {
     val seen = seenKeysByTab[tab].orEmpty()
     val hasUnseen = currentKeys.any { it !in seen }
     return hasUnseen || isArc2TabReady(state, tab)
+  }
+
+  fun arc3UnlockKeys(state: OrganGameState, tab: Arc3DeckTab): Set<String> {
+    val breach = state.arc3
+    return when (tab) {
+      Arc3DeckTab.UNMAKE ->
+        Arc3UnmakeAct.entries
+          .filter { breach.isUnmakeVisible(it) && it !in breach.completedUnmakes }
+          .map { "arc3_unmake_${it.id}" }
+          .toSet()
+      Arc3DeckTab.WEDGES ->
+        buildSet {
+          if (breach.canDriveWedge) add("arc3_wedge_ready_s${breach.currentStratum}")
+          add("arc3_stratum_${breach.currentStratum}")
+        }
+    }
+  }
+
+  fun isArc3TabReady(state: OrganGameState, tab: Arc3DeckTab): Boolean {
+    val breach = state.arc3
+    if (breach.isInFinale || breach.submersionComplete) return false
+    return when (tab) {
+      Arc3DeckTab.UNMAKE -> Arc3UnmakeAct.entries.any { breach.canPerformUnmake(it) }
+      Arc3DeckTab.WEDGES -> breach.canDriveWedge
+    }
+  }
+
+  fun shouldAlertArc3Tab(
+    state: OrganGameState,
+    tab: Arc3DeckTab,
+    activeTab: Arc3DeckTab,
+    seenKeysByTab: Map<Arc3DeckTab, Set<String>>,
+  ): Boolean {
+    if (tab == activeTab) return false
+    val currentKeys = arc3UnlockKeys(state, tab)
+    val seen = seenKeysByTab[tab].orEmpty()
+    val hasUnseen = currentKeys.any { it !in seen }
+    return hasUnseen || isArc3TabReady(state, tab)
   }
 }
 

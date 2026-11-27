@@ -3,6 +3,7 @@ package com.example
 import com.example.audio.AmbientSoundProfile
 import com.example.audio.Arc1FoleyCueBank
 import com.example.audio.Arc2FoleyCueBank
+import com.example.audio.Arc3FoleyCueBank
 import com.example.audio.InMemoryAudioEngine
 import com.example.audio.ProceduralFoleySynth
 import com.example.audio.SoundActionHint
@@ -11,10 +12,16 @@ import com.example.audio.SoundCueResolver
 import com.example.data.DialogueCatalog
 import com.example.data.DialogueEntry
 import com.example.data.DialogueTrigger
+import com.example.game.ActiveBreachRupture
 import com.example.game.ActiveDeskAnomaly
 import com.example.game.ActiveWallAnomaly
 import com.example.game.Arc2InvestigatorEngine
+import com.example.game.Arc3BreachEngine
+import com.example.game.Arc3BreachState
+import com.example.game.Arc3Stratum
+import com.example.game.Arc3UnmakeAct
 import com.example.game.AuditRedaction
+import com.example.game.BreachRuptureType
 import com.example.game.CaseExhibit
 import com.example.game.CorroborationId
 import com.example.game.CreatureType
@@ -147,11 +154,17 @@ class OrganAudioTest {
       SoundCueResolver.resolveTransitionCues(base, jarred, SoundActionHint.JAR_BOTTLE),
     )
 
-    // Graft tendril
+    // Graft tendril & Choir-Lung emit distinct foley cues
     val grafted = OrganGameEngine.performGraft(base, DialogueCatalog.Empty)
     assertEquals(
       listOf(SoundCue.GRAFT_PERFORM),
       SoundCueResolver.resolveTransitionCues(base, grafted, SoundActionHint.GRAFT_PERFORM),
+    )
+    val lungBase = base.copy(graftedTendrils = 1)
+    val lungGrafted = OrganGameEngine.performChoirLungGraft(lungBase, DialogueCatalog.Empty)
+    assertEquals(
+      listOf(SoundCue.GRAFT_CHOIR_LUNG),
+      SoundCueResolver.resolveTransitionCues(lungBase, lungGrafted, SoundActionHint.GRAFT_PERFORM),
     )
 
     // All 4 wall anomalies map to distinct foley cues
@@ -295,34 +308,62 @@ class OrganAudioTest {
       SoundCueResolver.resolveTransitionCues(arc2Base, stamped, SoundActionHint.ARC2_STAMP),
     )
 
+    // Lamp OFF and Lamp ON emit distinct brass chain foley cues
     val lampOff = Arc2InvestigatorEngine.toggleLamp(arc2Base, DialogueCatalog.Empty)
     assertEquals(
-      listOf(SoundCue.ARC2_LAMP_TOGGLE),
+      listOf(SoundCue.ARC2_LAMP_OFF),
       SoundCueResolver.resolveTransitionCues(arc2Base, lampOff, SoundActionHint.ARC2_LAMP_TOGGLE),
     )
-
-    val contacted =
-      Arc2InvestigatorEngine.recruitContact(
-        arc2Base,
-        InvestigatorContact.NIGHT_ARCHIVIST,
-        DialogueCatalog.Empty,
-      )
+    val lampBackOn = Arc2InvestigatorEngine.toggleLamp(lampOff, DialogueCatalog.Empty)
     assertEquals(
-      listOf(SoundCue.ARC2_CONTACT),
-      SoundCueResolver.resolveTransitionCues(arc2Base, contacted, SoundActionHint.ARC2_CONTACT),
+      listOf(SoundCue.ARC2_LAMP_ON),
+      SoundCueResolver.resolveTransitionCues(lampOff, lampBackOn, SoundActionHint.ARC2_LAMP_TOGGLE),
     )
+
+    // All 4 Arc 2 contacts resolve to distinct signature cues
+    val case4Rich =
+      arc2Base.copy(
+        arc2 = arc2Base.arc2.copy(caseAngle = 4, completedCasePivots = 3),
+      )
+    val contactExpectations =
+      listOf(
+        InvestigatorContact.NIGHT_ARCHIVIST to SoundCue.ARC2_CONTACT_ARCHIVIST,
+        InvestigatorContact.BRIBED_ORDERLY to SoundCue.ARC2_CONTACT_ORDERLY,
+        InvestigatorContact.MICROFILM_SCANNER to SoundCue.ARC2_CONTACT_SCANNER,
+        InvestigatorContact.AUDIO_TRANSCRIBER to SoundCue.ARC2_CONTACT_TRANSCRIBER,
+      )
+    for ((contact, expectedCue) in contactExpectations) {
+      val hired = Arc2InvestigatorEngine.recruitContact(case4Rich, contact, DialogueCatalog.Empty)
+      assertEquals(
+        listOf(expectedCue),
+        SoundCueResolver.resolveTransitionCues(case4Rich, hired, SoundActionHint.ARC2_CONTACT),
+      )
+    }
 
     val unlockedExhibit =
       Arc2InvestigatorEngine.unlockExhibit(
-        arc2Base,
-        CaseExhibit.UNLISTED_PAY_STUB,
+        Arc2InvestigatorEngine.unlockExhibit(
+          arc2Base,
+          CaseExhibit.UNLISTED_PAY_STUB,
+          DialogueCatalog.Empty,
+        ),
+        CaseExhibit.TAX_PLAT_1998,
         DialogueCatalog.Empty,
       )
     assertEquals(
       listOf(SoundCue.ARC2_DEDUCTION),
-      SoundCueResolver.resolveTransitionCues(arc2Base, unlockedExhibit, SoundActionHint.ARC2_DEDUCTION),
+      SoundCueResolver.resolveTransitionCues(
+        arc2Base,
+        Arc2InvestigatorEngine.unlockExhibit(
+          arc2Base,
+          CaseExhibit.UNLISTED_PAY_STUB,
+          DialogueCatalog.Empty,
+        ),
+        SoundActionHint.ARC2_DEDUCTION,
+      ),
     )
 
+    // Curated corroboration pair -> ARC2_CORROBORATION_LOCK; removing string -> ARC2_STRING_UNWIRE; non-curated pair -> ARC2_STRING_WIRE
     val wired =
       Arc2InvestigatorEngine.toggleExhibitPair(
         unlockedExhibit,
@@ -331,8 +372,38 @@ class OrganAudioTest {
         DialogueCatalog.Empty,
       )
     assertEquals(
-      listOf(SoundCue.ARC2_STRING_WIRE),
+      listOf(SoundCue.ARC2_CORROBORATION_LOCK),
       SoundCueResolver.resolveTransitionCues(unlockedExhibit, wired, SoundActionHint.ARC2_STRING_WIRE),
+    )
+    val unwired =
+      Arc2InvestigatorEngine.toggleExhibitPair(
+        wired,
+        CaseExhibit.WATER_STAINED_PETITION,
+        CaseExhibit.UNLISTED_PAY_STUB,
+        DialogueCatalog.Empty,
+      )
+    assertEquals(
+      listOf(SoundCue.ARC2_STRING_UNWIRE),
+      SoundCueResolver.resolveTransitionCues(wired, unwired, SoundActionHint.ARC2_STRING_WIRE),
+    )
+    val unwiredWithPlat =
+      unwired.copy(
+        arc2 = unwired.arc2.copy(pinnedExhibits = unwired.arc2.pinnedExhibits + CaseExhibit.TAX_PLAT_1998),
+      )
+    val speculativeWire =
+      Arc2InvestigatorEngine.toggleExhibitPair(
+        unwiredWithPlat,
+        CaseExhibit.WATER_STAINED_PETITION,
+        CaseExhibit.TAX_PLAT_1998,
+        DialogueCatalog.Empty,
+      )
+    assertEquals(
+      listOf(SoundCue.ARC2_STRING_WIRE),
+      SoundCueResolver.resolveTransitionCues(
+        unwiredWithPlat,
+        speculativeWire,
+        SoundActionHint.ARC2_STRING_WIRE,
+      ),
     )
 
     val case4Dark =
@@ -360,16 +431,33 @@ class OrganAudioTest {
       ),
     )
 
-    val deskAnomaly =
-      Arc2InvestigatorEngine.interactDeskAnomaly(arc2Base, 5L, DialogueCatalog.Empty)
-    assertEquals(
-      listOf(SoundCue.ARC2_DESK_ANOMALY),
-      SoundCueResolver.resolveTransitionCues(
-        arc2Base,
-        deskAnomaly,
-        SoundActionHint.ARC2_DESK_ANOMALY,
-      ),
-    )
+    // All 4 Desk Anomaly types map to distinct tactile foley cues
+    val deskAnomalyExpectations =
+      listOf(
+        DeskAnomalyType.EVIDENCE_ENVELOPE to SoundCue.ARC2_ANOMALY_ENVELOPE,
+        DeskAnomalyType.FOGGED_SPECTACLES to SoundCue.ARC2_ANOMALY_SPECTACLES,
+        DeskAnomalyType.REEL_TAPE to SoundCue.ARC2_ANOMALY_REEL_TAPE,
+        DeskAnomalyType.ENAMEL_EXHIBIT to SoundCue.ARC2_ANOMALY_ENAMEL,
+      )
+    for ((type, expectedCue) in deskAnomalyExpectations) {
+      val withAnomaly =
+        arc2Base.copy(
+          arc2 =
+            arc2Base.arc2.copy(
+              activeDeskAnomalies = listOf(ActiveDeskAnomaly(5L, type, 0.5f, 0.5f, 14.0))
+            )
+        )
+      val collected =
+        Arc2InvestigatorEngine.interactDeskAnomaly(withAnomaly, 5L, DialogueCatalog.Empty)
+      assertEquals(
+        listOf(expectedCue),
+        SoundCueResolver.resolveTransitionCues(
+          withAnomaly,
+          collected,
+          SoundActionHint.ARC2_DESK_ANOMALY,
+        ),
+      )
+    }
 
     // Case I pivot -> ARC2_CHAPTER; Case V pivot -> ARC2_FILE_ZERO
     val pivoted = Arc2InvestigatorEngine.pivotNextCase(wired, DialogueCatalog.Empty)
@@ -451,18 +539,34 @@ class OrganAudioTest {
     assertTrue(arc2Late.fleshDepth > 0f)
     assertTrue(arc2Late.cardiacPulse > 0f)
     assertTrue(arc2Late.complicityBleed >= 0.8f)
-    assertTrue(arc3.rainMix > 0.3f && arc3.fleshDepth > 0.2f)
+    assertEquals(7, arc3.phase)
+    assertEquals(0f, arc3.rainMix, 0.0001f)
+    assertTrue(arc3.fleshDepth >= 0.45f && arc3.cardiacPulse >= 0.25f)
+
+    val arc3Clotting =
+      SoundCueResolver.computeAmbientProfile(
+        OrganGameState(
+          activeArc = GameArc.ARC_3_CONVERGENCE,
+          arc3 = Arc3BreachState(fracture = 50.0, secondsSinceLastAction = 3.5),
+        )
+      )
+    assertTrue("Actively clotting Arc 3 breach must raise clampTension", arc3Clotting.clampTension > 0.5f)
   }
 
   @Test
   fun proceduralFoleySynth_synthesizesNonSilentBoundedPcmForEveryCueAndAmbientBed() {
-    assertEquals(33, SoundCue.entries.size)
-    // Grafting should be a long, fleshy ~0.94s ritual (significantly longer than quick valve taps)
+    assertEquals(52, SoundCue.entries.size)
+    // Grafting should be a long, fleshy ~1.15s ritual (significantly longer than quick valve taps)
     val graftPcm = ProceduralFoleySynth.synthesizeCue(SoundCue.GRAFT_PERFORM, phase = 3)
+    val lungPcm = ProceduralFoleySynth.synthesizeCue(SoundCue.GRAFT_CHOIR_LUNG, phase = 3)
     val valvePcm = ProceduralFoleySynth.synthesizeCue(SoundCue.VALVE_PRESS, phase = 0)
     assertTrue(
       "Expected long fleshy graft waveform (>= 0.85s), got ${graftPcm.size} samples",
       graftPcm.size >= (ProceduralFoleySynth.SAMPLE_RATE * 0.85).toInt(),
+    )
+    assertTrue(
+      "Expected sustained Choir-Lung waveform (>= 1.05s), got ${lungPcm.size} samples",
+      lungPcm.size >= (ProceduralFoleySynth.SAMPLE_RATE * 1.05).toInt(),
     )
     assertTrue("Graft waveform should be much longer than valve tap", graftPcm.size > valvePcm.size * 3)
 
@@ -505,6 +609,9 @@ class OrganAudioTest {
 
     vm.pressValve()
     assertEquals(listOf(SoundCue.VALVE_PRESS to 0), engine.playedCues)
+
+    vm.playRelicInspectCue()
+    assertEquals(SoundCue.RELIC_INSPECT to 0, engine.playedCues.last())
 
     vm.toggleAudioMuted()
     assertTrue(vm.isAudioMuted.value)
@@ -625,6 +732,7 @@ class OrganAudioTest {
   fun modularFoleyCueBanks_partitionAllSoundCuesWithoutOverlapAndMatchFacade() {
     var arc1Count = 0
     var arc2Count = 0
+    var arc3Count = 0
     val phase = 2
     val pitchFactor = 1.03f
     val pitch = pitchFactor.toDouble()
@@ -633,16 +741,21 @@ class OrganAudioTest {
     for (cue in SoundCue.entries) {
       val fromArc1 = Arc1FoleyCueBank.synthesize(cue, pitch, pDark, phase)
       val fromArc2 = Arc2FoleyCueBank.synthesize(cue, pitch)
-      val handledByArc1 = fromArc1 != null
-      val handledByArc2 = fromArc2 != null
+      val fromArc3 = Arc3FoleyCueBank.synthesize(cue, pitch)
+      val matchCount = listOfNotNull(fromArc1, fromArc2, fromArc3).size
 
-      assertTrue(
-        "Cue ${cue.id} must belong to exactly one modular cue bank (arc1=$handledByArc1, arc2=$handledByArc2)",
-        handledByArc1 xor handledByArc2,
+      assertEquals(
+        "Cue ${cue.id} must belong to exactly one modular cue bank",
+        1,
+        matchCount,
       )
-      if (handledByArc1) arc1Count++ else arc2Count++
+      when {
+        fromArc1 != null -> arc1Count++
+        fromArc2 != null -> arc2Count++
+        else -> arc3Count++
+      }
 
-      val bankPcm = fromArc1 ?: fromArc2!!
+      val bankPcm = fromArc1 ?: fromArc2 ?: fromArc3!!
       val facadePcm = ProceduralFoleySynth.synthesizeCue(cue, phase = phase, pitchFactor = pitchFactor)
       assertTrue(
         "ProceduralFoleySynth facade output must be bit-for-bit identical to cue bank for ${cue.id}",
@@ -650,8 +763,76 @@ class OrganAudioTest {
       )
     }
 
-    assertEquals(22, arc1Count)
-    assertEquals(11, arc2Count)
-    assertEquals(SoundCue.entries.size, arc1Count + arc2Count)
+    assertEquals(24, arc1Count)
+    assertEquals(20, arc2Count)
+    assertEquals(8, arc3Count)
+    assertEquals(SoundCue.entries.size, arc1Count + arc2Count + arc3Count)
+  }
+
+  @Test
+  fun soundCueResolver_emitsDistinctArc3BreachAndFinaleCues() {
+    val catalog = com.example.data.DialogueCatalog.Empty
+    val base = OrganGameState(activeArc = GameArc.ARC_3_CONVERGENCE)
+
+    val wrenched = Arc3BreachEngine.wrenchBreach(base, catalog)
+    assertTrue(
+      SoundCueResolver.resolveTransitionCues(base, wrenched, SoundActionHint.ARC3_WRENCH)
+        .contains(SoundCue.ARC3_WRENCH)
+    )
+
+    val richJar = base.copy(arc3 = Arc3BreachState(hemorrhage = 100.0))
+    val shattered = Arc3BreachEngine.performUnmake(richJar, Arc3UnmakeAct.SHATTER_YESTERDAYS_DUST, catalog)
+    assertTrue(
+      SoundCueResolver.resolveTransitionCues(richJar, shattered, SoundActionHint.ARC3_UNMAKE)
+        .contains(SoundCue.ARC3_JAR_SHATTER)
+    )
+
+    val reversed = Arc3BreachEngine.performUnmake(richJar, Arc3UnmakeAct.REVERSE_SUTURE_HANDS, catalog)
+    assertTrue(
+      SoundCueResolver.resolveTransitionCues(richJar, reversed, SoundActionHint.ARC3_UNMAKE)
+        .contains(SoundCue.ARC3_UNMAKE_TEAR)
+    )
+
+    val withRupture =
+      base.copy(
+        arc3 =
+          Arc3BreachState(
+            activeRuptures =
+              listOf(ActiveBreachRupture(1L, BreachRuptureType.CLOTTING_SEAM, 0.2f, 0.3f, 10.0))
+          )
+      )
+    val torn = Arc3BreachEngine.tearBreachRupture(withRupture, 1L, catalog)
+    assertTrue(
+      SoundCueResolver.resolveTransitionCues(withRupture, torn, SoundActionHint.ARC3_RUPTURE_TEAR)
+        .contains(SoundCue.ARC3_RUPTURE_POP)
+    )
+
+    val wedgeReady = base.copy(arc3 = Arc3BreachState(fracture = 120.0))
+    val wedged = Arc3BreachEngine.driveMemoryWedge(wedgeReady, catalog)
+    assertTrue(
+      SoundCueResolver.resolveTransitionCues(wedgeReady, wedged, SoundActionHint.ARC3_WEDGE_DRIVE)
+        .contains(SoundCue.ARC3_WEDGE_DRIVE)
+    )
+
+    val clottingStart = base.copy(arc3 = Arc3BreachState(fracture = 40.0, secondsSinceLastAction = 1.35))
+    val clottingTicked = Arc3BreachEngine.tick(clottingStart, 0.3, catalog)
+    assertTrue(
+      SoundCueResolver.resolveTransitionCues(clottingStart, clottingTicked, SoundActionHint.TICK)
+        .contains(SoundCue.ARC3_CLOT_WARNING)
+    )
+
+    val finaleStart = base.copy(arc3 = Arc3BreachState(lockedWedges = Arc3Stratum.entries.toSet()))
+    val pull1 = Arc3BreachEngine.performFinalPull(finaleStart, catalog)
+    assertTrue(
+      SoundCueResolver.resolveTransitionCues(finaleStart, pull1, SoundActionHint.ARC3_FINAL_PULL)
+        .contains(SoundCue.ARC3_FINAL_PULL)
+    )
+
+    val preEnd = finaleStart.copy(arc3 = finaleStart.arc3.copy(finalPullsCompleted = 4))
+    val ended = Arc3BreachEngine.performFinalPull(preEnd, catalog)
+    assertTrue(
+      SoundCueResolver.resolveTransitionCues(preEnd, ended, SoundActionHint.ARC3_FINAL_PULL)
+        .contains(SoundCue.ARC3_SUBMERSION_END)
+    )
   }
 }

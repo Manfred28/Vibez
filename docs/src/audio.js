@@ -15,15 +15,16 @@ import {
   readMutedPreference,
   resolveTransitionCues,
   writeMutedPreference,
-} from './audio/cueResolver.js?v=3.14';
+} from './audio/cueResolver.js?v=3.15';
 import {
   IRON_MODE_RATIOS,
   createCrackleNoiseBuffer,
   createDspPrimitives,
   createNoiseBuffer,
-} from './audio/dspPrimitives.js?v=3.14';
-import { renderArc1Cue } from './audio/arc1CueBank.js?v=3.14';
-import { renderArc2Cue } from './audio/arc2CueBank.js?v=3.14';
+} from './audio/dspPrimitives.js?v=3.15';
+import { renderArc1Cue } from './audio/arc1CueBank.js?v=3.15';
+import { renderArc2Cue } from './audio/arc2CueBank.js?v=3.15';
+import { renderArc3Cue } from './audio/arc3CueBank.js?v=3.15';
 
 export {
   AUDIO_MUTE_STORAGE_KEY,
@@ -326,7 +327,9 @@ export function createWebAudioEngine({ storage } = {}) {
     if (!ctx || !sfxBus || !dsp) return;
     const now = ctx.currentTime + 0.003;
     if (!renderArc1Cue(cue, phase, pitch, now, dsp)) {
-      renderArc2Cue(cue, phase, pitch, now, dsp);
+      if (!renderArc2Cue(cue, phase, pitch, now, dsp)) {
+        renderArc3Cue(cue, phase, pitch, now, dsp);
+      }
     }
   }
 
@@ -352,6 +355,7 @@ export function createWebAudioEngine({ storage } = {}) {
       const wideJitter =
         cue === SOUND_CUES.VALVE_PRESS ||
         cue === SOUND_CUES.ARC2_STAMP ||
+        cue === SOUND_CUES.ARC3_WRENCH ||
         cue === SOUND_CUES.CREATURE_BUY_SUTURE_HAND ||
         cue === SOUND_CUES.CREATURE_BUY_LEECH_CLERK ||
         cue === SOUND_CUES.CREATURE_BUY_WEEPING_LAMP ||

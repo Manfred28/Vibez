@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -347,6 +348,7 @@ internal fun InvestigatorActionRow(
   enabled: Boolean,
   accent: Boolean,
   testTag: String,
+  leadingArtwork: (@Composable () -> Unit)? = null,
   onClick: () -> Unit,
 ) {
   val colorScheme = MaterialTheme.colorScheme
@@ -379,6 +381,10 @@ internal fun InvestigatorActionRow(
       horizontalArrangement = Arrangement.SpaceBetween,
       verticalAlignment = Alignment.CenterVertically,
     ) {
+      if (leadingArtwork != null) {
+        leadingArtwork()
+        Spacer(modifier = Modifier.width(10.dp))
+      }
       Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
         Text(
           text = title,

@@ -13,10 +13,10 @@
     />
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
     <meta http-equiv="Pragma" content="no-cache" />
-    <meta name="app-build" content="3.14" />
+    <meta name="app-build" content="3.15" />
     <title>Tap Counter // The Counting Room</title>
     <link rel="icon" type="image/png" href="./assets/icon.png" />
-    <link rel="stylesheet" href="./styles.css?v=3.14" />
+    <link rel="stylesheet" href="./styles.css?v=3.15" />
   </head>
   <body data-phase="0" data-arc="arc_1">
     <main class="app-shell">
@@ -211,6 +211,14 @@
                 class="desk-stamp-btn"
                 aria-label="Stamp and inspect case file to gather leads"
               >
+                <img
+                  class="desk-stamp-photo"
+                  src="./assets/img_arc2_case_stamp.jpg?v=3.15"
+                  alt=""
+                  aria-hidden="true"
+                  draggable="false"
+                />
+                <span class="desk-stamp-scrim" aria-hidden="true"></span>
                 <span id="inspect-yield-text" class="desk-stamp-yield">+1</span>
                 <span class="desk-stamp-sub">STAMP CASE FILE</span>
               </button>
@@ -238,24 +246,119 @@
         </section>
       </div>
 
-      <!-- ==================== ARC 3: OPEN CONVERGENCE THRESHOLD ==================== -->
-      <div id="arc3-shell" class="arc-shell" hidden>
-        <section class="arc3-card" aria-label="Convergence threshold">
-          <div class="arc3-kicker">CONVERGENCE THRESHOLD</div>
-          <h2 class="arc3-title">THE ROOM AND THE DESK SHARE ONE SEAM</h2>
-          <p class="arc3-body">
-            File #00 is open. The investigator who traced the Hydro-Ward cult and the attendant
-            tending the recessed valve share the same pale scar across the left thumb. Both ledgers
-            keep counting—what rises next beyond this seam remains unwritten.
-          </p>
-          <div id="arc3-stats" class="arc3-stats"></div>
-          <div class="excision-btn-row">
-            <button id="arc3-back-desk-btn" type="button" class="excision-btn excision-btn--cancel">
-              RETURN TO THE DESK
+      <!-- ==================== ARC 3: THE UNMAKING (BREACH & CRIMSON FLOOD) ==================== -->
+      <div id="arc3-shell" class="arc-shell arc3-shell" hidden>
+        <div id="arc3-active-stage" class="arc3-active-stage">
+          <section
+            id="arc3-telemetry-header"
+            class="telemetry-header telemetry-header--arc3"
+            aria-label="Breach telemetry"
+          >
+            <div class="telemetry-row">
+              <span id="arc3-header-title" class="phase-label phase-label--breach">BROKEN GROUT</span>
+              <div id="arc3-wedge-pips" class="arc3-wedge-pips" aria-label="Driven memory wedges"></div>
+            </div>
+            <div class="progress-track progress-track--breach" aria-hidden="true">
+              <div id="arc3-stratum-progress-fill" class="progress-fill progress-fill--breach"></div>
+            </div>
+            <div id="arc3-status-line" class="threshold-status threshold-status--breach">
+              FRACTURE: 0 / 120 · FLOOD 8%
+            </div>
+          </section>
+
+          <section class="chamber-card chamber-card--breach" aria-label="Breach chamber">
+            <canvas id="arc3-breach-canvas" class="chamber-backdrop-canvas" aria-hidden="true"></canvas>
+            <canvas id="arc3-flood-canvas" class="arc3-flood-canvas" aria-hidden="true"></canvas>
+            <div id="arc3-jar-shelves" class="arc3-jar-shelves" aria-hidden="true"></div>
+
+            <div class="chamber-foreground arc3-foreground">
+              <div class="counter-block">
+                <div class="ichor-top-row">
+                  <span id="arc3-hemorrhage-label" class="ichor-label ichor-label--breach">HEMORRHAGE</span>
+                  <span id="arc3-flood-readout" class="ichor-rate ichor-rate--breach">FLOOD 8%</span>
+                </div>
+
+                <div class="counter-glass-plate counter-glass-plate--breach">
+                  <span id="arc3-hemorrhage-value" class="counter-value" aria-live="polite">0</span>
+                </div>
+
+                <div class="status-pills-row">
+                  <span id="arc3-clot-badge" class="status-tag status-tag--danger" hidden></span>
+                  <span id="arc3-freeze-badge" class="status-tag status-tag--breach-calm" hidden></span>
+                  <span id="arc3-momentum-badge" class="status-tag status-tag--breach-hot" hidden></span>
+                  <span id="arc3-surge-badge" class="status-tag status-tag--breach-hot" hidden></span>
+                </div>
+              </div>
+
+              <div id="arc3-wrench-arena" class="arc3-wrench-arena">
+                <div class="valve-well">
+                  <div class="valve-shadow-base" aria-hidden="true"></div>
+                  <button
+                    id="arc3-wrench-btn"
+                    type="button"
+                    class="valve-button arc3-wrench-btn"
+                    aria-label="Wrench the valve counter-clockwise to fracture the chamber wall"
+                  >
+                    <span id="arc3-valve-rotator" class="valve-wheel-rotator" aria-hidden="true">
+                      <img class="valve-art-img" src="./assets/img_recessed_valve.jpg" alt="" aria-hidden="true" />
+                      <span class="valve-spokes" aria-hidden="true"></span>
+                    </span>
+                    <span class="valve-vignette arc3-wrench-vignette" aria-hidden="true"></span>
+                    <span id="arc3-wrench-yield" class="valve-yield-text">+4.5</span>
+                    <span id="arc3-wrench-sub" class="valve-sub-label">WRENCH CCW</span>
+                  </button>
+                </div>
+                <div id="arc3-residue-layer" class="residue-layer" aria-hidden="true"></div>
+              </div>
+
+              <div id="arc3-finale-panel" class="arc3-finale-panel" hidden>
+                <div id="arc3-final-pull-count" class="arc3-finale-kicker">PULL 0 OF 5</div>
+                <button
+                  id="arc3-final-pull-btn"
+                  type="button"
+                  class="arc3-final-pull-btn"
+                  aria-label="Pull the open seam wider"
+                >
+                  WRENCH THE JAMB FREE (1 / 5)
+                </button>
+                <div class="arc3-finale-cd-track" aria-hidden="true">
+                  <div id="arc3-final-pull-cooldown-fill" class="arc3-finale-cd-fill"></div>
+                </div>
+              </div>
+            </div>
+
+            <div id="arc3-rupture-layer" class="anomaly-layer"></div>
+          </section>
+
+          <div id="arc3-drive-banner" class="arc3-drive-banner" hidden>
+            <button id="arc3-drive-banner-btn" type="button" class="excision-btn excision-btn--confirm">
+              DRIVE WEDGE
             </button>
-            <button id="arc3-back-chamber-btn" type="button" class="excision-btn excision-btn--arm">
-              RETURN TO THE CHAMBER
-            </button>
+          </div>
+
+          <section id="arc3-deck-panel" class="deck-panel deck-panel--breach" aria-label="Unmaking deck">
+            <div id="arc3-deck-tabs" class="deck-tabs" role="tablist"></div>
+            <div id="arc3-deck-content" class="deck-content"></div>
+          </section>
+        </div>
+
+        <!-- Quiet Full-Bleed Crimson Submerged Aftermath -->
+        <section id="arc3-submerged-overlay" class="arc3-submerged-stage" aria-label="Submerged aftermath" hidden>
+          <canvas id="arc3-submerged-canvas" class="arc3-submerged-canvas" aria-hidden="true"></canvas>
+          <div class="arc3-submerged-inner">
+            <div class="arc3-submerged-kicker">THE SEAM HAS GIVEN WAY</div>
+            <div id="arc3-submerged-count" class="arc3-submerged-meta">NOTES RECOVERED: 0</div>
+            <div class="arc3-submerged-nav">
+              <button id="arc3-submerged-archive-btn" type="button" class="arc3-ghost-btn">
+                ARCHIVE
+              </button>
+              <button id="arc3-back-chamber-btn" type="button" class="arc3-ghost-btn">
+                CHAMBER
+              </button>
+              <button id="arc3-back-desk-btn" type="button" class="arc3-ghost-btn">
+                DESK
+              </button>
+            </div>
           </div>
         </section>
       </div>
@@ -393,6 +496,32 @@
           </div>
 
           <div class="dev-section">
+            <div class="dev-section-label">ARC 3 BREACH</div>
+            <div class="dev-input-grid">
+              <label class="dev-field">
+                <span>HEMORRHAGE</span>
+                <input id="dev-hemorrhage-input" type="number" min="0" step="1" placeholder="e.g. 25000" />
+              </label>
+              <label class="dev-field">
+                <span>FRACTURE</span>
+                <input id="dev-fracture-input" type="number" min="0" step="1" placeholder="e.g. 750" />
+              </label>
+            </div>
+            <div class="dev-chip-row">
+              <button id="dev-apply-arc3-btn" type="button" class="dev-chip dev-chip--primary">APPLY ARC 3</button>
+              <button type="button" class="dev-chip" data-dev-stratum="1">S1</button>
+              <button type="button" class="dev-chip" data-dev-stratum="2">S2</button>
+              <button type="button" class="dev-chip" data-dev-stratum="3">S3</button>
+              <button type="button" class="dev-chip" data-dev-stratum="4">S4</button>
+              <button type="button" class="dev-chip" data-dev-stratum="5">S5</button>
+              <button id="dev-arc3-fill-fracture-btn" type="button" class="dev-chip">FILL FRACTURE</button>
+              <button id="dev-arc3-finale-btn" type="button" class="dev-chip dev-chip--danger">JUMP FINALE</button>
+              <button id="dev-spawn-rupture-btn" type="button" class="dev-chip">SPAWN RUPTURE</button>
+              <button id="dev-reset-arc3-btn" type="button" class="dev-chip">RESET ARC 3</button>
+            </div>
+          </div>
+
+          <div class="dev-section">
             <div class="dev-section-label">SIMULATION & ANOMALIES</div>
             <div class="dev-chip-row">
               <button id="dev-spawn-wall-btn" type="button" class="dev-chip">SPAWN WALL ANOMALY</button>
@@ -424,6 +553,6 @@
       </div>
     </div>
 
-    <script type="module" src="./src/app.js?v=3.14"></script>
+    <script type="module" src="./src/app.js?v=3.15"></script>
   </body>
 </html>

@@ -2,7 +2,7 @@
  * Arc 1 Chamber procedural foley cue synthesizer bank.
  */
 
-import { SOUND_CUES } from './cueResolver.js?v=3.14';
+import { SOUND_CUES } from './cueResolver.js?v=3.15';
 
 export function renderArc1Cue(cue, phase, pitch, now, dsp) {
   const {
@@ -107,6 +107,24 @@ export function renderArc1Cue(cue, phase, pitch, now, dsp) {
       triggerWetSquelch(now + 0.02, 0.72, pitch, 0.66, 220, 590, 7.2);
       triggerWetSquelch(now + 0.52, 0.58, pitch * 0.92, 0.60, 440, 155, 5.4);
       triggerBubbleCluster(now + 0.16, 0.74, 11, 165 * pitch, 0.24);
+      return true;
+
+    case SOUND_CUES.GRAFT_CHOIR_LUNG:
+      // Choir-Lung Grafting (~1.18s): hollow pleural air-draw through wet bronchi + cartilage expansion + mucosal settle
+      triggerNoise(now, 0.54, 'bandpass', 290 * pitch, 570 * pitch, 2.4, 0.38, 0.12);
+      triggerNoise(now + 0.46, 0.72, 'bandpass', 460 * pitch, 230 * pitch, 2.8, 0.34, 0.10);
+      triggerTone(now, 1.16, 54 * pitch, 48 * pitch, 0.34, 'sine', 0.20);
+      triggerTone(now + 0.08, 1.04, 108 * pitch, 96 * pitch, 0.14, 'sine', 0.22);
+      triggerTendonTear(now + 0.14, 0.38, pitch * 0.84, 0.48, 16);
+      triggerWetSquelch(now + 0.38, 0.66, pitch * 0.88, 0.56, 380, 140, 4.6);
+      triggerBubbleCluster(now + 0.24, 0.62, 8, 152 * pitch, 0.22);
+      return true;
+
+    case SOUND_CUES.RELIC_INSPECT:
+      // Dredged Relic Inspection: subtle damp iron/slate pickup clink + wet oilcloth/paper shift
+      triggerIronModalRing(now, 0.16, 365 * pitch, 0.26, 2.0, false, 0.26);
+      triggerNoise(now, 0.24, 'bandpass', 780, 440, 1.8, 0.22, 0.03);
+      triggerTone(now, 0.16, 132 * pitch, 118 * pitch, 0.16, 'sine', 0.008);
       return true;
 
     case SOUND_CUES.SCAR_UNLOCK:

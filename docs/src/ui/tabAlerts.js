@@ -3,6 +3,7 @@
  */
 
 import {
+  ARC3_UNMAKE_ACTS,
   AUDIT_REDACTIONS,
   CASE_EXHIBITS,
   CREATURE_LIST,
@@ -15,6 +16,10 @@ import {
   arc2CanPivotNextCase,
   arc2CanTriggerReelScrub,
   arc2CanUnlockExhibit,
+  arc3CanDriveWedge,
+  arc3CanPerformUnmake,
+  arc3IsInFinale,
+  arc3IsUnmakeVisible,
   arc2IsBulkWarrantUnlocked,
   arc2IsContactUnlocked,
   arc2IsRedactionSolventUnlocked,
@@ -37,7 +42,7 @@ import {
   isRepeatableGraftsUnlocked,
   isScarTreeUnlocked,
   nextExcisionMilestone,
-} from '../engine.js?v=3.14';
+} from '../engine.js?v=3.15';
 
 export function markTabSeen(seenMap, tab, keys) {
   let bucket = seenMap.get(tab);
@@ -188,4 +193,48 @@ export function shouldAlertArc2Tab(state, tab, activeTab, seenKeysByTab) {
     if (!seen || !seen.has(key)) return true;
   }
   return isArc2TabReady(state, tab);
+}
+
+export function arc3UnlockKeys(state, tab) {
+  const breach = state.arc3;
+  const keys = new Set();
+  if (!breach) return keys;
+  if (tab === 'unmake') {
+    for (const act of ARC3_UNMAKE_ACTS) {
+      if (arc3IsUnmakeVisible(breach, act)) {
+        keys.add(`arc3_unmake_${act.id}`);
+      }
+    }
+  } else if (tab === 'wedges') {
+    keys.add(`arc3_stratum_${breach.currentStratum ?? 1}`);
+    if (arc3CanDriveWedge(breach)) {
+      keys.add(`arc3_wedge_ready_${breach.currentStratum ?? 1}`);
+    }
+    if (arc3IsInFinale(breach)) {
+      keys.add('arc3_finale_ready');
+    }
+  }
+  return keys;
+}
+
+export function isArc3TabReady(state, tab) {
+  const breach = state.arc3;
+  if (!breach || arc3IsInFinale(breach)) return false;
+  if (tab === 'unmake') {
+    return ARC3_UNMAKE_ACTS.some((act) => arc3CanPerformUnmake(breach, act));
+  }
+  if (tab === 'wedges') {
+    return arc3CanDriveWedge(breach);
+  }
+  return false;
+}
+
+export function shouldAlertArc3Tab(state, tab, activeTab, seenKeysByTab) {
+  if (tab === activeTab) return false;
+  const currentKeys = arc3UnlockKeys(state, tab);
+  const seen = seenKeysByTab?.get(tab);
+  for (const key of currentKeys) {
+    if (!seen || !seen.has(key)) return true;
+  }
+  return isArc3TabReady(state, tab);
 }

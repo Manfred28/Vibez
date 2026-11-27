@@ -60,7 +60,9 @@ object OrganGameEngine {
     if (state.activeArc == GameArc.ARC_2_INVESTIGATION) {
       return Arc2InvestigatorEngine.tick(state, deltaSeconds, catalog)
     }
-    if (state.activeArc == GameArc.ARC_3_CONVERGENCE) return state
+    if (state.activeArc == GameArc.ARC_3_CONVERGENCE) {
+      return Arc3BreachEngine.tick(state, deltaSeconds, catalog)
+    }
 
     val nextIdleSec = state.secondsSinceLastTap + deltaSeconds
     val hasWeepingLamp = state.creatureCount(CreatureType.WEEPING_LAMP) > 0
@@ -523,6 +525,7 @@ object OrganGameEngine {
         marrowBloomCount = state.marrowBloomCount,
         unredactedDossierLines = state.unredactedDossierLines,
         arc2 = state.arc2,
+        arc3 = state.arc3,
         activeDialogue = state.activeDialogue,
         discoveredDialogues = state.discoveredDialogues,
         triggeredDialogueIds = state.triggeredDialogueIds,

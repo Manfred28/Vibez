@@ -35,8 +35,6 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -395,7 +393,6 @@ private fun OrganismSpecimenViewport(
       else -> colorScheme.outlineVariant
     }
   val contentAlpha = if (active) 0.96f else 0.56f
-  val lampCd = stringResource(R.string.art_weeping_lamp_cd)
 
   Surface(
     modifier = Modifier.size(64.dp),
@@ -420,25 +417,33 @@ private fun OrganismSpecimenViewport(
             modifier = Modifier.fillMaxSize().alpha(contentAlpha).testTag("art_leech_clerk"),
           )
         CreatureType.WEEPING_LAMP ->
-          WeepingLampSpecimenPortrait(
-            isWeeping = isWeeping,
-            modifier =
-              Modifier.fillMaxSize()
-                .alpha(contentAlpha)
-                .testTag("art_weeping_lamp")
-                .semantics { contentDescription = lampCd },
+          Box(modifier = Modifier.fillMaxSize()) {
+            Image(
+              painter = painterResource(id = R.drawable.img_weeping_lamp),
+              contentDescription = stringResource(R.string.art_weeping_lamp_cd),
+              contentScale = ContentScale.Crop,
+              modifier = Modifier.fillMaxSize().alpha(contentAlpha).testTag("art_weeping_lamp"),
+            )
+            if (isWeeping) {
+              Canvas(modifier = Modifier.fillMaxSize()) {
+                drawRect(
+                  brush =
+                    Brush.radialGradient(
+                      colors = listOf(colorScheme.primary.copy(alpha = 0.26f), Color.Transparent),
+                      center = Offset(size.width * 0.5f, size.height * 0.48f),
+                      radius = size.minDimension * 0.62f,
+                    )
+                )
+              }
+            }
+          }
+        CreatureType.SUMP_SIPHON ->
+          Image(
+            painter = painterResource(id = R.drawable.img_sump_siphon),
+            contentDescription = stringResource(R.string.art_sump_siphon_cd),
+            contentScale = ContentScale.Crop,
+            modifier = Modifier.fillMaxSize().alpha(contentAlpha).testTag("art_sump_siphon"),
           )
-        CreatureType.SUMP_SIPHON -> {
-          val siphonCd = stringResource(R.string.art_sump_siphon_cd)
-          SumpSiphonSpecimenPortrait(
-            active = active,
-            modifier =
-              Modifier.fillMaxSize()
-                .alpha(contentAlpha)
-                .testTag("art_sump_siphon")
-                .semantics { contentDescription = siphonCd },
-          )
-        }
       }
 
       // Specimen glass vignette + clinical corner registration reticles

@@ -95,6 +95,38 @@ val InvestigatorColorScheme: ColorScheme =
     onErrorContainer = BleachedBone,
   )
 
+val BreachCrimsonColorScheme: ColorScheme =
+  darkColorScheme(
+    primary = BrightMeniscus,
+    onPrimary = AbyssInk,
+    primaryContainer = FreshSeepage,
+    onPrimaryContainer = BloodSoakedPaper,
+    secondary = ArterialCrimson,
+    onSecondary = BloodSoakedPaper,
+    secondaryContainer = DeepClotTide,
+    onSecondaryContainer = BloodSoakedPaper,
+    tertiary = BrightMeniscus,
+    onTertiary = AbyssInk,
+    tertiaryContainer = FreshSeepage,
+    onTertiaryContainer = BloodSoakedPaper,
+    background = ArterialShadow,
+    onBackground = BloodSoakedPaper,
+    surface = BreachSurface,
+    onSurface = BloodSoakedPaper,
+    surfaceVariant = BreachCardSurface,
+    onSurfaceVariant = WeatheredAsh,
+    surfaceContainerLowest = VoidAbyss,
+    surfaceContainerLow = ArterialShadow,
+    surfaceContainer = BreachSurface,
+    surfaceContainerHigh = BreachCardSurface,
+    outline = ArterialCrimson,
+    outlineVariant = CrimsonHairline,
+    error = BrightMeniscus,
+    onError = AbyssInk,
+    errorContainer = FreshSeepage,
+    onErrorContainer = BloodSoakedPaper,
+  )
+
 val BleakShapes =
   Shapes(
     extraSmall = RoundedCornerShape(2.dp),
@@ -104,9 +136,9 @@ val BleakShapes =
     extraLarge = RoundedCornerShape(8.dp),
   )
 
-/** Resolves the phase-specific atmospheric parameters for escalation phases 0..4. */
+/** Resolves the phase-specific atmospheric parameters for escalation phases 0..7. */
 fun bleakAtmosphereForPhase(phase: Int): BleakAtmosphere =
-  when (phase.coerceIn(0, 6)) {
+  when (phase.coerceIn(0, 7)) {
     0 ->
       BleakAtmosphere(
         phase = 0,
@@ -179,7 +211,7 @@ fun bleakAtmosphereForPhase(phase: Int): BleakAtmosphere =
         distortionFactor = 0.35f,
         pulseDurationMs = 4600,
       )
-    else ->
+    6 ->
       BleakAtmosphere(
         phase = 6,
         auraPrimary = DriedClot,
@@ -190,6 +222,18 @@ fun bleakAtmosphereForPhase(phase: Int): BleakAtmosphere =
         scanlineAlpha = 0.055f,
         distortionFactor = 0.90f,
         pulseDurationMs = 2800,
+      )
+    else ->
+      BleakAtmosphere(
+        phase = 7,
+        auraPrimary = ArterialCrimson,
+        auraPrimaryAlpha = 0.16f,
+        auraGrotesque = FreshSeepage,
+        auraGrotesqueAlpha = 0.12f,
+        hairline = CrimsonHairline,
+        scanlineAlpha = 0.06f,
+        distortionFactor = 1.0f,
+        pulseDurationMs = 1900,
       )
   }
 
@@ -208,11 +252,22 @@ object BleakTheme {
 fun BleakTheme(
   phase: Int = 0,
   investigatorMode: Boolean = false,
+  breachMode: Boolean = false,
   content: @Composable () -> Unit,
 ) {
-  val effectivePhase = if (investigatorMode && phase < 5) 5 else phase
+  val effectivePhase =
+    when {
+      breachMode -> 7
+      investigatorMode && phase < 5 -> 5
+      else -> phase
+    }
   val atmosphere = remember(effectivePhase) { bleakAtmosphereForPhase(effectivePhase) }
-  val scheme = if (investigatorMode) InvestigatorColorScheme else BleakColorScheme
+  val scheme =
+    when {
+      breachMode -> BreachCrimsonColorScheme
+      investigatorMode -> InvestigatorColorScheme
+      else -> BleakColorScheme
+    }
   CompositionLocalProvider(LocalBleakAtmosphere provides atmosphere) {
     MaterialTheme(
       colorScheme = scheme,

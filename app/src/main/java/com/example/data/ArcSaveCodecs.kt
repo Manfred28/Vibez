@@ -1,6 +1,11 @@
 package com.example.data
 
 import com.example.game.Arc2DeskState
+import com.example.game.Arc3Balance
+import com.example.game.Arc3BreachState
+import com.example.game.Arc3Stratum
+import com.example.game.Arc3UnmakeAct
+import com.example.game.BreachRuptureType
 import com.example.game.CreatureType
 import com.example.game.CultDossierLine
 import com.example.game.DeskAnomalyType
@@ -379,6 +384,82 @@ internal object Arc2SaveCodec {
       pinnedExhibits = migratedExhibits,
       deskAnomalyInteractions = deskAnomalies,
       fileZeroRevealed = legacyFileZero,
+    )
+  }
+}
+
+/**
+ * Isolated Arc 3 ("The Unmaking") save codec introduced in schema v4.
+ * Defaults cleanly to a fresh [Arc3BreachState] when loading legacy v1–v3 saves.
+ */
+internal object Arc3SaveCodec {
+
+  fun encode(breach: Arc3BreachState): JSONObject {
+    val obj = JSONObject()
+    obj.put("currentStratum", breach.currentStratum)
+    obj.put("fracture", breach.fracture)
+    obj.put("hemorrhage", breach.hemorrhage)
+    obj.put("lifetimeHemorrhage", breach.lifetimeHemorrhage)
+    obj.put("wrenchCount", breach.wrenchCount)
+    obj.put("finalPullsCompleted", breach.finalPullsCompleted)
+    obj.put("submersionComplete", breach.submersionComplete)
+
+    val wedgesArr = JSONArray()
+    breach.lockedWedges.forEach { wedgesArr.put(it.wedgeId) }
+    obj.put("lockedWedges", wedgesArr)
+
+    val unmakesArr = JSONArray()
+    breach.completedUnmakes.forEach { unmakesArr.put(it.id) }
+    obj.put("completedUnmakes", unmakesArr)
+
+    val rupturesObj = JSONObject()
+    breach.ruptureInteractions.forEach { (type, count) ->
+      if (count > 0) rupturesObj.put(type.id, count)
+    }
+    obj.put("ruptureInteractions", rupturesObj)
+    return obj
+  }
+
+  fun decode(rawArc3: JSONObject?): Arc3BreachState {
+    val obj = rawArc3 ?: return Arc3BreachState()
+    val lockedWedges = mutableSetOf<Arc3Stratum>()
+    obj.optJSONArray("lockedWedges")?.let { arr ->
+      for (i in 0 until arr.length()) {
+        Arc3Stratum.byWedgeId(arr.optString(i))?.let { lockedWedges.add(it) }
+      }
+    }
+    val completedUnmakes = mutableSetOf<Arc3UnmakeAct>()
+    obj.optJSONArray("completedUnmakes")?.let { arr ->
+      for (i in 0 until arr.length()) {
+        Arc3UnmakeAct.byId(arr.optString(i))?.let { completedUnmakes.add(it) }
+      }
+    }
+    val ruptureInteractions = mutableMapOf<BreachRuptureType, Int>()
+    obj.optJSONObject("ruptureInteractions")?.let { mapObj ->
+      BreachRuptureType.entries.forEach { type ->
+        val count = mapObj.optInt(type.id, 0)
+        if (count > 0) ruptureInteractions[type] = count
+      }
+    }
+
+    val hem = obj.optDouble("hemorrhage", 0.0).coerceAtLeast(0.0)
+    val lifetimeHem = obj.optDouble("lifetimeHemorrhage", hem).coerceAtLeast(hem)
+    val stratum = obj.optInt("currentStratum", 1).coerceIn(1, Arc3Stratum.entries.size)
+    val finalPulls = obj.optInt("finalPullsCompleted", 0).coerceIn(0, Arc3Balance.FINAL_PULLS_TOTAL)
+    val submerged = obj.optBoolean("submersionComplete", false) || finalPulls >= Arc3Balance.FINAL_PULLS_TOTAL
+    val goal = Arc3Stratum.byNumber(stratum).fractureGoal
+
+    return Arc3BreachState(
+      currentStratum = stratum,
+      lockedWedges = lockedWedges,
+      fracture = obj.optDouble("fracture", 0.0).coerceIn(0.0, goal),
+      hemorrhage = hem,
+      lifetimeHemorrhage = lifetimeHem,
+      wrenchCount = obj.optInt("wrenchCount", 0).coerceAtLeast(0),
+      completedUnmakes = completedUnmakes,
+      ruptureInteractions = ruptureInteractions,
+      finalPullsCompleted = finalPulls,
+      submersionComplete = submerged,
     )
   }
 }

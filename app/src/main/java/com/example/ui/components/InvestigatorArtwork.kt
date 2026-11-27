@@ -46,6 +46,7 @@ import com.example.R
 import com.example.game.ActiveDeskAnomaly
 import com.example.game.CaseExhibit
 import com.example.game.DeskAnomalyType
+import com.example.game.InvestigatorContact
 import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.sin
@@ -135,6 +136,15 @@ internal fun caseExhibitDrawableRes(exhibit: CaseExhibit): Int =
     CaseExhibit.REEL_FOUR_WAVEFORM -> R.drawable.img_exhibit_reel_four_waveform
     CaseExhibit.INTAKE_THUMB_CAST -> R.drawable.img_exhibit_intake_thumb_cast
     CaseExhibit.DRAINAGE_LOOP_BLUEPRINT -> R.drawable.img_exhibit_drainage_loop_blueprint
+  }
+
+@DrawableRes
+internal fun contactDrawableRes(contact: InvestigatorContact): Int =
+  when (contact) {
+    InvestigatorContact.NIGHT_ARCHIVIST -> R.drawable.img_contact_night_archivist
+    InvestigatorContact.BRIBED_ORDERLY -> R.drawable.img_contact_bribed_orderly
+    InvestigatorContact.MICROFILM_SCANNER -> R.drawable.img_contact_microfilm_scanner
+    InvestigatorContact.AUDIO_TRANSCRIBER -> R.drawable.img_contact_audio_transcriber
   }
 
 /**
@@ -387,6 +397,76 @@ internal fun ExhibitPolaroidThumb(
             1.dp.toPx(),
           )
         }
+      }
+    }
+  }
+}
+
+/** Framed 48dp nocturnal noir portrait for Arc 2 Inquiry Contacts. */
+@Composable
+internal fun ContactPortraitThumb(
+  contact: InvestigatorContact,
+  active: Boolean,
+  size: Dp = 48.dp,
+  modifier: Modifier = Modifier,
+) {
+  val cs = MaterialTheme.colorScheme
+  val inactiveFilter =
+    remember {
+      ColorFilter.colorMatrix(ColorMatrix().apply { setToSaturation(0.32f) })
+    }
+  val cd =
+    when (contact) {
+      InvestigatorContact.NIGHT_ARCHIVIST -> stringResource(R.string.art_contact_archivist_cd)
+      InvestigatorContact.BRIBED_ORDERLY -> stringResource(R.string.art_contact_orderly_cd)
+      InvestigatorContact.MICROFILM_SCANNER -> stringResource(R.string.art_contact_scanner_cd)
+      InvestigatorContact.AUDIO_TRANSCRIBER -> stringResource(R.string.art_contact_transcriber_cd)
+    }
+
+  Surface(
+    modifier = modifier.size(size).testTag("art_contact_${contact.id}"),
+    shape = MaterialTheme.shapes.extraSmall,
+    color = Color(0xFF080B0E),
+    border = BorderStroke(1.dp, if (active) cs.outline else cs.outlineVariant),
+  ) {
+    Box(modifier = Modifier.fillMaxSize()) {
+      Image(
+        painter = painterResource(id = contactDrawableRes(contact)),
+        contentDescription = cd,
+        contentScale = ContentScale.Crop,
+        colorFilter = if (active) null else inactiveFilter,
+        modifier = Modifier.fillMaxSize().alpha(if (active) 0.96f else 0.56f),
+      )
+      Canvas(modifier = Modifier.fillMaxSize()) {
+        drawRect(
+          brush =
+            Brush.radialGradient(
+              colors =
+                listOf(
+                  Color.Transparent,
+                  Color(0xFF06090C).copy(alpha = if (active) 0.42f else 0.64f),
+                ),
+              center = Offset(this.size.width * 0.5f, this.size.height * 0.5f),
+              radius = this.size.maxDimension * 0.70f,
+            )
+        )
+        val inset = 2.5.dp.toPx()
+        val arm = 4.dp.toPx()
+        val bracketColor = cs.onBackground.copy(alpha = if (active) 0.30f else 0.16f)
+        drawLine(bracketColor, Offset(inset, inset), Offset(inset + arm, inset), 1.dp.toPx())
+        drawLine(bracketColor, Offset(inset, inset), Offset(inset, inset + arm), 1.dp.toPx())
+        drawLine(
+          bracketColor,
+          Offset(this.size.width - inset, this.size.height - inset),
+          Offset(this.size.width - inset - arm, this.size.height - inset),
+          1.dp.toPx(),
+        )
+        drawLine(
+          bracketColor,
+          Offset(this.size.width - inset, this.size.height - inset),
+          Offset(this.size.width - inset, this.size.height - inset - arm),
+          1.dp.toPx(),
+        )
       }
     }
   }

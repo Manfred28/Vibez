@@ -485,27 +485,49 @@ fun InvestigatorDeskCanvas(
         // Tactile Case File Stamp centerpiece (>= 48dp touch target)
         Surface(
           modifier =
-            Modifier.size(width = 180.dp, height = 82.dp)
+            Modifier.size(width = 186.dp, height = 84.dp)
               .minimumInteractiveComponentSize()
               .testTag("inspect_case_button")
               .semantics { contentDescription = inspectCd }
               .clickable(role = Role.Button, onClick = onInspectCaseFile),
           shape = MaterialTheme.shapes.small,
-          color = Color(0xFF10161D).copy(alpha = if (desk.lampOn) 0.88f else 0.78f),
+          color = Color(0xFF0C1116),
           border =
             BorderStroke(
               width = 1.5.dp,
               color =
-                if (desk.lampOn) colorScheme.primary.copy(alpha = 0.82f)
-                else colorScheme.secondary.copy(alpha = 0.55f),
+                if (desk.lampOn) colorScheme.primary.copy(alpha = 0.85f)
+                else colorScheme.secondary.copy(alpha = 0.58f),
             ),
         ) {
           Box(modifier = Modifier.fillMaxSize()) {
+            Image(
+              painter = painterResource(id = R.drawable.img_arc2_case_stamp),
+              contentDescription = stringResource(R.string.art_arc2_case_stamp_cd),
+              contentScale = ContentScale.Crop,
+              colorFilter = activePhotoFilter,
+              modifier =
+                Modifier.fillMaxSize()
+                  .alpha(if (desk.lampOn) 0.72f else 0.50f)
+                  .testTag("art_arc2_case_stamp"),
+            )
             Canvas(modifier = Modifier.fillMaxSize()) {
+              drawRect(
+                brush =
+                  Brush.radialGradient(
+                    colors =
+                      listOf(
+                        Color(0xFF070A0E).copy(alpha = if (desk.lampOn) 0.66f else 0.74f),
+                        Color(0xFF070A0E).copy(alpha = if (desk.lampOn) 0.42f else 0.56f),
+                      ),
+                    center = Offset(size.width * 0.5f, size.height * 0.5f),
+                    radius = size.maxDimension * 0.72f,
+                  )
+              )
               val inset = 5.dp.toPx()
               drawRect(
                 color =
-                  (if (desk.lampOn) colorScheme.primary else colorScheme.secondary).copy(alpha = 0.24f),
+                  (if (desk.lampOn) colorScheme.primary else colorScheme.secondary).copy(alpha = 0.28f),
                 topLeft = Offset(inset, inset),
                 size = androidx.compose.ui.geometry.Size(size.width - inset * 2, size.height - inset * 2),
                 style = Stroke(width = 1.dp.toPx()),

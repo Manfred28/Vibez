@@ -75,6 +75,7 @@ Match diction, rhythm, and emotional weight strictly to the entry's `phase` and 
 | **Phase 3** (*Collapse of Meaning*) | `existential`, `grotesque` | Futility of optimization, sealed exits, surgical compromise for marginally better yield. |
 | **Phase 4** (*The Endless Hollow*) | `hopeless` | Claustrophobic overgrowth, ribs of tile, quiet resignation before the blade. |
 | **Cycle 1+ (Post-Prestige)** | `hopeless`, `existential` | Déjà vu, overwritten records, realizing Scar Tissue makes the room learn your rhythm faster—not freer. |
+| **Phase 7** (*The Breach* — Arc 3) | `desperate`, `rupture`, `dissolved` | Breathless, irreversible unmaking of the room's own apparatus—shattered jars, unstitched seams, jammed Case Keystones, and rising crimson flood where the boundary between chamber blood and your own pulse dissolves permanently (strictly surreal/ontological; zero self-harm). |
 
 ---
 
@@ -108,6 +109,14 @@ Match diction, rhythm, and emotional weight strictly to the entry's `phase` and 
   - `reel_scrubbed` (`threshold`: Case III+ Acoustic Reel Scrub activations)
   - `redaction_dissolved` (`threshold`: Case IV+ Audit Redaction clauses dissolved `1..4`)
   - `desk_anomaly_interacted` (`target`: `evidence_envelope` | `fogged_spectacles` | `reel_tape` | `enamel_exhibit`, `threshold`)
+  - `arc3_wrench_count` (`threshold`: Arc 3 counter-clockwise wrench count)
+  - `arc3_jars_shattered` (`threshold`: Arc 3 shattered Specimen Jar count `1..6`)
+  - `arc3_unmake_count` (`threshold`: Arc 3 completed Unmaking acts `1..18`)
+  - `arc3_scars_unstitched` (`threshold`: Arc 3 unstitched Scar/rite count `1..6`)
+  - `arc3_rupture_interacted` (`target` optional: `clotting_seam` | `splintered_rib` | `torn_suture` | `arterial_well`, `threshold`)
+  - `arc3_wedge_locked` (`threshold`: Arc 3 permanently locked Memory Wedges `1..5`)
+  - `arc3_stratum_reached` (`threshold`: Arc 3 active Stratum `2..5`)
+  - `arc3_final_pull` (`threshold`: Arc 3 interactive Final Pull count `1..5`)
 - **Arc 2 Slow-Boil Quarantine (MANDATORY):** Entries bound to Cases I–III (`dlg_arc2_entry` through `dlg_arc2_case3_dead_end`, including `evidence_envelope`, `fogged_spectacles`, `reel_tape`, and the 7 Case I–III Corroborations) MUST NOT leak grotesque Arc 1 Room vocabulary (`hydro-ward`, `molar`, `grout`, `valve`, `ichor`, `suture`, `caretaker`, `tile`, `vessel`, `scar`). Escalate gradually from Cold Municipal Noir (Case I) → Eerie & Haunted (Cases II–III) → Uncanny Self-Implication (Case IV) → Grotesque Intrusion & **File #00** (Case V).
 
 ---

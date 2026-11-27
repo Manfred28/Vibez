@@ -95,6 +95,14 @@ internal object DialogueTriggerEvaluator {
         val deskType = DeskAnomalyType.byId(trigger.target ?: "")
         deskType != null && (state.arc2.deskAnomalyInteractions[deskType] ?: 0) >= trigger.threshold
       }
+      "arc3_wrench_count" -> state.arc3.wrenchCount >= trigger.threshold
+      "arc3_jars_shattered" -> state.arc3.shatteredJarCount >= trigger.threshold
+      "arc3_unmake_count" -> state.arc3.reversedApparatusCount >= trigger.threshold
+      "arc3_scars_unstitched" -> state.arc3.unstitchedScarCount >= trigger.threshold
+      "arc3_rupture_interacted" -> state.arc3.totalRuptureInteractions >= trigger.threshold
+      "arc3_wedge_locked" -> state.arc3.lockedWedges.size >= trigger.threshold
+      "arc3_stratum_reached" -> state.arc3.currentStratum >= trigger.threshold
+      "arc3_final_pull" -> state.arc3.finalPullsCompleted >= trigger.threshold
       else -> false
     }
   }

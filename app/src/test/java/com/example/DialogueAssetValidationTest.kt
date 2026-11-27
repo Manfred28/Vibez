@@ -10,6 +10,8 @@ import com.example.data.SharedPreferencesOrganSaveRepository
 import com.example.game.CaseExhibit
 import com.example.game.CorroborationId
 import com.example.game.DeskAnomalyType
+import com.example.game.DredgedRelic
+import com.example.game.InvestigatorContact
 import com.example.game.OrganBalance
 import com.example.game.OrganDevEngine
 import com.example.game.OrganGameEngine
@@ -17,8 +19,11 @@ import com.example.game.ScarNodeId
 import com.example.ui.components.caseExhibitDrawableRes
 import com.example.ui.components.computeDeskAnomalyBreathScale
 import com.example.ui.components.computeDeskLayerAlphas
+import com.example.ui.components.contactDrawableRes
 import com.example.ui.components.deskAnomalyDrawableRes
 import com.example.ui.components.deskStageDrawableRes
+import com.example.ui.components.dredgedRelicDrawableRes
+import com.example.ui.components.graftDrawableRes
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -48,7 +53,7 @@ class DialogueAssetValidationTest {
     assertEquals("GAME_DESIGN_BIBLE.md", root.getString("designReference"))
 
     val phases = root.getJSONArray("phases")
-    assertEquals("Must define escalation phases 0..6 (Arc 1 + Arc 2 + Arc 3)", 7, phases.length())
+    assertEquals("Must define escalation phases 0..7 (Arc 1 + Arc 2 + Arc 3 Breach)", 8, phases.length())
     for (index in 0 until phases.length()) {
       val phase = phases.getJSONObject(index)
       assertEquals(index, phase.getInt("id"))
@@ -85,6 +90,14 @@ class DialogueAssetValidationTest {
         "reel_scrubbed",
         "redaction_dissolved",
         "desk_anomaly_interacted",
+        "arc3_wrench_count",
+        "arc3_jars_shattered",
+        "arc3_unmake_count",
+        "arc3_scars_unstitched",
+        "arc3_rupture_interacted",
+        "arc3_wedge_locked",
+        "arc3_stratum_reached",
+        "arc3_final_pull",
       )
     val targetedTypes =
       setOf(
@@ -120,7 +133,7 @@ class DialogueAssetValidationTest {
       assertTrue("Duplicate dialogue id: $id", seenIds.add(id))
 
       val phase = entry.getInt("phase")
-      assertTrue("Phase $phase out of range 0..6", phase in 0..6)
+      assertTrue("Phase $phase out of range 0..7", phase in 0..7)
       assertFalse("Mood must not be blank for $id", entry.getString("mood").isBlank())
       assertFalse("Speaker must not be blank for $id", entry.getString("speaker").isBlank())
 
@@ -216,12 +229,17 @@ class DialogueAssetValidationTest {
     val catalog = AssetDialogueRepository(context).loadCatalog()
 
     assertTrue(catalog.schemaVersion >= 3)
-    assertEquals(7, catalog.phases.size)
-    assertTrue(catalog.entries.size >= 45)
+    assertEquals(8, catalog.phases.size)
+    assertTrue(catalog.entries.size >= 105)
     assertEquals("The Counting Room", catalog.phaseName(0))
     assertEquals("The Endless Hollow", catalog.phaseName(4))
     assertEquals("The Inquiry", catalog.phaseName(5))
     assertEquals("File #00", catalog.phaseName(6))
+    assertEquals("The Breach", catalog.phaseName(7))
+    assertTrue(
+      "Expected >= 20 Phase 7 Arc 3 Breach dialogue entries",
+      catalog.entries.count { it.phase == 7 } >= 20,
+    )
 
     assertNotNull("Expected pale_tooth anomaly fragment", catalog.entries.firstOrNull { it.trigger.target == "pale_tooth" })
     assertNotNull("Expected Phase 4 chitin_rib anomaly fragment", catalog.entries.firstOrNull { it.trigger.target == "chitin_rib" })
@@ -446,6 +464,67 @@ class DialogueAssetValidationTest {
         assertTrue("scaleX=$sx out of organic bounds for ${type.id}", sx in 0.97f..1.06f)
         assertTrue("scaleY=$sy out of organic bounds for ${type.id}", sy in 0.97f..1.06f)
       }
+    }
+  }
+
+  @Test
+  fun bespokeMacroPortraitsAndCenterpieceAssets_allThirteenLoadCleanly() {
+    val context = ApplicationProvider.getApplicationContext<Context>()
+
+    val directDrawables =
+      listOf(
+        R.drawable.img_weeping_lamp,
+        R.drawable.img_sump_siphon,
+        R.drawable.img_graft_tendril,
+        R.drawable.img_graft_choir_lung,
+        R.drawable.img_relic_patient_wristband,
+        R.drawable.img_relic_brass_ward_key,
+        R.drawable.img_relic_caretaker_logbook,
+        R.drawable.img_contact_night_archivist,
+        R.drawable.img_contact_bribed_orderly,
+        R.drawable.img_contact_microfilm_scanner,
+        R.drawable.img_contact_audio_transcriber,
+        R.drawable.img_arc2_case_stamp,
+        R.drawable.img_arc3_convergence,
+      )
+    assertEquals(13, directDrawables.size)
+    directDrawables.forEach { resId ->
+      assertNotNull(
+        "Photographic drawable resource $resId must load cleanly",
+        ContextCompat.getDrawable(context, resId),
+      )
+    }
+
+    // Verify all typed drawable mappers resolve cleanly
+    assertEquals(R.drawable.img_graft_tendril, graftDrawableRes(isLung = false))
+    assertEquals(R.drawable.img_graft_choir_lung, graftDrawableRes(isLung = true))
+    assertEquals(3, DredgedRelic.entries.size)
+    DredgedRelic.entries.forEach { relic ->
+      assertNotNull(
+        "Dredged relic ${relic.id} drawable must load cleanly",
+        ContextCompat.getDrawable(context, dredgedRelicDrawableRes(relic)),
+      )
+    }
+    assertEquals(4, InvestigatorContact.entries.size)
+    InvestigatorContact.entries.forEach { contact ->
+      assertNotNull(
+        "Investigator contact ${contact.id} drawable must load cleanly",
+        ContextCompat.getDrawable(context, contactDrawableRes(contact)),
+      )
+    }
+
+    // Verify all 5 Arc 3 Breach & Abstract Crimson Flood photographic drawables load cleanly
+    listOf(
+      R.drawable.img_wall_arc3_breach_early,
+      R.drawable.img_wall_arc3_breach_deep,
+      R.drawable.img_arc3_crimson_flood,
+      R.drawable.img_rupture_clotting_seam,
+      R.drawable.img_rupture_arterial_well,
+    ).forEach { resId ->
+      assertNotNull(
+        "Arc 3 photographic drawable resource $resId must load cleanly",
+        ContextCompat.getDrawable(context, resId),
+      )
     }
   }
 

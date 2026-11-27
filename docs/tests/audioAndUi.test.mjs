@@ -10,18 +10,26 @@ import {
   devAssignArc2Resources,
   devSetActiveArc,
   dissolveRedaction,
+  driveMemoryWedge,
   enterArc3Convergence,
   initialState,
   inspectCaseFile,
+  interactDeskAnomaly,
+  performArc3FinalPull,
+  performArc3Unmake,
   performBreachToArc2,
+  performChoirLungGraft,
   performExcision,
   pivotNextCase,
   pressValve,
+  recruitContact,
+  tearBreachRupture,
   tick,
   toggleExhibitPair,
   toggleLamp,
   triggerReelScrub,
   unlockExhibit,
+  wrenchArc3Breach,
 } from '../src/engine.js';
 import {
   DEEP_SHELF_JARS,
@@ -31,13 +39,16 @@ import {
   applyDripMotionProfile,
   arc1UnlockKeys,
   arc2UnlockKeys,
+  arc3UnlockKeys,
   computeDripMotionProfile,
   createStoryDripQueue,
   isArc1TabReady,
   isArc2TabReady,
+  isArc3TabReady,
   partitionChamberShelfJars,
   shouldAlertArc1Tab,
   shouldAlertArc2Tab,
+  shouldAlertArc3Tab,
   shouldTriggerEventDrip,
 } from '../src/ui.js';
 import {
@@ -143,7 +154,7 @@ test('.drip-card multi-layer parallax CSS, randomized delay intervals, and safe 
 });
 
 test('Web procedural audio cue resolver, ambient profile escalation, and independent mute persistence match Android 1:1', () => {
-  assert.equal(Object.keys(SOUND_CUES).length, 33);
+  assert.equal(Object.keys(SOUND_CUES).length, 52);
 
   const start = initialState(realCatalog);
 
@@ -182,6 +193,27 @@ test('Web procedural audio cue resolver, ambient profile escalation, and indepen
       `Expected ${creatureId} to emit ${expectedCue}`,
     );
   }
+
+  // Choir-Lung graft resolves to dedicated GRAFT_CHOIR_LUNG cue (distinct from Choir-Tendril)
+  const lungBase = {
+    ...richBase,
+    highestExcisionMilestone: 4,
+    stillness: 300,
+    graftedTendrils: 1,
+    creatures: {
+      [CREATURE_TYPES.SUTURE_HAND.id]: 2,
+      [CREATURE_TYPES.LEECH_CLERK.id]: 2,
+      [CREATURE_TYPES.WEEPING_LAMP.id]: 2,
+    },
+  };
+  const lungGrafted = performChoirLungGraft(lungBase, realCatalog);
+  assert.ok(
+    resolveTransitionCues(lungBase, lungGrafted, SOUND_ACTION_HINTS.GRAFT_PERFORM).includes(
+      SOUND_CUES.GRAFT_CHOIR_LUNG,
+    ),
+    'Choir-Lung graft must emit dedicated GRAFT_CHOIR_LUNG cue',
+  );
+  assert.equal(SOUND_CUES.RELIC_INSPECT, 'relic_inspect');
 
   // First valve press emits VALVE_PRESS + STORY_DRIP
   const afterTap = pressValve(start, realCatalog);
@@ -234,26 +266,106 @@ test('Web procedural audio cue resolver, ambient profile escalation, and indepen
     ),
   );
 
-  // New Slow-Boil Arc 2 cues: Lamp Toggle, String Wire, Reel Scrub, Redaction Dissolve
+  // Distinct Arc 2 Lamp OFF vs Lamp ON brass chain cues
   const lampOff = toggleLamp(arc2, realCatalog);
   assert.ok(
     resolveTransitionCues(arc2, lampOff, SOUND_ACTION_HINTS.ARC2_LAMP_TOGGLE).includes(
-      SOUND_CUES.ARC2_LAMP_TOGGLE,
+      SOUND_CUES.ARC2_LAMP_OFF,
+    ),
+  );
+  const lampBackOn = toggleLamp(lampOff, realCatalog);
+  assert.ok(
+    resolveTransitionCues(lampOff, lampBackOn, SOUND_ACTION_HINTS.ARC2_LAMP_TOGGLE).includes(
+      SOUND_CUES.ARC2_LAMP_ON,
     ),
   );
 
+  // All 4 Arc 2 contacts map to distinct signature foley cues
+  const richArc2 = devAssignArc2Resources(
+    lampOff,
+    { caseAngle: 4, completedChapters: 3, leads: 5_000_000, silence: 10_000 },
+    realCatalog,
+  );
+  for (const [contactId, expectedCue] of [
+    ['night_archivist', SOUND_CUES.ARC2_CONTACT_ARCHIVIST],
+    ['bribed_orderly', SOUND_CUES.ARC2_CONTACT_ORDERLY],
+    ['microfilm_scanner', SOUND_CUES.ARC2_CONTACT_SCANNER],
+    ['audio_transcriber', SOUND_CUES.ARC2_CONTACT_TRANSCRIBER],
+  ]) {
+    const hired = recruitContact(richArc2, contactId, realCatalog);
+    assert.ok(
+      resolveTransitionCues(richArc2, hired, SOUND_ACTION_HINTS.ARC2_CONTACT).includes(expectedCue),
+      `Expected contact ${contactId} to emit ${expectedCue}`,
+    );
+  }
+
+  // Corkboard Stringing: curated pair -> ARC2_CORROBORATION_LOCK; unwiring -> ARC2_STRING_UNWIRE; non-curated -> ARC2_STRING_WIRE
   const readyBoard = devAssignArc2Resources(lampOff, { caseAngle: 4, silence: 1000 }, realCatalog);
-  const pinnedEx = unlockExhibit(readyBoard, 'unlisted_pay_stub', realCatalog);
-  const wired = toggleExhibitPair(pinnedEx, 'water_stained_petition', 'unlisted_pay_stub', realCatalog);
+  const pinnedEx = unlockExhibit(
+    unlockExhibit(readyBoard, 'unlisted_pay_stub', realCatalog),
+    'tax_plat_1998',
+    realCatalog,
+  );
+  const corroborated = toggleExhibitPair(
+    pinnedEx,
+    'water_stained_petition',
+    'unlisted_pay_stub',
+    realCatalog,
+  );
   assert.ok(
-    resolveTransitionCues(pinnedEx, wired, SOUND_ACTION_HINTS.ARC2_STRING_WIRE).includes(
+    resolveTransitionCues(pinnedEx, corroborated, SOUND_ACTION_HINTS.ARC2_STRING_WIRE).includes(
+      SOUND_CUES.ARC2_CORROBORATION_LOCK,
+    ),
+  );
+  const unwired = toggleExhibitPair(
+    corroborated,
+    'water_stained_petition',
+    'unlisted_pay_stub',
+    realCatalog,
+  );
+  assert.ok(
+    resolveTransitionCues(corroborated, unwired, SOUND_ACTION_HINTS.ARC2_STRING_WIRE).includes(
+      SOUND_CUES.ARC2_STRING_UNWIRE,
+    ),
+  );
+  const speculativeWire = toggleExhibitPair(
+    unwired,
+    'water_stained_petition',
+    'tax_plat_1998',
+    realCatalog,
+  );
+  assert.ok(
+    resolveTransitionCues(unwired, speculativeWire, SOUND_ACTION_HINTS.ARC2_STRING_WIRE).includes(
       SOUND_CUES.ARC2_STRING_WIRE,
     ),
   );
 
-  const scrubbed = triggerReelScrub(wired, realCatalog);
+  // All 4 Arc 2 Desk Anomalies resolve to distinct tactile cues
+  for (const [anomalyType, expectedCue] of [
+    ['evidence_envelope', SOUND_CUES.ARC2_ANOMALY_ENVELOPE],
+    ['fogged_spectacles', SOUND_CUES.ARC2_ANOMALY_SPECTACLES],
+    ['reel_tape', SOUND_CUES.ARC2_ANOMALY_REEL_TAPE],
+    ['enamel_exhibit', SOUND_CUES.ARC2_ANOMALY_ENAMEL],
+  ]) {
+    const withDeskAnomaly = {
+      ...readyBoard,
+      arc2: {
+        ...readyBoard.arc2,
+        activeDeskAnomalies: [{ id: 88, type: anomalyType, x: 0.5, y: 0.5, remainingSec: 12 }],
+      },
+    };
+    const collected = interactDeskAnomaly(withDeskAnomaly, 88, realCatalog);
+    assert.ok(
+      resolveTransitionCues(withDeskAnomaly, collected, SOUND_ACTION_HINTS.ARC2_DESK_ANOMALY).includes(
+        expectedCue,
+      ),
+      `Expected desk anomaly ${anomalyType} to emit ${expectedCue}`,
+    );
+  }
+
+  const scrubbed = triggerReelScrub(corroborated, realCatalog);
   assert.ok(
-    resolveTransitionCues(wired, scrubbed, SOUND_ACTION_HINTS.ARC2_REEL_SCRUB).includes(
+    resolveTransitionCues(corroborated, scrubbed, SOUND_ACTION_HINTS.ARC2_REEL_SCRUB).includes(
       SOUND_CUES.ARC2_REEL_SCRUB,
     ),
   );
@@ -315,9 +427,66 @@ test('Web procedural audio cue resolver, ambient profile escalation, and indepen
   assert.equal(arc2EarlyProfile.fleshDepth, 0);
   assert.equal(arc2EarlyProfile.cardiacPulse, 0);
   assert.ok(arc2EarlyProfile.rainMix > 0.7);
-  // Late Case V / File #00 restores Room bleed
+  // Late Case V / File #00 restores Room bleed; Arc 3 drops rain and surges crimson arterial resonance
   assert.ok(arc2LateProfile.fleshDepth > 0.4 && arc2LateProfile.cardiacPulse > 0.4);
-  assert.ok(arc3Profile.rainMix > 0.3 && arc3Profile.fleshDepth > 0.2);
+  assert.equal(arc3Profile.phase, 7);
+  assert.equal(arc3Profile.rainMix, 0);
+  assert.ok(arc3Profile.fleshDepth >= 0.45 && arc3Profile.cardiacPulse >= 0.25);
+
+  // Arc 3 breach cues resolve cleanly across wrench, jar shatter, unmake tear, rupture, wedge, clotting, and finale
+  const arc3Wrenched = wrenchArc3Breach(arc3, realCatalog);
+  assert.ok(
+    resolveTransitionCues(arc3, arc3Wrenched, SOUND_ACTION_HINTS.ARC3_WRENCH).includes(SOUND_CUES.ARC3_WRENCH),
+  );
+  const arc3Rich = { ...arc3, arc3: { ...arc3.arc3, hemorrhage: 100 } };
+  const arc3Jar = performArc3Unmake(arc3Rich, 'shatter_yesterdays_dust', realCatalog);
+  assert.ok(
+    resolveTransitionCues(arc3Rich, arc3Jar, SOUND_ACTION_HINTS.ARC3_UNMAKE).includes(SOUND_CUES.ARC3_JAR_SHATTER),
+  );
+  const arc3Rev = performArc3Unmake(arc3Rich, 'reverse_suture_hands', realCatalog);
+  assert.ok(
+    resolveTransitionCues(arc3Rich, arc3Rev, SOUND_ACTION_HINTS.ARC3_UNMAKE).includes(SOUND_CUES.ARC3_UNMAKE_TEAR),
+  );
+  const arc3WithRup = {
+    ...arc3,
+    arc3: {
+      ...arc3.arc3,
+      activeRuptures: [{ id: 1, type: 'clotting_seam', xFraction: 0.2, yFraction: 0.3, remainingSeconds: 10 }],
+    },
+  };
+  const arc3Popped = tearBreachRupture(arc3WithRup, 1, realCatalog);
+  assert.ok(
+    resolveTransitionCues(arc3WithRup, arc3Popped, SOUND_ACTION_HINTS.ARC3_RUPTURE).includes(
+      SOUND_CUES.ARC3_RUPTURE_POP,
+    ),
+  );
+  const arc3WedgeReady = { ...arc3, arc3: { ...arc3.arc3, fracture: 120 } };
+  const arc3Wedged = driveMemoryWedge(arc3WedgeReady, realCatalog);
+  assert.ok(
+    resolveTransitionCues(arc3WedgeReady, arc3Wedged, SOUND_ACTION_HINTS.ARC3_WEDGE).includes(
+      SOUND_CUES.ARC3_WEDGE_DRIVE,
+    ),
+  );
+  const arc3Finale = {
+    ...arc3,
+    arc3: {
+      ...arc3.arc3,
+      lockedWedges: ['broken_grout', 'unstitched_seam', 'splintered_ribs', 'shared_pulse', 'the_open_seam'],
+    },
+  };
+  const arc3Pull1 = performArc3FinalPull(arc3Finale, realCatalog);
+  assert.ok(
+    resolveTransitionCues(arc3Finale, arc3Pull1, SOUND_ACTION_HINTS.ARC3_FINAL_PULL).includes(
+      SOUND_CUES.ARC3_FINAL_PULL,
+    ),
+  );
+  const arc3PreEnd = { ...arc3Finale, arc3: { ...arc3Finale.arc3, finalPullsCompleted: 4 } };
+  const arc3Ended = performArc3FinalPull(arc3PreEnd, realCatalog);
+  assert.ok(
+    resolveTransitionCues(arc3PreEnd, arc3Ended, SOUND_ACTION_HINTS.ARC3_FINAL_PULL).includes(
+      SOUND_CUES.ARC3_SUBMERSION_END,
+    ),
+  );
 
   // Mute preference defaults to unmuted (false), persists independently of game save, and works headlessly
   const storeMap = new Map();
@@ -432,6 +601,20 @@ test('Web tab alert evaluator, Grafting-in-Organisms alignment, and unseen/readi
   assert.equal(shouldAlertArc2Tab(arc2Ready, 'revision', 'contacts', new Map()), true);
   const seenRev = new Map([['revision', new Set(arc2UnlockKeys(arc2Ready, 'revision'))]]);
   assert.equal(shouldAlertArc2Tab(arc2Ready, 'revision', 'contacts', seenRev), false);
+
+  // Arc 3 2-tab alerts: UNMAKE readiness when affordable & WEDGES pulse when fracture reaches goal
+  const arc3State = devSetActiveArc(base, GAME_ARCS.ARC_3_CONVERGENCE, realCatalog);
+  assert.equal(isArc3TabReady(arc3State, 'unmake'), false);
+  assert.equal(isArc3TabReady(arc3State, 'wedges'), false);
+  const arc3ReadyBoth = {
+    ...arc3State,
+    arc3: { ...arc3State.arc3, hemorrhage: 50, fracture: 120 },
+  };
+  assert.equal(isArc3TabReady(arc3ReadyBoth, 'unmake'), true);
+  assert.equal(isArc3TabReady(arc3ReadyBoth, 'wedges'), true);
+  assert.ok(arc3UnlockKeys(arc3ReadyBoth, 'wedges').has('arc3_wedge_ready_1'));
+  assert.equal(shouldAlertArc3Tab(arc3ReadyBoth, 'wedges', 'unmake', new Map()), true);
+  assert.equal(shouldAlertArc3Tab(arc3ReadyBoth, 'wedges', 'wedges', new Map()), false);
 });
 
 test('Web wall/chamber event drip gate guarantees first sighting (100%) and applies 30% chance on repeats', () => {
@@ -838,5 +1021,25 @@ test('Web Arc 2 5-stage photographic desk Slow-Boil quarantine, feathered desk a
   assert.ok(arc2UiSrc.includes('exhibitAssetUrl(ex.id)'));
   assert.ok(arc2UiSrc.includes('exhibit-polaroid-frame'));
   assert.ok(arc2UiSrc.includes('exhibit-dossier-frame'));
+  assert.ok(arc2UiSrc.includes('contactAssetUrl(c.id)'));
+  assert.ok(arc2UiSrc.includes('contact-portrait-frame'));
   assert.ok(deskCanvasSrc.includes('computeDeskLayerAlphas(') && deskCanvasSrc.includes('drawCoverImage('));
+
+  // 4. Photographic wiring for remaining specimens, grafts, relics, Arc 2 stamp, and Arc 3 convergence backdrop
+  const arc1UiSrc = readDocsFile('src/ui/arc1ChamberUi.js');
+  const appSrc = readDocsFile('src/app.js');
+  assert.ok(arc1UiSrc.includes('specimenAssetUrl('));
+  assert.ok(arc1UiSrc.includes('graftAssetUrl('));
+  assert.ok(arc1UiSrc.includes('relicAssetUrl('));
+  assert.ok(arc1UiSrc.includes('onInspectRelic'));
+  assert.ok(appSrc.includes('SOUND_CUES.RELIC_INSPECT'));
+  for (const selector of [
+    '.graft-photo-frame',
+    '.relic-photo-frame',
+    '.contact-portrait-frame',
+    '.desk-stamp-photo',
+    '.arc3-backdrop-photo',
+  ]) {
+    assert.ok(css.includes(selector), `styles.css must style ${selector}`);
+  }
 });

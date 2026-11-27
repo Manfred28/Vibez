@@ -1,8 +1,11 @@
 package com.example.audio
 
+import com.example.game.Arc3UnmakeCategory
+import com.example.game.CorroborationId
 import com.example.game.CreatureType
 import com.example.game.DeskAnomalyType
 import com.example.game.GameArc
+import com.example.game.InvestigatorContact
 import com.example.game.OrganGameState
 import com.example.game.WallAnomalyType
 
@@ -19,6 +22,8 @@ enum class SoundCue(val id: String, val minIntervalMs: Long = 55L) {
   ANOMALY_RIB("anomaly_rib", minIntervalMs = 120L),
   JAR_BOTTLE("jar_bottle", minIntervalMs = 120L),
   GRAFT_PERFORM("graft_perform", minIntervalMs = 260L),
+  GRAFT_CHOIR_LUNG("graft_choir_lung", minIntervalMs = 300L),
+  RELIC_INSPECT("relic_inspect", minIntervalMs = 95L),
   SCAR_UNLOCK("scar_unlock", minIntervalMs = 110L),
   DRAIN_TOGGLE("drain_toggle", minIntervalMs = 110L),
   SUMP_DREDGE("sump_dredge", minIntervalMs = 180L),
@@ -31,16 +36,33 @@ enum class SoundCue(val id: String, val minIntervalMs: Long = 55L) {
   STORY_DRIP("story_drip", minIntervalMs = 380L),
   PHASE_SHIFT("phase_shift", minIntervalMs = 450L),
   ARC2_STAMP("arc2_stamp", minIntervalMs = 62L),
-  ARC2_LAMP_TOGGLE("arc2_lamp_toggle", minIntervalMs = 95L),
-  ARC2_CONTACT("arc2_contact", minIntervalMs = 80L),
+  ARC2_LAMP_ON("arc2_lamp_on", minIntervalMs = 95L),
+  ARC2_LAMP_OFF("arc2_lamp_off", minIntervalMs = 95L),
+  ARC2_CONTACT_ARCHIVIST("arc2_contact_archivist", minIntervalMs = 80L),
+  ARC2_CONTACT_ORDERLY("arc2_contact_orderly", minIntervalMs = 80L),
+  ARC2_CONTACT_SCANNER("arc2_contact_scanner", minIntervalMs = 80L),
+  ARC2_CONTACT_TRANSCRIBER("arc2_contact_transcriber", minIntervalMs = 80L),
   ARC2_DEDUCTION("arc2_deduction", minIntervalMs = 120L),
+  ARC2_CORROBORATION_LOCK("arc2_corroboration_lock", minIntervalMs = 110L),
   ARC2_STRING_WIRE("arc2_string_wire", minIntervalMs = 110L),
+  ARC2_STRING_UNWIRE("arc2_string_unwire", minIntervalMs = 110L),
   ARC2_REEL_SCRUB("arc2_reel_scrub", minIntervalMs = 240L),
   ARC2_REDACTION_DISSOLVE("arc2_redaction_dissolve", minIntervalMs = 220L),
-  ARC2_DESK_ANOMALY("arc2_desk_anomaly", minIntervalMs = 110L),
+  ARC2_ANOMALY_ENVELOPE("arc2_anomaly_envelope", minIntervalMs = 110L),
+  ARC2_ANOMALY_SPECTACLES("arc2_anomaly_spectacles", minIntervalMs = 110L),
+  ARC2_ANOMALY_REEL_TAPE("arc2_anomaly_reel_tape", minIntervalMs = 110L),
+  ARC2_ANOMALY_ENAMEL("arc2_anomaly_enamel", minIntervalMs = 110L),
   ARC2_CHAPTER("arc2_chapter", minIntervalMs = 240L),
   ARC2_FILE_ZERO("arc2_file_zero", minIntervalMs = 450L),
   ARC3_ENTER("arc3_enter", minIntervalMs = 450L),
+  ARC3_WRENCH("arc3_wrench", minIntervalMs = 60L),
+  ARC3_JAR_SHATTER("arc3_jar_shatter", minIntervalMs = 110L),
+  ARC3_UNMAKE_TEAR("arc3_unmake_tear", minIntervalMs = 150L),
+  ARC3_RUPTURE_POP("arc3_rupture_pop", minIntervalMs = 100L),
+  ARC3_WEDGE_DRIVE("arc3_wedge_drive", minIntervalMs = 280L),
+  ARC3_CLOT_WARNING("arc3_clot_warning", minIntervalMs = 900L),
+  ARC3_FINAL_PULL("arc3_final_pull", minIntervalMs = 350L),
+  ARC3_SUBMERSION_END("arc3_submersion_end", minIntervalMs = 600L),
 }
 
 /** High-level action context passed alongside state diffs so only valid state changes emit SFX. */
@@ -69,6 +91,11 @@ enum class SoundActionHint {
   ARC2_DESK_ANOMALY,
   ARC2_CHAPTER,
   ARC3_ENTER,
+  ARC3_WRENCH,
+  ARC3_UNMAKE,
+  ARC3_RUPTURE_TEAR,
+  ARC3_WEDGE_DRIVE,
+  ARC3_FINAL_PULL,
   DEV,
 }
 
@@ -127,7 +154,9 @@ object SoundCueResolver {
         }
       }
       SoundActionHint.GRAFT_PERFORM -> {
-        if (next.graftedTendrils > prev.graftedTendrils || next.choirLungs > prev.choirLungs) {
+        if (next.choirLungs > prev.choirLungs) {
+          cues.add(SoundCue.GRAFT_CHOIR_LUNG)
+        } else if (next.graftedTendrils > prev.graftedTendrils) {
           cues.add(SoundCue.GRAFT_PERFORM)
         }
       }
@@ -193,12 +222,20 @@ object SoundCueResolver {
       }
       SoundActionHint.ARC2_LAMP_TOGGLE -> {
         if (next.arc2.lampOn != prev.arc2.lampOn) {
-          cues.add(SoundCue.ARC2_LAMP_TOGGLE)
+          cues.add(if (next.arc2.lampOn) SoundCue.ARC2_LAMP_ON else SoundCue.ARC2_LAMP_OFF)
         }
       }
       SoundActionHint.ARC2_CONTACT -> {
-        if (next.arc2.contacts != prev.arc2.contacts) {
-          cues.add(SoundCue.ARC2_CONTACT)
+        val hiredContact =
+          InvestigatorContact.entries.firstOrNull { contact ->
+            next.arc2.contactCount(contact) > prev.arc2.contactCount(contact)
+          }
+        when (hiredContact) {
+          InvestigatorContact.NIGHT_ARCHIVIST -> cues.add(SoundCue.ARC2_CONTACT_ARCHIVIST)
+          InvestigatorContact.BRIBED_ORDERLY -> cues.add(SoundCue.ARC2_CONTACT_ORDERLY)
+          InvestigatorContact.MICROFILM_SCANNER -> cues.add(SoundCue.ARC2_CONTACT_SCANNER)
+          InvestigatorContact.AUDIO_TRANSCRIBER -> cues.add(SoundCue.ARC2_CONTACT_TRANSCRIBER)
+          null -> Unit
         }
       }
       SoundActionHint.ARC2_DEDUCTION -> {
@@ -207,8 +244,15 @@ object SoundCueResolver {
         }
       }
       SoundActionHint.ARC2_STRING_WIRE -> {
-        if (next.arc2.wiredPairs != prev.arc2.wiredPairs) {
-          cues.add(SoundCue.ARC2_STRING_WIRE)
+        if (next.arc2.wiredPairs.size < prev.arc2.wiredPairs.size) {
+          cues.add(SoundCue.ARC2_STRING_UNWIRE)
+        } else if (next.arc2.wiredPairs != prev.arc2.wiredPairs) {
+          val addedPairs = next.arc2.wiredPairs - prev.arc2.wiredPairs
+          val matchedCorroboration = addedPairs.any { CorroborationId.matchPair(it) != null }
+          cues.add(
+            if (matchedCorroboration) SoundCue.ARC2_CORROBORATION_LOCK
+            else SoundCue.ARC2_STRING_WIRE
+          )
         }
       }
       SoundActionHint.ARC2_REEL_SCRUB -> {
@@ -223,11 +267,15 @@ object SoundCueResolver {
       }
       SoundActionHint.ARC2_DESK_ANOMALY -> {
         val interactedDesk =
-          DeskAnomalyType.entries.any { type ->
+          DeskAnomalyType.entries.firstOrNull { type ->
             (next.arc2.deskAnomalyInteractions[type] ?: 0) > (prev.arc2.deskAnomalyInteractions[type] ?: 0)
           }
-        if (interactedDesk) {
-          cues.add(SoundCue.ARC2_DESK_ANOMALY)
+        when (interactedDesk) {
+          DeskAnomalyType.EVIDENCE_ENVELOPE -> cues.add(SoundCue.ARC2_ANOMALY_ENVELOPE)
+          DeskAnomalyType.FOGGED_SPECTACLES -> cues.add(SoundCue.ARC2_ANOMALY_SPECTACLES)
+          DeskAnomalyType.REEL_TAPE -> cues.add(SoundCue.ARC2_ANOMALY_REEL_TAPE)
+          DeskAnomalyType.ENAMEL_EXHIBIT -> cues.add(SoundCue.ARC2_ANOMALY_ENAMEL)
+          null -> Unit
         }
       }
       SoundActionHint.ARC2_CHAPTER -> {
@@ -242,6 +290,38 @@ object SoundCueResolver {
           cues.add(SoundCue.ARC3_ENTER)
         }
       }
+      SoundActionHint.ARC3_WRENCH -> {
+        if (next.arc3.wrenchCount > prev.arc3.wrenchCount) {
+          cues.add(SoundCue.ARC3_WRENCH)
+        }
+      }
+      SoundActionHint.ARC3_UNMAKE -> {
+        val addedActs = next.arc3.completedUnmakes - prev.arc3.completedUnmakes
+        if (addedActs.isNotEmpty()) {
+          if (addedActs.any { it.category == Arc3UnmakeCategory.SHATTER_JAR }) {
+            cues.add(SoundCue.ARC3_JAR_SHATTER)
+          } else {
+            cues.add(SoundCue.ARC3_UNMAKE_TEAR)
+          }
+        }
+      }
+      SoundActionHint.ARC3_RUPTURE_TEAR -> {
+        if (next.arc3.totalRuptureInteractions > prev.arc3.totalRuptureInteractions) {
+          cues.add(SoundCue.ARC3_RUPTURE_POP)
+        }
+      }
+      SoundActionHint.ARC3_WEDGE_DRIVE -> {
+        if (next.arc3.lockedWedges.size > prev.arc3.lockedWedges.size) {
+          cues.add(SoundCue.ARC3_WEDGE_DRIVE)
+        }
+      }
+      SoundActionHint.ARC3_FINAL_PULL -> {
+        if (next.arc3.submersionComplete && !prev.arc3.submersionComplete) {
+          cues.add(SoundCue.ARC3_SUBMERSION_END)
+        } else if (next.arc3.finalPullsCompleted > prev.arc3.finalPullsCompleted) {
+          cues.add(SoundCue.ARC3_FINAL_PULL)
+        }
+      }
       SoundActionHint.TICK, SoundActionHint.DEV -> Unit
     }
 
@@ -254,6 +334,14 @@ object SoundCueResolver {
     }
     if (action == SoundActionHint.TICK && next.graftedTendrils > prev.graftedTendrils) {
       cues.add(SoundCue.GRAFT_PERFORM)
+    }
+    if (
+      action == SoundActionHint.TICK &&
+        next.activeArc == GameArc.ARC_3_CONVERGENCE &&
+        next.arc3.isActivelyClotting &&
+        !prev.arc3.isActivelyClotting
+    ) {
+      cues.add(SoundCue.ARC3_CLOT_WARNING)
     }
     if (
       next.activeArc == GameArc.ARC_1_CHAMBER &&
@@ -273,7 +361,8 @@ object SoundCueResolver {
       newStoryUnlocked &&
         SoundCue.EXCISION_CUT !in cues &&
         SoundCue.PLEAD_SALVATION !in cues &&
-        SoundCue.ARC2_FILE_ZERO !in cues
+        SoundCue.ARC2_FILE_ZERO !in cues &&
+        SoundCue.ARC3_SUBMERSION_END !in cues
     ) {
       cues.add(SoundCue.STORY_DRIP)
     }
@@ -344,18 +433,23 @@ object SoundCueResolver {
           complicityBleed = haunt,
         )
       }
-      GameArc.ARC_3_CONVERGENCE ->
+      GameArc.ARC_3_CONVERGENCE -> {
+        val breach = state.arc3
+        val flood = breach.floodLevel.coerceIn(0f, 1f)
+        val submerged = breach.submersionComplete
+        val clotting = breach.isActivelyClotting
         AmbientSoundProfile(
           activeArc = GameArc.ARC_3_CONVERGENCE,
-          phase = 6,
-          humGain = 0.30f,
-          dripRate = 0.32f,
-          fleshDepth = 0.40f,
-          cardiacPulse = 0.28f,
-          stillnessFocus = 0.5f,
-          clampTension = 0f,
-          rainMix = 0.52f,
-          complicityBleed = 0.65f,
+          phase = 7,
+          humGain = if (submerged) 0.14f else (0.32f + flood * 0.24f).coerceIn(0f, 1f),
+          dripRate = if (submerged) 0.12f else (0.38f + flood * 0.42f).coerceIn(0f, 1f),
+          fleshDepth = (0.45f + flood * 0.55f).coerceIn(0f, 1f),
+          cardiacPulse = if (submerged) 0.48f else (0.28f + flood * 0.68f).coerceIn(0f, 1f),
+          stillnessFocus = if (submerged) 0.92f else 0f,
+          clampTension = if (clotting) 0.62f else 0f,
+          rainMix = 0f,
+          complicityBleed = (0.55f + flood * 0.45f).coerceIn(0f, 1f),
         )
+      }
     }
 }

@@ -63,6 +63,11 @@ fun DevToolsModal(
   onToggleArc2Lamp: () -> Unit = {},
   onResetArc2: () -> Unit = {},
   onSpawnDeskAnomaly: () -> Unit,
+  onSetArc3Stratum: (Int) -> Unit = {},
+  onAssignArc3Resources: (hemorrhage: Double?, fillFracture: Boolean) -> Unit = { _, _ -> },
+  onJumpArc3Finale: (Boolean) -> Unit = {},
+  onSpawnBreachRupture: () -> Unit = {},
+  onResetArc3: () -> Unit = {},
   onAdvanceTime: (Double) -> Unit,
   onResetAll: () -> Unit,
   onDismiss: () -> Unit,
@@ -401,6 +406,83 @@ fun DevToolsModal(
               selected = false,
               testTag = "dev_wipe_save_button",
               onClick = onResetAll,
+              modifier = Modifier.weight(1f),
+            )
+          }
+
+          HorizontalDivider(color = atmosphere.hairline)
+
+          // 5. Arc 3 Breach Strata, Flood & Finale QA Controls
+          val arc3Status =
+            when {
+              state.arc3.submersionComplete -> "SUBMERGED"
+              state.arc3.isInFinale -> "FINALE ${state.arc3.finalPullsCompleted}/5"
+              else -> "STRATUM ${state.arc3.currentStratum}/5"
+            }
+          DevSectionHeader("ARC 3 BREACH ($arc3Status · HEM ${state.arc3.hemorrhageDisplay})")
+          Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+          ) {
+            (1..5).forEach { s ->
+              DevChip(
+                label = "S$s",
+                selected = !state.arc3.isInFinale && state.arc3.currentStratum == s,
+                testTag = "dev_arc3_stratum_$s",
+                onClick = { onSetArc3Stratum(s) },
+                modifier = Modifier.weight(1f),
+              )
+            }
+          }
+          Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+          ) {
+            DevChip(
+              label = "+50K HEM",
+              selected = false,
+              testTag = "dev_arc3_add_hem",
+              onClick = { onAssignArc3Resources(state.arc3.hemorrhage + 50_000.0, false) },
+              modifier = Modifier.weight(1f),
+            )
+            DevChip(
+              label = "FILL WEDGE",
+              selected = state.arc3.canDriveWedge,
+              testTag = "dev_arc3_fill_wedge",
+              onClick = { onAssignArc3Resources(null, true) },
+              modifier = Modifier.weight(1f),
+            )
+            DevChip(
+              label = "SPAWN TEAR",
+              selected = false,
+              testTag = "dev_arc3_spawn_rupture",
+              onClick = onSpawnBreachRupture,
+              modifier = Modifier.weight(1f),
+            )
+          }
+          Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+          ) {
+            DevChip(
+              label = "FINALE",
+              selected = state.arc3.isInFinale && !state.arc3.submersionComplete,
+              testTag = "dev_arc3_finale",
+              onClick = { onJumpArc3Finale(false) },
+              modifier = Modifier.weight(1f),
+            )
+            DevChip(
+              label = "SUBMERGED",
+              selected = state.arc3.submersionComplete,
+              testTag = "dev_arc3_submerged",
+              onClick = { onJumpArc3Finale(true) },
+              modifier = Modifier.weight(1f),
+            )
+            DevChip(
+              label = "RESET ARC 3",
+              selected = false,
+              testTag = "dev_arc3_reset",
+              onClick = onResetArc3,
               modifier = Modifier.weight(1f),
             )
           }

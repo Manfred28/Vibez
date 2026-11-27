@@ -148,9 +148,9 @@ test('Arc 2 Slow-Boil Lamp On/Off, Corkboard Wiring, Bulk Warrants, Reel Scrub, 
   assert.ok(state.arc2.activeDeskAnomalies.length >= 1);
   state = interactDeskAnomaly(state, state.arc2.activeDeskAnomalies[0].id, realCatalog);
 
-  // Serialization v3 round-trip preserves all Arc 2 fields cleanly
+  // Serialization v4 round-trip preserves all Arc 2 fields cleanly
   const raw = serializeState(state);
-  assert.equal(JSON.parse(raw).version, 3);
+  assert.equal(JSON.parse(raw).version, 4);
   const restored = deserializeState(raw, realCatalog);
   assert.ok(restored !== null);
   assert.equal(restored.arc2.caseAngle, 4);

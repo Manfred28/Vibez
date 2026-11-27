@@ -20,6 +20,8 @@ internal object Arc1FoleyCueBank {
       SoundCue.ANOMALY_RIB -> renderRibPry(pitch)
       SoundCue.JAR_BOTTLE -> renderJarBottle(pitch)
       SoundCue.GRAFT_PERFORM -> renderGraftPerform(pitch)
+      SoundCue.GRAFT_CHOIR_LUNG -> renderChoirLungGraft(pitch)
+      SoundCue.RELIC_INSPECT -> renderRelicInspect(pitch)
       SoundCue.SCAR_UNLOCK -> renderScarStitch(pitch)
       SoundCue.DRAIN_TOGGLE -> renderIronClank(pitch)
       SoundCue.SUMP_DREDGE -> renderSumpDredge(pitch)
@@ -258,6 +260,87 @@ internal object Arc1FoleyCueBank {
     addBubbleCluster(buf, 0.16, 0.74, count = 11, baseFreqHz = 165.0 * pitch, gain = 0.30, seed = 743)
 
     return toPcm16(buf, 0.85f, roomWet = 0.18f)
+  }
+
+  /**
+   * Choir-Lung Grafting (~1.18s): hollow pleural air-draw through wet bronchi, slow calcified
+   * cartilage expansion, and a deep resonant respiratory settle inside the masonry cavity.
+   */
+  private fun renderChoirLungGraft(pitch: Double): ShortArray {
+    val duration = 1.18
+    val len = (FOLEY_SAMPLE_RATE * duration).toInt()
+    val buf = FloatArray(len)
+    val noise = NoiseGen(761)
+    val inhaleFilter = SvFilter()
+    val cavityFilter = SvFilter()
+
+    var breathPhase = 0.0
+    for (i in 0 until len) {
+      val t = i.toDouble() / FOLEY_SAMPLE_RATE
+      val raw = noise.nextFloat().toDouble()
+      // Hollow pleural inhale (0..540ms) then sagging exhale (540..1180ms)
+      val inhaleEnv = if (t < 0.54) sin(PI * (t / 0.54)).coerceAtLeast(0.0) else 0.0
+      val exhaleEnv = if (t >= 0.46) sin(PI * ((t - 0.46) / 0.72).coerceAtMost(1.0)).coerceAtLeast(0.0) else 0.0
+      val inhaleAir =
+        inhaleFilter.processBandpass(raw, (290.0 + t * 520.0) * pitch, 2.4) * inhaleEnv * 0.68
+      val exhaleAir =
+        cavityFilter.processBandpass(raw, (460.0 - (t - 0.46).coerceAtLeast(0.0) * 320.0) * pitch, 2.8) *
+          exhaleEnv *
+          0.60
+      val subFreq = (48.0 + 18.0 * sin(PI * (t / duration))) * pitch
+      breathPhase += TWO_PI * subFreq / FOLEY_SAMPLE_RATE
+      val pleuralBody =
+        (sin(breathPhase) * 0.48 + sin(breathPhase * 2.02) * 0.18) *
+          sin(PI * (t / duration).coerceAtMost(1.0)).coerceAtLeast(0.0)
+      buf[i] = (inhaleAir + exhaleAir + pleuralBody).toFloat()
+    }
+
+    // Wet pleural cartilage expansion + deep mucosal settle
+    addTendonTear(buf, 0.14, 0.38, pitch * 0.84, gain = 0.54, fiberCount = 16, seed = 769)
+    addWetSquelch(
+      buf,
+      0.38,
+      0.66,
+      pitch * 0.88,
+      gain = 0.62,
+      formantStartHz = 380.0,
+      formantEndHz = 140.0,
+      wobbleHz = 4.6,
+      seed = 773,
+    )
+    addBubbleCluster(buf, 0.24, 0.62, count = 8, baseFreqHz = 152.0 * pitch, gain = 0.28, seed = 787)
+    return toPcm16(buf, 0.84f, roomWet = 0.22f)
+  }
+
+  /** Dredged Relic Inspection: subtle damp iron/slate pickup clink + wet oilcloth/paper shift. */
+  private fun renderRelicInspect(pitch: Double): ShortArray {
+    val len = (FOLEY_SAMPLE_RATE * 0.24).toInt()
+    val buf = FloatArray(len)
+    val noise = NoiseGen(797)
+    val brushFilter = SvFilter()
+    addIronModalRing(
+      buf = buf,
+      startSec = 0.0,
+      durationSec = 0.16,
+      baseFreqHz = 365.0 * pitch,
+      gain = 0.30,
+      decayScale = 2.0,
+      seed = 801,
+      includeRatchetGrit = false,
+      clangScale = 0.26,
+    )
+    for (i in 0 until len) {
+      val t = i.toDouble() / FOLEY_SAMPLE_RATE
+      val env = sin(PI * (t / 0.24).coerceAtMost(1.0)).coerceAtLeast(0.0)
+      val brush =
+        brushFilter.processBandpass(noise.nextFloat().toDouble(), 780.0 - t * 1400.0, 1.8) *
+          env *
+          0.42
+      val settle =
+        sin(TWO_PI * (132.0 * pitch) * t) * exp(-t * 22.0) * (1.0 - exp(-t * 140.0)) * 0.24
+      buf[i] += (brush + settle).toFloat()
+    }
+    return toPcm16(buf, 0.68f, roomWet = 0.14f)
   }
 
   /** Suture Scar Node: surgical thread dragging taut through damp flesh + crisp tendon cinch. */

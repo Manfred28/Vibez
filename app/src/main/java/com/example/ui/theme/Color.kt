@@ -38,3 +38,15 @@ val TungstenAmberAsh = Color(0xFFA99B7B)
 val TungstenShadow = Color(0xFF28251E)
 val PrecinctLine = Color(0xFF2D333C)
 val PrecinctOutline = Color(0xFF444C57)
+
+// Arc 3 ("The Unmaking") wet arterial crimson ramp
+val ArterialShadow = Color(0xFF1A0708)
+val BreachSurface = Color(0xFF150809)
+val BreachCardSurface = Color(0xFF1F0C0D)
+val FreshSeepage = Color(0xFF5A1215)
+val ArterialCrimson = Color(0xFF8C1418)
+val DeepClotTide = Color(0xFF3E090C)
+val BrightMeniscus = Color(0xFFB82428)
+val BloodSoakedPaper = Color(0xFFD6B8B0)
+val CrimsonHairline = Color(0xFF4D1B1D)
+

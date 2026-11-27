@@ -15,7 +15,7 @@ import {
   jarById,
   repeatableGraftById,
   scarNodeById,
-} from './constants.js?v=3.14';
+} from './constants.js?v=3.15';
 import {
   anomalyRewardMultiplier,
   canAffordChoirLung,
@@ -59,8 +59,8 @@ import {
   stillnessIdleDelaySec,
   stillnessPerSecond,
   valveClampDurationSec,
-} from './arc1Math.js?v=3.14';
-import { finalizeProgression, initialState } from './progression.js?v=3.14';
+} from './arc1Math.js?v=3.15';
+import { finalizeProgression, initialState } from './progression.js?v=3.15';
 
 export function spawnImmediateWallAnomaly(state, allowOverflow = false) {
   const maxAnomalies = allowOverflow
@@ -566,6 +566,7 @@ export function performExcision(state, catalog) {
     marrowBloomCount: state.marrowBloomCount,
     unredactedDossierLines: [...state.unredactedDossierLines],
     arc2: state.arc2,
+    arc3: state.arc3,
     activeDialogue: state.activeDialogue,
     discoveredDialogues: state.discoveredDialogues,
     triggeredDialogueIds: state.triggeredDialogueIds,
