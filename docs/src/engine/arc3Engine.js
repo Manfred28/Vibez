@@ -140,7 +140,9 @@ export function driveMemoryWedge(state, catalog) {
     secondsSinceLastAction: 0.0,
     clotFreezeRemainingSeconds: enteringFinale ? 0.0 : 4.0,
     activeRuptures: enteringFinale ? [] : breach.activeRuptures ?? [],
-    finalPullCooldownSeconds: enteringFinale ? 0.0 : breach.finalPullCooldownSeconds ?? 0.0,
+    finalPullCooldownSeconds: enteringFinale
+      ? ARC3_BALANCE.FINAL_PULL_COOLDOWN_SEC
+      : breach.finalPullCooldownSeconds ?? 0.0,
   };
   return finalizeProgression({ ...state, arc3: updated }, catalog);
 }

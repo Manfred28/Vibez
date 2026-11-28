@@ -17,6 +17,7 @@ import {
   arc3CanPerformUnmake,
   arc3FloodLevel,
   arc3IsActivelyClotting,
+  arc3IsClotBursting,
   arc3IsClotFrozen,
   arc3IsInFinale,
   arc3IsJarShattered,
@@ -24,6 +25,7 @@ import {
   arc3IsValveSheared,
   arc3LegacyFractureMultiplier,
   arc3LegacyHemorrhageMultiplier,
+  arc3ShatterActForJar,
   arc3StratumProgress,
   arc3TelemetryBlurFactor,
   arc3WrenchFractureYield,
@@ -77,7 +79,9 @@ export function createArc3BreachUi(els, handlers) {
     const sig = SPECIMEN_JAR_LIST.map((j) => {
       const owned = (state.ownedJars ?? []).includes(j.id);
       const shattered = arc3IsJarShattered(breach, j.id);
-      return `${j.id}:${owned ? 1 : 0}:${shattered ? 1 : 0}`;
+      const act = arc3ShatterActForJar(j.id);
+      const canShatter = Boolean(act && arc3CanPerformUnmake(breach, act));
+      return `${j.id}:${owned ? 1 : 0}:${shattered ? 1 : 0}:${canShatter ? 1 : 0}`;
     }).join('|');
     if (sig === lastShelfSignature) return;
     lastShelfSignature = sig;
@@ -85,15 +89,34 @@ export function createArc3BreachUi(els, handlers) {
     els.arc3JarShelves.innerHTML = '';
     for (const jar of SPECIMEN_JAR_LIST) {
       const shattered = arc3IsJarShattered(breach, jar.id);
-      const slot = document.createElement('div');
-      slot.className = `arc3-jar-slot${shattered ? ' is-shattered' : ''}`;
+      const shatterAct = arc3ShatterActForJar(jar.id);
+      const canShatter = Boolean(!shattered && shatterAct && arc3CanPerformUnmake(breach, shatterAct));
+      const slot = document.createElement(canShatter ? 'button' : 'div');
+      const jarName = jar.name ?? jar.id;
+      if (canShatter) {
+        slot.type = 'button';
+        slot.dataset.arc3ShelfJar = jar.id;
+        slot.setAttribute('aria-label', `Shatter ${jarName} (${formatBleedValue(shatterAct.hemorrhageCost)} HEM)`);
+        slot.addEventListener('click', () => handlers.onPerformArc3Unmake?.(shatterAct.id));
+      }
+      slot.className = `arc3-jar-slot${shattered ? ' is-shattered' : ''}${canShatter ? ' is-actionable' : ''}`;
       const img = document.createElement('img');
       img.className = `arc3-jar-img${shattered ? ' is-shattered' : ''}`;
       img.src = shattered ? ARC3_BREACH_ASSET_URLS.shatteredJar : jarAssetUrl(jar.id);
       img.alt = '';
       img.draggable = false;
       slot.appendChild(img);
-      slot.title = shattered ? `${jar.title} (Shattered)` : jar.title;
+      if (canShatter) {
+        const tag = document.createElement('span');
+        tag.className = 'arc3-jar-break-tag';
+        tag.textContent = 'BREAK';
+        slot.appendChild(tag);
+      }
+      slot.title = shattered
+        ? `${jarName} (Shattered)`
+        : canShatter
+          ? `Click to shatter ${jarName} (${formatBleedValue(shatterAct.hemorrhageCost)} HEM)`
+          : jarName;
       els.arc3JarShelves.appendChild(slot);
     }
   }
@@ -194,85 +217,100 @@ export function createArc3BreachUi(els, handlers) {
     legacyStrip.textContent = `CHAMBER MEMORY +${hemBonusPct}% HEMORRHAGE · CASE MEMORY +${fracBonusPct}% FRACTURE`;
     container.appendChild(legacyStrip);
 
+    function buildUnmakeRow(act, done) {
+      const affordable = !done && arc3CanPerformUnmake(breach, act);
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = `deck-row arc3-unmake-row${done ? ' is-done' : ''}${affordable ? ' deck-row--accent' : ''}`;
+      btn.disabled = done || !affordable;
+
+      const thumbFrame = document.createElement('span');
+      thumbFrame.className = `arc3-thumb-frame${done ? ' is-done' : ''}${affordable ? ' is-accent' : ''}`;
+      thumbFrame.setAttribute('aria-hidden', 'true');
+      const thumbImg = document.createElement('img');
+      thumbImg.className = 'arc3-thumb-img';
+      thumbImg.src = arc3UnmakeAssetUrl(act, done);
+      thumbImg.alt = '';
+      thumbImg.draggable = false;
+      thumbFrame.appendChild(thumbImg);
+
+      const body = document.createElement('div');
+      body.className = 'deck-row-main';
+
+      const titleRow = document.createElement('div');
+      titleRow.className = 'arc3-unmake-title-row';
+      const title = document.createElement('span');
+      title.className = 'deck-row-title';
+      title.textContent = act.title;
+      titleRow.appendChild(title);
+
+      const tag = legacyTagForAct(state, act);
+      if (tag) {
+        const chip = document.createElement('span');
+        chip.className = 'arc3-legacy-tag';
+        chip.textContent = tag;
+        titleRow.appendChild(chip);
+      }
+
+      const desc = document.createElement('div');
+      desc.className = 'deck-row-desc';
+      desc.textContent = act.description;
+
+      const effectParts = [`WRENCH ×${act.wrenchMultiplier.toFixed(2)}`];
+      if (act.antiClotFraction > 0) {
+        effectParts.push(`CLOT -${Math.round(act.antiClotFraction * 100)}%`);
+      }
+      if (act.bleedPressurePerSec > 0) {
+        effectParts.push(`BLEED +${formatCompactDecimal(act.bleedPressurePerSec)}/s`);
+      }
+      if (act.instantFractureSurge > 0) {
+        effectParts.push(`SURGE +${formatBleedValue(act.instantFractureSurge)}`);
+      }
+      if (act.ruptureMultiplier > 1.0) {
+        effectParts.push(`RUPTURE ×${act.ruptureMultiplier.toFixed(2)}`);
+      }
+      const meta = document.createElement('div');
+      meta.className = 'arc3-unmake-meta';
+      meta.textContent = effectParts.join(' · ');
+
+      body.append(titleRow, desc, meta);
+
+      const pill = document.createElement('span');
+      pill.className = 'deck-row-pill';
+      pill.textContent = done ? 'UNMADE' : `${formatBleedValue(act.hemorrhageCost)} HEM`;
+
+      btn.append(thumbFrame, body, pill);
+      if (!done) {
+        btn.addEventListener('click', () => handlers.onPerformArc3Unmake?.(act.id));
+      }
+      return btn;
+    }
+
+    const doneSet = new Set(breach.completedUnmakes ?? []);
     for (const cat of ARC3_UNMAKE_CATEGORIES) {
-      const visibleActs = ARC3_UNMAKE_ACTS.filter(
-        (a) => a.category === cat.id && arc3IsUnmakeVisible(breach, a),
+      const activeActs = ARC3_UNMAKE_ACTS.filter(
+        (a) => a.category === cat.id && arc3IsUnmakeVisible(breach, a) && !doneSet.has(a.id),
       );
-      if (visibleActs.length === 0) continue;
+      if (activeActs.length === 0) continue;
 
       const header = document.createElement('div');
       header.className = 'arc3-category-label';
       header.textContent = cat.label;
       container.appendChild(header);
 
-      for (const act of visibleActs) {
-        const done = (breach.completedUnmakes ?? []).includes(act.id);
-        const affordable = arc3CanPerformUnmake(breach, act);
-        const btn = document.createElement('button');
-        btn.type = 'button';
-        btn.className = `deck-row arc3-unmake-row${done ? ' is-done' : ''}${affordable ? ' deck-row--accent' : ''}`;
-        btn.disabled = done || !affordable;
+      for (const act of activeActs) {
+        container.appendChild(buildUnmakeRow(act, false));
+      }
+    }
 
-        const thumbFrame = document.createElement('span');
-        thumbFrame.className = `arc3-thumb-frame${done ? ' is-done' : ''}${affordable ? ' is-accent' : ''}`;
-        thumbFrame.setAttribute('aria-hidden', 'true');
-        const thumbImg = document.createElement('img');
-        thumbImg.className = 'arc3-thumb-img';
-        thumbImg.src = arc3UnmakeAssetUrl(act, done);
-        thumbImg.alt = '';
-        thumbImg.draggable = false;
-        thumbFrame.appendChild(thumbImg);
-
-        const body = document.createElement('div');
-        body.className = 'deck-row-main';
-
-        const titleRow = document.createElement('div');
-        titleRow.className = 'arc3-unmake-title-row';
-        const title = document.createElement('span');
-        title.className = 'deck-row-title';
-        title.textContent = act.title;
-        titleRow.appendChild(title);
-
-        const tag = legacyTagForAct(state, act);
-        if (tag) {
-          const chip = document.createElement('span');
-          chip.className = 'arc3-legacy-tag';
-          chip.textContent = tag;
-          titleRow.appendChild(chip);
-        }
-
-        const desc = document.createElement('div');
-        desc.className = 'deck-row-desc';
-        desc.textContent = act.description;
-
-        const effectParts = [`WRENCH ×${act.wrenchMultiplier.toFixed(2)}`];
-        if (act.antiClotFraction > 0) {
-          effectParts.push(`CLOT -${Math.round(act.antiClotFraction * 100)}%`);
-        }
-        if (act.bleedPressurePerSec > 0) {
-          effectParts.push(`BLEED +${formatCompactDecimal(act.bleedPressurePerSec)}/s`);
-        }
-        if (act.instantFractureSurge > 0) {
-          effectParts.push(`SURGE +${formatBleedValue(act.instantFractureSurge)}`);
-        }
-        if (act.ruptureMultiplier > 1.0) {
-          effectParts.push(`RUPTURE ×${act.ruptureMultiplier.toFixed(2)}`);
-        }
-        const meta = document.createElement('div');
-        meta.className = 'arc3-unmake-meta';
-        meta.textContent = effectParts.join(' · ');
-
-        body.append(titleRow, desc, meta);
-
-        const pill = document.createElement('span');
-        pill.className = 'deck-row-pill';
-        pill.textContent = done ? 'UNMADE' : `${formatBleedValue(act.hemorrhageCost)} HEM`;
-
-        btn.append(thumbFrame, body, pill);
-        if (!done) {
-          btn.addEventListener('click', () => handlers.onPerformArc3Unmake?.(act.id));
-        }
-        container.appendChild(btn);
+    const completedActs = ARC3_UNMAKE_ACTS.filter((a) => doneSet.has(a.id));
+    if (completedActs.length > 0) {
+      const doneHeader = document.createElement('div');
+      doneHeader.className = 'arc3-category-label';
+      doneHeader.textContent = 'ALREADY UNMADE';
+      container.appendChild(doneHeader);
+      for (const act of completedActs) {
+        container.appendChild(buildUnmakeRow(act, true));
       }
     }
 
@@ -468,7 +506,13 @@ export function createArc3BreachUi(els, handlers) {
     if (els.arc3ClotBadge) {
       els.arc3ClotBadge.hidden = !clotting || inFinale;
       if (clotting) {
-        els.arc3ClotBadge.textContent = `CLOTTING -${formatCompactDecimal(clotPerSec)}/s`;
+        const bursting = arc3IsClotBursting(breach);
+        els.arc3ClotBadge.classList.toggle('status-tag--surge', bursting);
+        els.arc3ClotBadge.textContent = bursting
+          ? `SURGE -${formatCompactDecimal(clotPerSec)}/s`
+          : `CLOTTING -${formatCompactDecimal(clotPerSec)}/s`;
+      } else {
+        els.arc3ClotBadge.classList.remove('status-tag--surge');
       }
     }
     if (els.arc3FreezeBadge) {
@@ -518,14 +562,19 @@ export function createArc3BreachUi(els, handlers) {
       if (els.arc3WrenchSub) {
         els.arc3WrenchSub.textContent = sheared ? 'TEAR SEAM' : 'WRENCH CCW';
       }
-      if (els.arc3DriveBanner) {
-        const ready = arc3CanDriveWedge(breach);
-        els.arc3DriveBanner.hidden = !ready;
-        if (ready && els.arc3DriveBannerBtn) {
-          els.arc3DriveBannerBtn.textContent = `DRIVE WEDGE: ${stratum.wedgeTitle}`;
+      const wedgeReady = arc3CanDriveWedge(breach);
+      if (els.arc3CanvasDriveWedge) {
+        els.arc3CanvasDriveWedge.hidden = !wedgeReady;
+        if (wedgeReady) {
+          els.arc3CanvasDriveWedge.textContent = `DRIVE WEDGE · ${stratum.wedgeTitle}`;
         }
       }
+      if (els.arc3DriveBanner) {
+        els.arc3DriveBanner.hidden = true;
+      }
     } else if (inFinale && !submerged) {
+      if (els.arc3CanvasDriveWedge) els.arc3CanvasDriveWedge.hidden = true;
+      if (els.arc3DriveBanner) els.arc3DriveBanner.hidden = true;
       const canPull = arc3CanPerformFinalPull(breach);
       const cd = breach.finalPullCooldownSeconds ?? 0;
       const cdPct = Math.max(0, Math.min(1, 1 - cd / ARC3_BALANCE.FINAL_PULL_COOLDOWN_SEC));
@@ -534,7 +583,7 @@ export function createArc3BreachUi(els, handlers) {
         const prompt = FINAL_PULL_LABELS[Math.min(pulls, FINAL_PULL_LABELS.length - 1)];
         els.arc3FinalPullBtn.textContent = canPull
           ? `${prompt} (${pulls + 1} / ${ARC3_BALANCE.FINAL_PULLS_TOTAL})`
-          : `BREATHING IN THE RED... (${cd.toFixed(1)}s)`;
+          : `GIVING WAY… (${Math.max(1, Math.ceil(cd))}s)`;
       }
       if (els.arc3FinalPullCooldownFill) {
         els.arc3FinalPullCooldownFill.style.width = `${(cdPct * 100).toFixed(1)}%`;

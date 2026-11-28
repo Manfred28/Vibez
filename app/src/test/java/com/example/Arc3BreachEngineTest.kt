@@ -61,10 +61,14 @@ class Arc3BreachEngineTest {
     assertEquals(Arc3Balance.BASE_WRENCH_HEMORRHAGE, state.arc3.hemorrhage, 0.0001)
     assertEquals(Arc3Balance.MOMENTUM_GAIN_PER_TAP, state.arc3.momentumCharge, 0.0001)
 
-    // Subsequent rapid taps build momentum up to 1.0, trigger opening wrench fragment at 3+, and boost yield
+    // Spaced pacing: 3 wrenches must NOT fire dlg_arc3_first_wrench immediately on top of entry
     val yieldAfterOne = state.arc3WrenchFractureYield()
-    repeat(12) { state = Arc3BreachEngine.wrenchBreach(state, catalog) }
-    assertTrue("Wrenching must unlock Phase 7 opening wrench fragment", "dlg_arc3_first_wrench" in state.triggeredDialogueIds)
+    repeat(2) { state = Arc3BreachEngine.wrenchBreach(state, catalog) }
+    assertFalse("Opening wrench fragment must stay spaced beyond 3 wrenches", "dlg_arc3_first_wrench" in state.triggeredDialogueIds)
+
+    // Reaching 18 wrenches builds full momentum and triggers the opening wrench fragment
+    repeat(15) { state = Arc3BreachEngine.wrenchBreach(state, catalog) }
+    assertTrue("Wrenching 18 times must unlock Phase 7 opening wrench fragment", "dlg_arc3_first_wrench" in state.triggeredDialogueIds)
     assertEquals(1.0, state.arc3.momentumCharge, 0.0001)
     assertTrue("Momentum must boost wrench yield", state.arc3WrenchFractureYield() > yieldAfterOne)
 
@@ -90,17 +94,26 @@ class Arc3BreachEngineTest {
           )
       )
 
-    // During 1.4s grace period, fracture does not decay at all
-    state = Arc3BreachEngine.tick(state, 1.0, catalog)
+    // During 4.5s scroll-safe grace period, fracture does not decay at all
+    state = Arc3BreachEngine.tick(state, 4.0, catalog)
     assertEquals(80.0, state.arc3.fracture, 0.0001)
-    assertFalse("Clotting must remain inactive during grace window", state.arc3.isActivelyClotting)
+    assertFalse("Clotting must remain inactive during 4.5s grace window", state.arc3.isActivelyClotting)
+    assertFalse("Clot burst must remain inactive during grace window", state.arc3.isClotBursting)
 
-    // After grace window expires, clotting pulls fracture downward while preserving hemorrhage & locked wedges
-    state = Arc3BreachEngine.tick(state, 1.0, catalog)
+    // Immediately after grace expires, early contraction burst snaps back faster than sustained rate
+    state = Arc3BreachEngine.tick(state, 0.7, catalog)
+    val burstRate = state.arc3.activeClotPerSec
     assertTrue("Clotting must engage after grace window", state.arc3.isActivelyClotting)
-    assertTrue("Fracture must pull back during clotting", state.arc3.fracture < 80.0)
+    assertTrue("Early contraction burst must engage right after grace window", state.arc3.isClotBursting)
+    assertTrue("Fracture must pull back during clotting burst", state.arc3.fracture < 80.0)
     assertEquals(250.0, state.arc3.hemorrhage, 0.0001)
     assertEquals(setOf(Arc3Stratum.BROKEN_GROUT), state.arc3.lockedWedges)
+
+    // Once the 2.2s burst finishes, clotting settles to a lower steady rate
+    state = Arc3BreachEngine.tick(state, 2.5, catalog)
+    assertTrue("Clotting remains active after burst settles", state.arc3.isActivelyClotting)
+    assertFalse("Early burst must conclude after CLOT_BURST_SEC", state.arc3.isClotBursting)
+    assertTrue("Early burst rate must exceed steady rate", burstRate > state.arc3.activeClotPerSec)
 
     // Long idle floors fracture at 0.0 without losing locked Wedge I or Hemorrhage
     state = Arc3BreachEngine.tick(state, 120.0, catalog)
@@ -204,20 +217,30 @@ class Arc3BreachEngineTest {
       assertTrue("Stratum ${stratum.number} should allow driving wedge", state.arc3.canDriveWedge)
       state = Arc3BreachEngine.driveMemoryWedge(state, catalog)
       assertTrue("Wedge ${stratum.number} must be permanently locked", stratum in state.arc3.lockedWedges)
+      if (stratum == Arc3Stratum.SPLINTERED_RIBS) {
+        assertFalse(
+          "Locking Wedge III must NOT simultaneously double-trigger dlg_arc3_stratum_4_pulse",
+          "dlg_arc3_stratum_4_pulse" in state.triggeredDialogueIds,
+        )
+      }
     }
 
     assertTrue("Locking Wedge V must enter interactive Finale", state.arc3.isInFinale)
     assertFalse(state.arc3.submersionComplete)
     assertEquals(0, state.arc3.finalPullsCompleted)
     assertEquals(0.86f, state.arc3.floodLevel, 0.001f)
-    assertTrue(state.arc3.canPerformFinalPull)
     assertTrue("Locking all 5 wedges triggers Wedge V dialogue", "dlg_arc3_wedge_5_file_zero" in state.triggeredDialogueIds)
+    // Entering finale via Wedge V starts the story-drip-matched cooldown before Pull 1 unlocks
+    assertFalse("Wedge V entry must gate Pull 1 while Wedge V dialogue drips", state.arc3.canPerformFinalPull)
+    assertEquals(Arc3Balance.FINAL_PULL_COOLDOWN_SEC, state.arc3.finalPullCooldownSeconds, 0.001)
+    state = Arc3BreachEngine.tick(state, Arc3Balance.FINAL_PULL_COOLDOWN_SEC + 0.05, catalog)
+    assertTrue("Pull 1 must unlock once Wedge V drip window completes", state.arc3.canPerformFinalPull)
 
     // Wrenching & Unmaking are disabled once Finale starts
     val wrenchNoOp = Arc3BreachEngine.wrenchBreach(state, catalog)
     assertEquals(state.arc3.wrenchCount, wrenchNoOp.arc3.wrenchCount)
 
-    // Execute 5 deliberate Final Pulls with 1.8s cooldown gating between pulls
+    // Execute 5 deliberate Final Pulls with drip-matched cooldown gating between pulls
     for (pull in 1..Arc3Balance.FINAL_PULLS_TOTAL) {
       assertTrue("Pull $pull must be ready", state.arc3.canPerformFinalPull)
       state = Arc3BreachEngine.performFinalPull(state, catalog)
@@ -228,7 +251,7 @@ class Arc3BreachEngineTest {
         // Attempting pull during cooldown is ignored
         val blocked = Arc3BreachEngine.performFinalPull(state, catalog)
         assertEquals(pull, blocked.arc3.finalPullsCompleted)
-        // Tick down cooldown
+        // Tick down cooldown matching story drip visibility
         state = Arc3BreachEngine.tick(state, Arc3Balance.FINAL_PULL_COOLDOWN_SEC + 0.05, catalog)
         assertTrue(state.arc3.canPerformFinalPull)
       }

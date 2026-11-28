@@ -12,12 +12,14 @@ import {
   arc3CanPerformFinalPull,
   arc3FloodLevel,
   arc3IsActivelyClotting,
+  arc3IsClotBursting,
   arc3IsClotFrozen,
   arc3IsInFinale,
   arc3IsJarShattered,
   arc3IsValveSheared,
   arc3LegacyFractureMultiplier,
   arc3LegacyHemorrhageMultiplier,
+  arc3ShatterActForJar,
   arc3ShatteredJarCount,
   arc3TelemetryBlurFactor,
   arc3TotalRuptureInteractions,
@@ -59,7 +61,12 @@ test('Arc 3 Breach wrenching builds momentum, caps fracture at stratum goal, and
   assert.equal(state.arc3.momentumCharge, ARC3_BALANCE.MOMENTUM_GAIN_PER_TAP);
 
   const yieldAfterOne = arc3WrenchFractureYield(state);
-  for (let i = 0; i < 12; i += 1) {
+  for (let i = 0; i < 2; i += 1) {
+    state = wrenchArc3Breach(state, realCatalog);
+  }
+  assert.equal(state.triggeredDialogueIds.includes('dlg_arc3_first_wrench'), false);
+
+  for (let i = 0; i < 15; i += 1) {
     state = wrenchArc3Breach(state, realCatalog);
   }
   assert.ok(state.triggeredDialogueIds.includes('dlg_arc3_first_wrench'));
@@ -71,9 +78,10 @@ test('Arc 3 Breach wrenching builds momentum, caps fracture at stratum goal, and
   }
   assert.equal(state.arc3.fracture, ARC3_STRATA[0].fractureGoal);
   assert.equal(arc3CanDriveWedge(state.arc3), true);
+  assert.equal(arc3ShatterActForJar('yesterdays_dust')?.id, 'shatter_yesterdays_dust');
 });
 
-test('Arc 3 forgiving clotting respects 1.4s grace window, ramps smoothly, floors at 0, and preserves wedges/hemorrhage', () => {
+test('Arc 3 clotting honors 4.5s scroll-safe grace window, triggers early contraction burst, settles, floors at 0, and preserves wedges/hemorrhage', () => {
   let state = freshArc3();
   state = {
     ...state,
@@ -88,18 +96,27 @@ test('Arc 3 forgiving clotting respects 1.4s grace window, ramps smoothly, floor
     },
   };
 
-  // Within grace window: zero clotting decay
-  state = tick(state, 1.0, realCatalog);
+  // Within 4.5s scroll-safe grace window: zero clotting decay
+  state = tick(state, 4.0, realCatalog);
   assert.equal(state.arc3.fracture, 80.0);
   assert.equal(arc3IsActivelyClotting(state.arc3), false);
+  assert.equal(arc3IsClotBursting(state.arc3), false);
 
-  // Past grace window: clotting engages and pulls fracture down while preserving wedges & hemorrhage
-  state = tick(state, 1.0, realCatalog);
+  // Immediately past grace window: early contraction burst snaps back faster than steady rate
+  state = tick(state, 0.7, realCatalog);
+  const burstRate = arc3ActiveClotPerSec(state.arc3);
   assert.equal(arc3IsActivelyClotting(state.arc3), true);
-  assert.ok(arc3ActiveClotPerSec(state.arc3) > 0);
+  assert.equal(arc3IsClotBursting(state.arc3), true);
+  assert.ok(burstRate > 0);
   assert.ok(state.arc3.fracture < 80.0);
   assert.equal(state.arc3.hemorrhage, 250.0);
   assert.deepEqual(state.arc3.lockedWedges, ['broken_grout']);
+
+  // After 2.2s burst window, clotting settles to a lower steady rate
+  state = tick(state, 2.5, realCatalog);
+  assert.equal(arc3IsActivelyClotting(state.arc3), true);
+  assert.equal(arc3IsClotBursting(state.arc3), false);
+  assert.ok(burstRate > arc3ActiveClotPerSec(state.arc3));
 
   // Long idle floors at 0 without losing locked wedges or hemorrhage
   state = tick(state, 120.0, realCatalog);
@@ -184,13 +201,24 @@ test('Arc 3 sequential 5 Memory Wedges and 5 interactive Final Pulls complete in
     assert.equal(arc3CanDriveWedge(state.arc3), true);
     state = driveMemoryWedge(state, realCatalog);
     assert.ok(state.arc3.lockedWedges.includes(stratum.id));
+    if (stratum.id === 'splintered_ribs') {
+      assert.equal(
+        state.triggeredDialogueIds.includes('dlg_arc3_stratum_4_pulse'),
+        false,
+        'Wedge III must not simultaneously double-fire dlg_arc3_stratum_4_pulse',
+      );
+    }
   }
 
   assert.equal(arc3IsInFinale(state.arc3), true);
   assert.equal(state.arc3.submersionComplete, false);
   assert.equal(arc3FloodLevel(state.arc3), 0.86);
-  assert.equal(arc3CanPerformFinalPull(state.arc3), true);
   assert.ok(state.triggeredDialogueIds.includes('dlg_arc3_wedge_5_file_zero'));
+  // Wedge V entry gates Pull 1 with drip-matched cooldown
+  assert.equal(arc3CanPerformFinalPull(state.arc3), false);
+  assert.equal(state.arc3.finalPullCooldownSeconds, ARC3_BALANCE.FINAL_PULL_COOLDOWN_SEC);
+  state = tick(state, ARC3_BALANCE.FINAL_PULL_COOLDOWN_SEC + 0.05, realCatalog);
+  assert.equal(arc3CanPerformFinalPull(state.arc3), true);
 
   for (let pull = 1; pull <= ARC3_BALANCE.FINAL_PULLS_TOTAL; pull += 1) {
     assert.equal(arc3CanPerformFinalPull(state.arc3), true);

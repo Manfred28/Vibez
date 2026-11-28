@@ -382,8 +382,9 @@ export const ARC3_BALANCE = Object.freeze({
   MOMENTUM_MAX_BONUS: 0.8,
   MOMENTUM_DECAY_DELAY_SEC: 0.85,
   MOMENTUM_DECAY_PER_SEC: 0.36,
-  CLOT_GRACE_SEC: 1.4,
-  CLOT_RAMP_SEC: 1.5,
+  CLOT_GRACE_SEC: 4.5,
+  CLOT_BURST_SEC: 2.2,
+  CLOT_BURST_MULTIPLIER: 1.85,
   MAX_ANTI_CLOT_FRACTION: 0.45,
   RIB_FORCE_MULTIPLIER: 1.5,
   FRENZY_MULTIPLIER: 2.0,
@@ -392,7 +393,7 @@ export const ARC3_BALANCE = Object.freeze({
   RUPTURE_LIFETIME_SEC: 16.0,
   MAX_ACTIVE_RUPTURES: 3,
   FINAL_PULLS_TOTAL: 5,
-  FINAL_PULL_COOLDOWN_SEC: 1.8,
+  FINAL_PULL_COOLDOWN_SEC: 14.5,
 });
 
 export function initialArc3State() {
@@ -535,14 +536,31 @@ export function arc3ActiveClotPerSec(breach) {
   if ((breach.fracture ?? 0) <= 0.0) return 0.0;
   const idle = breach.secondsSinceLastAction ?? 0;
   if (idle < ARC3_BALANCE.CLOT_GRACE_SEC) return 0.0;
-  const ramp = Math.max(0, Math.min(1, (idle - ARC3_BALANCE.CLOT_GRACE_SEC) / ARC3_BALANCE.CLOT_RAMP_SEC));
+  const burstElapsed = idle - ARC3_BALANCE.CLOT_GRACE_SEC;
+  const burstProgress = Math.max(0, Math.min(1, burstElapsed / ARC3_BALANCE.CLOT_BURST_SEC));
+  const burstFactor =
+    ARC3_BALANCE.CLOT_BURST_MULTIPLIER -
+    (ARC3_BALANCE.CLOT_BURST_MULTIPLIER - 1.0) * burstProgress;
   const reducedBase = arc3ActiveStratum(breach).baseClotPerSec * (1.0 - arc3AntiClotReduction(breach));
   const netClot = Math.max(reducedBase * 0.25, reducedBase - arc3BleedPressurePerSec(breach) * 0.45);
-  return netClot * (0.35 + 0.65 * ramp);
+  return netClot * burstFactor;
 }
 
 export function arc3IsActivelyClotting(breach) {
   return arc3ActiveClotPerSec(breach) > 0.05 && (breach?.fracture ?? 0) > 0.0;
+}
+
+export function arc3IsClotBursting(breach) {
+  return (
+    arc3IsActivelyClotting(breach) &&
+    (breach?.secondsSinceLastAction ?? 0) - ARC3_BALANCE.CLOT_GRACE_SEC < ARC3_BALANCE.CLOT_BURST_SEC
+  );
+}
+
+export function arc3ShatterActForJar(jarId) {
+  return (
+    ARC3_UNMAKE_ACTS.find((a) => a.category === 'shatter_jar' && a.linkedJar === jarId) ?? null
+  );
 }
 
 export function arc3MomentumMultiplier(breach) {

@@ -6,6 +6,10 @@
   font-display: swap;
 }
 
+[hidden] {
+  display: none !important;
+}
+
 :root {
   --void-abyss: #0a0b0b;
   --sunken-slate: #111313;
@@ -2015,6 +2019,10 @@ body[data-arc='arc_2'] {
   pointer-events: none;
 }
 
+.file-zero-card[hidden] {
+  display: none;
+}
+
 .file-zero-card {
   padding: 14px;
   background: rgba(45, 22, 24, 0.72);
@@ -3370,23 +3378,27 @@ body[data-arc='arc_3'][data-arc3-submerged='true'] {
 .arc3-foreground {
   position: relative;
   z-index: 4;
+  padding-bottom: 54px;
 }
 
 .arc3-jar-shelves {
   position: absolute;
-  top: 10px;
+  bottom: 10px;
   left: 10px;
   right: 10px;
   display: flex;
   justify-content: space-between;
+  align-items: flex-end;
   gap: 6px;
   pointer-events: none;
-  z-index: 3;
+  z-index: 6;
 }
 
 .arc3-jar-slot {
+  position: relative;
   width: 30px;
   height: 38px;
+  padding: 0;
   border-radius: 2px;
   border: 1px solid rgba(198, 55, 63, 0.35);
   background: rgba(16, 6, 8, 0.72);
@@ -3394,6 +3406,40 @@ body[data-arc='arc_3'][data-arc3-submerged='true'] {
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+.arc3-jar-slot.is-actionable {
+  width: 36px;
+  height: 44px;
+  pointer-events: auto;
+  cursor: pointer;
+  border: 1.5px solid #f0767c;
+  box-shadow: 0 0 12px rgba(214, 52, 62, 0.58);
+  transition: transform 90ms ease, box-shadow 180ms ease;
+}
+
+.arc3-jar-slot.is-actionable:hover {
+  transform: scale(1.06);
+  box-shadow: 0 0 16px rgba(240, 118, 124, 0.78);
+}
+
+.arc3-jar-slot.is-actionable:active {
+  transform: scale(0.95);
+}
+
+.arc3-jar-break-tag {
+  position: absolute;
+  bottom: 1px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 0 3px;
+  border-radius: 1.5px;
+  background: rgba(168, 22, 32, 0.94);
+  color: #fff0f1;
+  font-size: 7px;
+  letter-spacing: 0.6px;
+  line-height: 1.3;
+  pointer-events: none;
 }
 
 .arc3-jar-slot.is-shattered {
@@ -3410,9 +3456,52 @@ body[data-arc='arc_3'][data-arc3-submerged='true'] {
   filter: saturate(0.7) contrast(1.08);
 }
 
+.arc3-jar-slot.is-actionable .arc3-jar-img {
+  opacity: 1;
+  filter: saturate(1.08) contrast(1.1);
+}
+
 .arc3-jar-img.is-shattered {
   opacity: 0.86;
   filter: saturate(1.05) contrast(1.12);
+}
+
+.arc3-canvas-wedge-btn {
+  position: relative;
+  align-self: center;
+  z-index: 7;
+  min-height: 44px;
+  max-width: calc(100% - 16px);
+  margin: 2px auto 0;
+  padding: 8px 14px;
+  border-radius: 2px;
+  border: 1.5px solid #f0767c;
+  background: rgba(146, 20, 30, 0.94);
+  color: #fff0f1;
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  cursor: pointer;
+  box-shadow: 0 0 20px rgba(214, 48, 58, 0.62);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.arc3-canvas-wedge-btn:hover {
+  background: rgba(176, 26, 38, 0.98);
+}
+
+.arc3-canvas-wedge-btn:active {
+  transform: scale(0.97);
+}
+
+.status-tag--surge {
+  background: rgba(164, 20, 32, 0.94);
+  border-color: #ff9fa4;
+  color: #fff2f3;
+  box-shadow: 0 0 10px rgba(214, 42, 54, 0.55);
 }
 
 .ichor-label--breach {

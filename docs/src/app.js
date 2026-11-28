@@ -231,11 +231,10 @@ async function main() {
   const inspectCaseBtn = document.getElementById('inspect-case-btn');
   const enterArc3Btn = document.getElementById('enter-arc3-btn');
   const arc3WrenchBtn = document.getElementById('arc3-wrench-btn');
+  const arc3CanvasDriveWedgeBtn = document.getElementById('arc3-canvas-drive-wedge');
   const arc3DriveBannerBtn = document.getElementById('arc3-drive-banner-btn');
   const arc3FinalPullBtn = document.getElementById('arc3-final-pull-btn');
   const arc3SubmergedArchiveBtn = document.getElementById('arc3-submerged-archive-btn');
-  const arc3BackDeskBtn = document.getElementById('arc3-back-desk-btn');
-  const arc3BackChamberBtn = document.getElementById('arc3-back-chamber-btn');
 
   const openArchiveBtn = document.getElementById('open-archive-btn');
   const closeArchiveBtn = document.getElementById('close-archive-btn');
@@ -571,6 +570,12 @@ async function main() {
     arc3WrenchBtn.addEventListener('click', triggerArc3Wrench);
     arc3WrenchBtn.addEventListener('keydown', preventSpaceButtonActivation);
   }
+  if (arc3CanvasDriveWedgeBtn) {
+    arc3CanvasDriveWedgeBtn.addEventListener('click', () => {
+      audio.unlock();
+      applyState(driveMemoryWedge(state, catalog), { action: SOUND_ACTION_HINTS.ARC3_WEDGE });
+    });
+  }
   if (arc3DriveBannerBtn) {
     arc3DriveBannerBtn.addEventListener('click', () => {
       audio.unlock();
@@ -588,12 +593,6 @@ async function main() {
   if (arc3SubmergedArchiveBtn) {
     arc3SubmergedArchiveBtn.addEventListener('click', () => ui.openArchive(state));
   }
-  arc3BackDeskBtn.addEventListener('click', () =>
-    applyState(devSetActiveArc(state, GAME_ARCS.ARC_2_INVESTIGATION, catalog)),
-  );
-  arc3BackChamberBtn.addEventListener('click', () =>
-    applyState(devSetActiveArc(state, GAME_ARCS.ARC_1_CHAMBER, catalog)),
-  );
 
   // Archive Modal
   openArchiveBtn.addEventListener('click', () => ui.openArchive(state));

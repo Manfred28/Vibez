@@ -324,7 +324,6 @@ class OrganViewModel(
       onTearRupture = ::tearArc3Rupture,
       onDriveWedge = ::driveArc3Wedge,
       onPerformFinalPull = ::performArc3FinalPull,
-      onSwitchArc = ::devSetActiveArc,
     )
 
   fun wrenchArc3Breach() =

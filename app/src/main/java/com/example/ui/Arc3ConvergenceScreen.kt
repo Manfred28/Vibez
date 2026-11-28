@@ -64,7 +64,6 @@ import com.example.R
 import com.example.game.Arc3Balance
 import com.example.game.Arc3DeckTab
 import com.example.game.Arc3UnmakeCategory
-import com.example.game.GameArc
 import com.example.game.OrganGameState
 import com.example.ui.components.Arc3BreachCanvas
 import com.example.ui.components.Arc3BreachDeck
@@ -91,8 +90,8 @@ import kotlin.random.Random
  *    and rising Abstract Crimson Flood.
  * 2. Interactive 5-Pull Finale: bottom deck collapses and chrome progressively dissolves across
  *    5 heavy deliberate pulls until total crimson submersion.
- * 3. Submerged Aftermath: full-bleed breathing crimson liquid field with ambiguous quiet and
- *    translucent navigation back to Archive, Chamber, Desk, or Dev Console.
+ * 3. Submerged Aftermath: full-bleed breathing crimson liquid field with ambiguous quiet finality
+ *    (red is the end — only the Fragment Archive and clinical Dev Console remain accessible).
  */
 @Composable
 fun Arc3ConvergenceScreen(
@@ -193,7 +192,6 @@ fun Arc3ConvergenceScreen(
         Arc3SubmergedAftermathContent(
           discoveredCount = state.discoveredDialogues.size,
           onOpenArchive = { archiveVisible = true },
-          onSwitchArc = actions.onSwitchArc,
           onOpenDevTools = onOpenDevTools,
           isAudioMuted = isAudioMuted,
           onToggleAudioMute = onToggleAudioMute,
@@ -240,43 +238,20 @@ fun Arc3ConvergenceScreen(
               wavePhaseProvider = { wavePhaseState.value },
               onWrenchBreach = actions.onWrenchBreach,
               onTearRupture = actions.onTearRupture,
+              onPerformUnmake = { act ->
+                dripChannel.emit(
+                  "arc3_unmake_${act.id}",
+                  if (act.category == Arc3UnmakeCategory.SHATTER_JAR) dripJar else dripTear,
+                )
+                actions.onPerformUnmake(act)
+              },
+              onDriveWedge = {
+                dripChannel.emit("arc3_wedge_${breach.currentStratum}", dripWedge)
+                actions.onDriveWedge()
+              },
               onEmitThematicDrip = dripChannel::emit,
               modifier = Modifier.height(312.dp),
             )
-
-            // Urgent direct Drive Wedge banner whenever Fracture reaches the Stratum goal
-            if (breach.canDriveWedge) {
-              Surface(
-                modifier =
-                  Modifier.fillMaxWidth()
-                    .minimumInteractiveComponentSize()
-                    .testTag("arc3_banner_drive_wedge")
-                    .clickable(role = Role.Button) {
-                      dripChannel.emit("arc3_wedge_${breach.currentStratum}", dripWedge)
-                      actions.onDriveWedge()
-                    },
-                shape = MaterialTheme.shapes.small,
-                color = ArterialCrimson,
-                border = BorderStroke(1.5.dp, BrightMeniscus),
-              ) {
-                Column(
-                  modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 10.dp),
-                  horizontalAlignment = Alignment.CenterHorizontally,
-                  verticalArrangement = Arrangement.spacedBy(2.dp),
-                ) {
-                  Text(
-                    text = stringResource(R.string.arc3_wedge_ready_banner),
-                    style = MaterialTheme.typography.labelSmall.copy(letterSpacing = 1.sp),
-                    color = BloodSoakedPaper,
-                  )
-                  Text(
-                    text = stringResource(R.string.arc3_wedge_drive_action, breach.activeStratum.wedgeTitle),
-                    style = MaterialTheme.typography.titleMedium,
-                    color = BloodSoakedPaper,
-                  )
-                }
-              }
-            }
 
             AnimatedVisibility(
               visible = !breach.isInFinale,
@@ -395,15 +370,20 @@ private fun Arc3TelemetryHeader(
           )
         } else if (breach.isActivelyClotting) {
           val clotStr = String.format("%.1f", breach.activeClotPerSec)
+          val bursting = breach.isClotBursting
           val clotText =
             stringResource(
-              if (showBlurLabels) R.string.arc3_coagulation_label else R.string.arc3_clotting_label,
+              when {
+                bursting -> R.string.arc3_clotting_surge_label
+                showBlurLabels -> R.string.arc3_coagulation_label
+                else -> R.string.arc3_clotting_label
+              },
               clotStr,
             )
           StatusBadge(
             text = clotText,
-            bg = DeepClotTide,
-            fg = BrightMeniscus,
+            bg = if (bursting) ArterialCrimson else DeepClotTide,
+            fg = if (bursting) BloodSoakedPaper else BrightMeniscus,
             tag = "arc3_clotting_badge",
           )
         }
@@ -522,15 +502,19 @@ private fun Arc3FinaleDissolutionContent(
           Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Text(
               text =
-                stringResource(
-                  when {
-                    !ready -> R.string.arc3_finale_pull_wait
-                    pulls >= Arc3Balance.FINAL_PULLS_TOTAL - 1 -> R.string.arc3_finale_pull_last_label
-                    else -> R.string.arc3_finale_pull_label
-                  }
-                ),
-              style = MaterialTheme.typography.titleMedium.copy(letterSpacing = 2.sp),
-              color = if (ready) BloodSoakedPaper else BloodSoakedPaper.copy(alpha = 0.55f),
+                when {
+                  !ready && breach.finalPullCooldownSeconds > 0.0 ->
+                    stringResource(
+                      R.string.arc3_finale_pull_wait_secs,
+                      ceil(breach.finalPullCooldownSeconds).toInt().coerceAtLeast(1),
+                    )
+                  !ready -> stringResource(R.string.arc3_finale_pull_wait)
+                  pulls >= Arc3Balance.FINAL_PULLS_TOTAL - 1 ->
+                    stringResource(R.string.arc3_finale_pull_last_label)
+                  else -> stringResource(R.string.arc3_finale_pull_label)
+                },
+              style = MaterialTheme.typography.titleMedium.copy(letterSpacing = 1.6.sp),
+              color = if (ready) BloodSoakedPaper else BloodSoakedPaper.copy(alpha = 0.62f),
               textAlign = TextAlign.Center,
             )
             if (!ready && breach.finalPullCooldownSeconds > 0.0) {
@@ -575,14 +559,13 @@ private fun breathPhaseStateValue(provider: () -> Float): Float = provider().coe
 
 /**
  * Quiet Submerged Aftermath:
- * Full-bleed breathing crimson liquid field with minimal translucent navigation strip so players
- * can inspect the full Fragment Archive or revisit Chamber / Desk / Dev Console without dead ends.
+ * Full-bleed breathing crimson liquid field with final stillness — red is the end.
+ * Only the translucent Fragment Archive pill remains accessible above the ledger.
  */
 @Composable
 private fun Arc3SubmergedAftermathContent(
   discoveredCount: Int,
   onOpenArchive: () -> Unit,
-  onSwitchArc: (GameArc) -> Unit,
   onOpenDevTools: () -> Unit,
   isAudioMuted: Boolean,
   onToggleAudioMute: () -> Unit,
@@ -607,31 +590,13 @@ private fun Arc3SubmergedAftermathContent(
 
     Spacer(modifier = Modifier.weight(1f))
 
-    // Minimal translucent navigation strip resting quietly above the pinned ledger
-    Row(
-      modifier = Modifier.fillMaxWidth().widthIn(max = 520.dp).padding(bottom = 6.dp),
-      horizontalArrangement = Arrangement.spacedBy(8.dp),
-      verticalAlignment = Alignment.CenterVertically,
-    ) {
-      AftermathNavPill(
-        label = "${stringResource(R.string.arc3_archive_pill)} [$discoveredCount]",
-        testTag = "arc3_aftermath_archive_button",
-        onClick = onOpenArchive,
-        modifier = Modifier.weight(1f),
-      )
-      AftermathNavPill(
-        label = stringResource(R.string.arc3_return_chamber),
-        testTag = "arc3_to_arc1_button",
-        onClick = { onSwitchArc(GameArc.ARC_1_CHAMBER) },
-        modifier = Modifier.weight(1f),
-      )
-      AftermathNavPill(
-        label = stringResource(R.string.arc3_return_desk),
-        testTag = "arc3_to_arc2_button",
-        onClick = { onSwitchArc(GameArc.ARC_2_INVESTIGATION) },
-        modifier = Modifier.weight(1f),
-      )
-    }
+    // Lone translucent Archive pill resting quietly above the pinned ledger (red is the end)
+    AftermathNavPill(
+      label = "${stringResource(R.string.arc3_archive_pill)} [$discoveredCount]",
+      testTag = "arc3_aftermath_archive_button",
+      onClick = onOpenArchive,
+      modifier = Modifier.widthIn(min = 164.dp, max = 240.dp).padding(bottom = 6.dp),
+    )
   }
 }
 

@@ -1043,3 +1043,32 @@ test('Web Arc 2 5-stage photographic desk Slow-Boil quarantine, feathered desk a
     assert.ok(css.includes(selector), `styles.css must style ${selector}`);
   }
 });
+
+test('Arc 2 File #00 seam banner strictly honors [hidden] CSS and Arc 3 exposes canvas wall actions & active-first sorting', () => {
+  const css = readDocsFile('styles.css');
+  const html = readDocsFile('index.html');
+  const arc3UiSrc = readDocsFile('src/ui/arc3BreachUi.js');
+  const appSrc = readDocsFile('src/app.js');
+
+  // 1. Arc 2 red seam banner must never override [hidden] with display: flex
+  assert.ok(css.includes('[hidden] {\n  display: none !important;\n}'));
+  assert.ok(css.includes('.file-zero-card[hidden]'));
+  assert.ok(html.includes('id="file-zero-reveal" class="file-zero-card" hidden'));
+
+  // 2. Arc 3 wall-style canvas actions (interactive shelf jars & on-canvas Drive Wedge)
+  assert.ok(html.includes('id="arc3-canvas-drive-wedge"'));
+  assert.ok(appSrc.includes("document.getElementById('arc3-canvas-drive-wedge')"));
+  assert.ok(css.includes('.arc3-canvas-wedge-btn'));
+  assert.ok(css.includes('.arc3-jar-slot.is-actionable'));
+  assert.ok(css.includes('.status-tag--surge'));
+  assert.ok(arc3UiSrc.includes('arc3ShatterActForJar('));
+  assert.ok(arc3UiSrc.includes('arc3IsClotBursting('));
+  assert.ok(arc3UiSrc.includes('ALREADY UNMADE'));
+
+  // 3. Arc 3 submerged aftermath ends in crimson finality (no return buttons to Chamber or Desk)
+  assert.ok(html.includes('id="arc3-submerged-archive-btn"'));
+  assert.ok(!html.includes('arc3-back-chamber-btn'));
+  assert.ok(!html.includes('arc3-back-desk-btn'));
+  assert.ok(!appSrc.includes('arc3BackChamberBtn'));
+  assert.ok(!appSrc.includes('arc3BackDeskBtn'));
+});

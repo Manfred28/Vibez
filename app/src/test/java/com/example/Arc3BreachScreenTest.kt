@@ -113,15 +113,63 @@ class Arc3BreachScreenTest {
       }
     }
 
-    // Quiet Submerged Aftermath appears with working Archive / Chamber / Desk navigation
+    // Quiet Submerged Aftermath appears with finality: Archive remains, no Chamber/Desk return buttons
     assertTrue(vm.uiState.value.arc3.submersionComplete)
     composeTestRule.onNodeWithTag("arc3_submerged_view").assertIsDisplayed()
     composeTestRule.onNodeWithTag("arc3_aftermath_archive_button").assertIsDisplayed()
-    composeTestRule.onNodeWithTag("arc3_to_arc1_button").assertIsDisplayed()
-    composeTestRule.onNodeWithTag("arc3_to_arc2_button").assertIsDisplayed().performClick()
+    composeTestRule.onNodeWithTag("arc3_to_arc1_button").assertDoesNotExist()
+    composeTestRule.onNodeWithTag("arc3_to_arc2_button").assertDoesNotExist()
+    composeTestRule.onNodeWithTag("arc3_aftermath_archive_button").performClick()
     composeTestRule.waitForIdle()
 
-    assertEquals(GameArc.ARC_2_INVESTIGATION, vm.uiState.value.activeArc)
-    composeTestRule.onNodeWithTag("investigator_screen").assertIsDisplayed()
+    assertEquals(GameArc.ARC_3_CONVERGENCE, vm.uiState.value.activeArc)
+    assertTrue(vm.uiState.value.arc3.submersionComplete)
+  }
+
+  @Test
+  @Config(sdk = [36], qualifiers = "w412dp-h915dp")
+  fun arc3CanvasWallActions_shatterShelfJarAndDriveWedgeDirectlyWithoutScrolling() {
+    val vm = createViewModel()
+    vm.devSetActiveArc(GameArc.ARC_3_CONVERGENCE)
+    vm.devAssignArc3Resources(hemorrhage = 100.0, fillFracture = true)
+
+    composeTestRule.setContent { OrganRoute(viewModel = vm) }
+    composeTestRule.waitForIdle()
+
+    // Affordable intact jar on the canvas shelf is directly tappable right off the wall
+    composeTestRule.onNodeWithTag("arc3_shelf_shatter_yesterdays_dust").assertIsDisplayed().performClick()
+    composeTestRule.waitForIdle()
+    assertTrue(Arc3UnmakeAct.SHATTER_YESTERDAYS_DUST in vm.uiState.value.arc3.completedUnmakes)
+
+    // Ready Memory Wedge renders directly on the breach canvas seam and locks Wedge I on tap
+    composeTestRule.onNodeWithTag("arc3_canvas_drive_wedge").assertIsDisplayed().performClick()
+    composeTestRule.waitForIdle()
+    assertTrue(Arc3Stratum.BROKEN_GROUT in vm.uiState.value.arc3.lockedWedges)
+    assertEquals(2, vm.uiState.value.arc3.currentStratum)
+    composeTestRule.onNodeWithTag("arc3_canvas_drive_wedge").assertDoesNotExist()
+  }
+
+  @Test
+  fun arc2RedSeamBanner_isHiddenAcrossCasesOneToFiveUntilFileZeroIsUnsealed() {
+    val vm = createViewModel()
+    vm.devSetActiveArc(GameArc.ARC_2_INVESTIGATION)
+
+    composeTestRule.setContent { OrganRoute(viewModel = vm) }
+    composeTestRule.waitForIdle()
+
+    for (caseAngle in 1..5) {
+      composeTestRule.runOnIdle {
+        vm.devAssignArc2Resources(caseAngle = caseAngle, completedChapters = caseAngle - 1)
+      }
+      composeTestRule.waitForIdle()
+      composeTestRule.onNodeWithTag("file_zero_reveal_card").assertDoesNotExist()
+    }
+
+    // Unsealing File #00 at the end of Case V reveals the red seam banner
+    composeTestRule.runOnIdle {
+      vm.devAssignArc2Resources(completedChapters = 5)
+    }
+    composeTestRule.waitForIdle()
+    composeTestRule.onNodeWithTag("file_zero_reveal_card").performScrollTo().assertIsDisplayed()
   }
 }

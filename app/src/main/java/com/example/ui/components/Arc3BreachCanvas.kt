@@ -71,6 +71,7 @@ import androidx.compose.ui.unit.sp
 import com.example.R
 import com.example.game.ActiveBreachRupture
 import com.example.game.Arc3Stratum
+import com.example.game.Arc3UnmakeAct
 import com.example.game.BreachRuptureType
 import com.example.game.OrganGameState
 import com.example.game.SpecimenJar
@@ -104,6 +105,8 @@ internal fun Arc3BreachCanvas(
   wavePhaseProvider: () -> Float,
   onWrenchBreach: () -> Unit,
   onTearRupture: (Long) -> Unit,
+  onPerformUnmake: (Arc3UnmakeAct) -> Unit = {},
+  onDriveWedge: () -> Unit = {},
   onEmitThematicDrip: (eventKey: String, text: String) -> Unit,
   modifier: Modifier = Modifier,
 ) {
@@ -250,7 +253,7 @@ internal fun Arc3BreachCanvas(
     }
 
     // 3. Pinned Arc 2 Memory Wedges jammed along the upper breach seam
-    if (breach.lockedWedges.isNotEmpty()) {
+    if (breach.lockedWedges.isNotEmpty() && !breach.canDriveWedge) {
       Row(
         modifier = Modifier.align(Alignment.TopCenter).padding(top = 8.dp, start = 10.dp, end = 10.dp),
         horizontalArrangement = Arrangement.spacedBy(5.dp),
@@ -281,13 +284,7 @@ internal fun Arc3BreachCanvas(
       }
     }
 
-    // 4. Lower left & right Specimen Jar Shelves showing intact vs shattered glass
-    Arc3ShatteredJarShelves(
-      state = state,
-      modifier = Modifier.fillMaxSize(),
-    )
-
-    // 5. Central focal breach trigger: Reverse-wrenching iron valve (Strata I-III) -> Sheared Open Seam (Strata IV-V)
+    // 4. Central focal breach trigger: Reverse-wrenching iron valve (Strata I-III) -> Sheared Open Seam (Strata IV-V)
     if (!breach.isInFinale) {
       Arc3FocalBreachTrigger(
         isValveSheared = breach.isValveSheared,
@@ -305,7 +302,7 @@ internal fun Arc3BreachCanvas(
       )
     }
 
-    // 6. Floating crimson fracture residues
+    // 5. Floating crimson fracture residues
     residues.forEach { res ->
       BreachDissolvingResidue(
         residue = res,
@@ -313,7 +310,7 @@ internal fun Arc3BreachCanvas(
       )
     }
 
-    // 7. Rising animated Volumetric Crimson Flood layer (non-blocking)
+    // 6. Rising animated Volumetric Crimson Flood layer (non-blocking)
     CrimsonFloodOverlay(
       floodLevel = animatedFlood,
       wavePhaseProvider = wavePhaseProvider,
@@ -321,7 +318,49 @@ internal fun Arc3BreachCanvas(
       modifier = Modifier.fillMaxSize().testTag("arc3_crimson_flood_layer"),
     )
 
-    // 8. Active urgent wall ruptures floating above the flood line so they remain effortlessly tappable
+    // 7. Direct wall-action Specimen Jar Shelves (intact affordable jars shatter directly on tap)
+    Arc3ShatteredJarShelves(
+      state = state,
+      breathPhaseProvider = breathPhaseProvider,
+      onShatterJar = { act -> onPerformUnmake(act) },
+      modifier = Modifier.fillMaxSize(),
+    )
+
+    // 8. Direct wall-action Drive Wedge seal pinned at the upper breach seam when Fracture hits goal
+    if (breach.canDriveWedge) {
+      val wedgeHaptic = LocalHapticFeedback.current
+      val wedgeCd = stringResource(R.string.arc3_canvas_wedge_cd)
+      val breath = breathPhaseProvider()
+      Surface(
+        modifier =
+          Modifier.align(Alignment.TopCenter)
+            .padding(top = 6.dp, start = 12.dp, end = 12.dp)
+            .minimumInteractiveComponentSize()
+            .graphicsLayer {
+              val s = 1f + breath * 0.025f
+              scaleX = s
+              scaleY = s
+            }
+            .testTag("arc3_canvas_drive_wedge")
+            .semantics { contentDescription = wedgeCd }
+            .clickable(role = Role.Button) {
+              wedgeHaptic.performHapticFeedback(HapticFeedbackType.LongPress)
+              onDriveWedge()
+            },
+        shape = MaterialTheme.shapes.extraSmall,
+        color = ArterialCrimson.copy(alpha = 0.94f),
+        border = BorderStroke(1.5.dp, BrightMeniscus),
+      ) {
+        Text(
+          text = stringResource(R.string.arc3_canvas_wedge_ready, breach.activeStratum.wedgeTitle),
+          style = MaterialTheme.typography.labelMedium.copy(letterSpacing = 1.sp),
+          color = BloodSoakedPaper,
+          modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+        )
+      }
+    }
+
+    // 9. Active urgent wall ruptures floating above the flood line so they remain effortlessly tappable
     breach.activeRuptures.forEach { rupture ->
       val xDp = canvasW * rupture.xFraction - 38.dp
       val yDp = canvasH * rupture.yFraction - 38.dp
@@ -620,6 +659,8 @@ private fun Arc3FocalBreachTrigger(
 @Composable
 private fun Arc3ShatteredJarShelves(
   state: OrganGameState,
+  breathPhaseProvider: () -> Float,
+  onShatterJar: (Arc3UnmakeAct) -> Unit,
   modifier: Modifier = Modifier,
 ) {
   Box(modifier = modifier) {
@@ -627,13 +668,17 @@ private fun Arc3ShatteredJarShelves(
       jars = FOUNDATIONAL_SHELF_JARS,
       state = state,
       shelfTag = "arc3_jar_shelf_left",
-      modifier = Modifier.align(Alignment.BottomStart).padding(start = 8.dp, bottom = 6.dp),
+      breathPhaseProvider = breathPhaseProvider,
+      onShatterJar = onShatterJar,
+      modifier = Modifier.align(Alignment.BottomStart).padding(start = 6.dp, bottom = 6.dp),
     )
     Arc3ShelfRow(
       jars = DEEP_SHELF_JARS,
       state = state,
       shelfTag = "arc3_jar_shelf_right",
-      modifier = Modifier.align(Alignment.BottomEnd).padding(end = 8.dp, bottom = 6.dp),
+      breathPhaseProvider = breathPhaseProvider,
+      onShatterJar = onShatterJar,
+      modifier = Modifier.align(Alignment.BottomEnd).padding(end = 6.dp, bottom = 6.dp),
     )
   }
 }
@@ -643,48 +688,106 @@ private fun Arc3ShelfRow(
   jars: List<SpecimenJar>,
   state: OrganGameState,
   shelfTag: String,
+  breathPhaseProvider: () -> Float,
+  onShatterJar: (Arc3UnmakeAct) -> Unit,
   modifier: Modifier = Modifier,
 ) {
+  val haptic = LocalHapticFeedback.current
+  val breakTag = stringResource(R.string.arc3_shelf_jar_tag)
   Row(
     modifier = modifier.testTag(shelfTag),
-    horizontalArrangement = Arrangement.spacedBy(3.dp),
+    horizontalArrangement = Arrangement.spacedBy(4.dp),
     verticalAlignment = Alignment.Bottom,
   ) {
     jars.forEach { jar ->
       val shattered = state.arc3.isJarShattered(jar)
       val ownedInArc1 = jar in state.ownedJars
+      val shatterAct = state.arc3.shatterActForJar(jar)
+      val actionableAct = shatterAct?.takeIf { state.arc3.canPerformUnmake(it) }
+      val canShatter = actionableAct != null
+      val jarTitle =
+        when (jar) {
+          SpecimenJar.YESTERDAYS_DUST -> stringResource(R.string.jar_dust_name)
+          SpecimenJar.UNSPENT_BREATH -> stringResource(R.string.jar_breath_name)
+          SpecimenJar.ALMOST_A_NAME -> stringResource(R.string.jar_name_title)
+          SpecimenJar.SALT_FROM_THE_GROUT -> stringResource(R.string.jar_grout_name)
+          SpecimenJar.A_BORROWED_PULSE -> stringResource(R.string.jar_pulse_name)
+          SpecimenJar.THE_UNCOUNTED_HOUR -> stringResource(R.string.jar_hour_name)
+        }
+      val jarCd = stringResource(R.string.arc3_shelf_jar_shatter_cd, jarTitle)
+      val jarShape = RoundedCornerShape(topStart = 7.dp, topEnd = 7.dp, bottomStart = 3.dp, bottomEnd = 3.dp)
+
+      val interactiveModifier =
+        if (actionableAct != null) {
+          Modifier.minimumInteractiveComponentSize()
+            .testTag("arc3_shelf_shatter_${jar.id}")
+            .semantics { contentDescription = jarCd }
+            .clickable(role = Role.Button) {
+              haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+              onShatterJar(actionableAct)
+            }
+        } else {
+          Modifier
+        }
+
       Box(
-        modifier =
-          Modifier.size(width = 24.dp, height = 34.dp)
-            .testTag(if (shattered) "arc3_jar_shattered_${jar.id}" else "arc3_jar_intact_${jar.id}"),
+        modifier = interactiveModifier,
         contentAlignment = Alignment.BottomCenter,
       ) {
-        if (!shattered) {
-          Image(
-            painter = painterResource(id = specimenJarDrawableRes(jar)),
-            contentDescription = null,
-            contentScale = ContentScale.Crop,
-            modifier =
-              Modifier.fillMaxSize()
-                .clip(RoundedCornerShape(topStart = 7.dp, topEnd = 7.dp, bottomStart = 3.dp, bottomEnd = 3.dp))
-                .alpha(if (ownedInArc1) 0.88f else 0.50f),
-          )
-        } else {
-          // Bespoke macro shattered glass jar & spilled crimson brine on rusted iron ledge
-          Image(
-            painter = painterResource(id = R.drawable.img_arc3_shattered_jar),
-            contentDescription = null,
-            contentScale = ContentScale.Crop,
-            modifier =
-              Modifier.fillMaxSize()
-                .clip(RoundedCornerShape(topStart = 7.dp, topEnd = 7.dp, bottomStart = 3.dp, bottomEnd = 3.dp))
-                .border(
-                  0.8.dp,
-                  ArterialCrimson.copy(alpha = 0.65f),
-                  RoundedCornerShape(topStart = 7.dp, topEnd = 7.dp, bottomStart = 3.dp, bottomEnd = 3.dp),
-                )
-                .alpha(0.82f),
-          )
+        Box(
+          modifier =
+            Modifier.size(width = if (canShatter) 30.dp else 26.dp, height = if (canShatter) 40.dp else 34.dp)
+              .graphicsLayer {
+                if (canShatter) {
+                  val s = 1f + breathPhaseProvider() * 0.05f
+                  scaleX = s
+                  scaleY = s
+                }
+              }
+              .testTag(if (shattered) "arc3_jar_shattered_${jar.id}" else "arc3_jar_intact_${jar.id}"),
+          contentAlignment = Alignment.BottomCenter,
+        ) {
+          if (!shattered) {
+            Image(
+              painter = painterResource(id = specimenJarDrawableRes(jar)),
+              contentDescription = null,
+              contentScale = ContentScale.Crop,
+              modifier =
+                Modifier.fillMaxSize()
+                  .clip(jarShape)
+                  .then(
+                    if (canShatter) {
+                      Modifier.border(1.5.dp, BrightMeniscus, jarShape)
+                    } else {
+                      Modifier
+                    }
+                  )
+                  .alpha(if (canShatter) 1f else if (ownedInArc1) 0.85f else 0.50f),
+            )
+            if (canShatter) {
+              Text(
+                text = breakTag,
+                style = MaterialTheme.typography.labelSmall.copy(fontSize = 7.sp, letterSpacing = 0.6.sp),
+                color = BloodSoakedPaper,
+                modifier =
+                  Modifier.align(Alignment.BottomCenter)
+                    .background(ArterialCrimson.copy(alpha = 0.92f), RoundedCornerShape(2.dp))
+                    .padding(horizontal = 3.dp, vertical = 0.5.dp),
+              )
+            }
+          } else {
+            // Bespoke macro shattered glass jar & spilled crimson brine on rusted iron ledge
+            Image(
+              painter = painterResource(id = R.drawable.img_arc3_shattered_jar),
+              contentDescription = null,
+              contentScale = ContentScale.Crop,
+              modifier =
+                Modifier.fillMaxSize()
+                  .clip(jarShape)
+                  .border(0.8.dp, ArterialCrimson.copy(alpha = 0.65f), jarShape)
+                  .alpha(0.82f),
+            )
+          }
         }
       }
     }

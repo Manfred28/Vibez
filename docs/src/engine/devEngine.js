@@ -102,7 +102,9 @@ export function devAssignArc2Resources(
     caseAngle: resolvedAngle,
     completedCasePivots: resolvedPivots,
     pinnedExhibits: Array.from(nextPinned),
-    fileZeroRevealed: resolvedPivots >= 5 || desk.fileZeroRevealed,
+    fileZeroRevealed:
+      resolvedPivots >= 5 ||
+      (caseAngle == null && completedChapters == null && Boolean(desk.fileZeroRevealed)),
   };
   return finalizeProgression({ ...state, arc2: nextDesk }, catalog);
 }

@@ -1540,7 +1540,7 @@
       "mood": "grotesque",
       "trigger": {
         "type": "arc3_wrench_count",
-        "threshold": 3
+        "threshold": 18
       },
       "once": true,
       "speaker": "Jammed Iron",
@@ -1570,12 +1570,12 @@
       "mood": "existential",
       "trigger": {
         "type": "arc3_jars_shattered",
-        "threshold": 3
+        "threshold": 4
       },
       "once": true,
-      "speaker": "Left Shelf // Empty",
+      "speaker": "Four Shelves // Empty",
       "lines": [
-        "Yesterday's dust, unspent breath, the name you almost kept—all three lie in jagged rings along the floor.",
+        "Yesterday's dust, unspent breath, the name you almost kept, salt from the grout—four jagged rings lie along the floor.",
         "Every comfort you sealed away to survive the chamber was only glue holding the tiles shut."
       ]
     },
@@ -1600,7 +1600,7 @@
       "mood": "grotesque",
       "trigger": {
         "type": "arc3_rupture_interacted",
-        "threshold": 1
+        "threshold": 3
       },
       "once": true,
       "speaker": "Torn Clot",
@@ -1615,7 +1615,7 @@
       "mood": "grotesque",
       "trigger": {
         "type": "arc3_unmake_count",
-        "threshold": 2
+        "threshold": 6
       },
       "once": true,
       "speaker": "Reversed Apparatus",
@@ -1630,7 +1630,7 @@
       "mood": "existential",
       "trigger": {
         "type": "arc3_scars_unstitched",
-        "threshold": 1
+        "threshold": 2
       },
       "once": true,
       "speaker": "Unstitched Keloid",
@@ -1689,8 +1689,8 @@
       "phase": 7,
       "mood": "existential",
       "trigger": {
-        "type": "arc3_stratum_reached",
-        "threshold": 4
+        "type": "arc3_unmake_count",
+        "threshold": 13
       },
       "once": true,
       "speaker": "Sheared Flange",

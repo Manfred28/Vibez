@@ -144,127 +144,178 @@ private fun Arc3UnmakePanel(
   val legacyJarTag = stringResource(R.string.arc3_legacy_jar_tag)
   val legacyScarTag = stringResource(R.string.arc3_legacy_scar_tag)
 
+  val completedActs =
+    Arc3UnmakeAct.entries.filter { it in breach.completedUnmakes }
+
   Column(
     modifier = Modifier.fillMaxWidth().testTag("arc3_unmake_panel"),
     verticalArrangement = Arrangement.spacedBy(10.dp),
   ) {
     Arc3UnmakeCategory.entries.forEach { category ->
-      val visibleActs =
-        Arc3UnmakeAct.entries.filter { it.category == category && breach.isUnmakeVisible(it) }
-      if (visibleActs.isNotEmpty()) {
+      val activeActs =
+        Arc3UnmakeAct.entries.filter {
+          it.category == category &&
+            breach.isUnmakeVisible(it) &&
+            it !in breach.completedUnmakes
+        }
+      if (activeActs.isNotEmpty()) {
         Text(
           text = category.label,
           style = MaterialTheme.typography.labelSmall.copy(letterSpacing = 1.2.sp),
           color = BrightMeniscus.copy(alpha = 0.85f),
           modifier = Modifier.padding(top = 2.dp),
         )
-        visibleActs.forEach { act ->
-          val completed = act in breach.completedUnmakes
-          val canPerform = breach.canPerformUnmake(act)
-          val legacyTag =
-            when {
-              act.linkedJar != null && act.linkedJar in state.ownedJars -> legacyJarTag
-              act.linkedScarNode != null && act.linkedScarNode in state.unlockedScarNodes -> legacyScarTag
-              else -> null
-            }
+        activeActs.forEach { act ->
+          Arc3UnmakeCard(
+            state = state,
+            act = act,
+            completed = false,
+            canPerform = breach.canPerformUnmake(act),
+            legacyJarTag = legacyJarTag,
+            legacyScarTag = legacyScarTag,
+            numberFormat = numberFormat,
+            onPerformUnmake = onPerformUnmake,
+          )
+        }
+      }
+    }
 
-          Surface(
-            modifier = Modifier.fillMaxWidth().testTag("arc3_unmake_card_${act.id}"),
-            shape = MaterialTheme.shapes.small,
-            color =
-              when {
-                completed -> DeepClotTide.copy(alpha = 0.55f)
-                canPerform -> colorScheme.surfaceVariant
-                else -> colorScheme.surface
-              },
-            border =
-              BorderStroke(
-                width = 1.dp,
-                color =
-                  when {
-                    completed -> ArterialCrimson.copy(alpha = 0.55f)
-                    canPerform -> BrightMeniscus
-                    else -> colorScheme.outlineVariant
-                  },
-              ),
-          ) {
-            Row(
-              modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 10.dp),
-              horizontalArrangement = Arrangement.spacedBy(10.dp),
-              verticalAlignment = Alignment.CenterVertically,
-            ) {
-              Arc3ThumbnailFrame(
-                drawableRes = arc3UnmakeDrawableRes(act, completed),
-                accent = completed || canPerform,
-                dimmed = completed,
-              )
-              Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                Row(
-                  horizontalArrangement = Arrangement.spacedBy(6.dp),
-                  verticalAlignment = Alignment.CenterVertically,
-                ) {
-                  Text(
-                    text = act.title,
-                    style = MaterialTheme.typography.labelMedium,
-                    color = if (completed) BloodSoakedPaper.copy(alpha = 0.72f) else BloodSoakedPaper,
-                  )
-                  if (legacyTag != null) {
-                    Text(
-                      text = legacyTag,
-                      style = MaterialTheme.typography.labelSmall.copy(fontSize = 8.5.sp),
-                      color = BrightMeniscus,
-                      modifier =
-                        Modifier.background(FreshSeepage, MaterialTheme.shapes.extraSmall)
-                          .padding(horizontal = 4.dp, vertical = 1.dp),
-                    )
-                  }
-                }
-                Text(
-                  text = act.description,
-                  style = MaterialTheme.typography.bodySmall,
-                  color = colorScheme.onSurfaceVariant,
-                )
-              }
+    if (completedActs.isNotEmpty()) {
+      HorizontalDivider(color = colorScheme.outlineVariant)
+      Text(
+        text = stringResource(R.string.arc3_unmake_completed_section),
+        style = MaterialTheme.typography.labelSmall.copy(letterSpacing = 1.2.sp),
+        color = colorScheme.onSurfaceVariant.copy(alpha = 0.72f),
+        modifier = Modifier.padding(top = 2.dp),
+      )
+      completedActs.forEach { act ->
+        Arc3UnmakeCard(
+          state = state,
+          act = act,
+          completed = true,
+          canPerform = false,
+          legacyJarTag = legacyJarTag,
+          legacyScarTag = legacyScarTag,
+          numberFormat = numberFormat,
+          onPerformUnmake = onPerformUnmake,
+        )
+      }
+    }
+  }
+}
 
-              if (completed) {
-                Text(
-                  text = stringResource(R.string.arc3_unmake_done_badge),
-                  style = MaterialTheme.typography.labelSmall,
-                  color = ArterialCrimson,
-                  modifier = Modifier.padding(horizontal = 6.dp),
-                )
-              } else {
-                val actionLabel =
-                  stringResource(
-                    if (act.category == Arc3UnmakeCategory.SHATTER_JAR) R.string.arc3_shatter_action
-                    else R.string.arc3_unmake_action,
-                    numberFormat.format(ceil(act.hemorrhageCost).toLong()),
-                  )
-                Surface(
-                  modifier =
-                    Modifier.minimumInteractiveComponentSize()
-                      .testTag("arc3_unmake_${act.id}")
-                      .clickable(enabled = canPerform, role = Role.Button) {
-                        onPerformUnmake(act)
-                      },
-                  shape = MaterialTheme.shapes.extraSmall,
-                  color = if (canPerform) ArterialCrimson else ArterialShadow,
-                  border =
-                    BorderStroke(
-                      width = 1.dp,
-                      color = if (canPerform) BrightMeniscus else colorScheme.outlineVariant,
-                    ),
-                ) {
-                  Text(
-                    text = actionLabel,
-                    style = MaterialTheme.typography.labelSmall.copy(letterSpacing = 0.6.sp),
-                    color = if (canPerform) BloodSoakedPaper else colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 10.dp),
-                  )
-                }
-              }
-            }
+@Composable
+private fun Arc3UnmakeCard(
+  state: OrganGameState,
+  act: Arc3UnmakeAct,
+  completed: Boolean,
+  canPerform: Boolean,
+  legacyJarTag: String,
+  legacyScarTag: String,
+  numberFormat: NumberFormat,
+  onPerformUnmake: (Arc3UnmakeAct) -> Unit,
+) {
+  val colorScheme = MaterialTheme.colorScheme
+  val legacyTag =
+    when {
+      act.linkedJar != null && act.linkedJar in state.ownedJars -> legacyJarTag
+      act.linkedScarNode != null && act.linkedScarNode in state.unlockedScarNodes -> legacyScarTag
+      else -> null
+    }
+
+  Surface(
+    modifier = Modifier.fillMaxWidth().testTag("arc3_unmake_card_${act.id}"),
+    shape = MaterialTheme.shapes.small,
+    color =
+      when {
+        completed -> DeepClotTide.copy(alpha = 0.55f)
+        canPerform -> colorScheme.surfaceVariant
+        else -> colorScheme.surface
+      },
+    border =
+      BorderStroke(
+        width = 1.dp,
+        color =
+          when {
+            completed -> ArterialCrimson.copy(alpha = 0.55f)
+            canPerform -> BrightMeniscus
+            else -> colorScheme.outlineVariant
+          },
+      ),
+  ) {
+    Row(
+      modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 10.dp),
+      horizontalArrangement = Arrangement.spacedBy(10.dp),
+      verticalAlignment = Alignment.CenterVertically,
+    ) {
+      Arc3ThumbnailFrame(
+        drawableRes = arc3UnmakeDrawableRes(act, completed),
+        accent = completed || canPerform,
+        dimmed = completed,
+      )
+      Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+        Row(
+          horizontalArrangement = Arrangement.spacedBy(6.dp),
+          verticalAlignment = Alignment.CenterVertically,
+        ) {
+          Text(
+            text = act.title,
+            style = MaterialTheme.typography.labelMedium,
+            color = if (completed) BloodSoakedPaper.copy(alpha = 0.72f) else BloodSoakedPaper,
+          )
+          if (legacyTag != null) {
+            Text(
+              text = legacyTag,
+              style = MaterialTheme.typography.labelSmall.copy(fontSize = 8.5.sp),
+              color = BrightMeniscus,
+              modifier =
+                Modifier.background(FreshSeepage, MaterialTheme.shapes.extraSmall)
+                  .padding(horizontal = 4.dp, vertical = 1.dp),
+            )
           }
+        }
+        Text(
+          text = act.description,
+          style = MaterialTheme.typography.bodySmall,
+          color = colorScheme.onSurfaceVariant,
+        )
+      }
+
+      if (completed) {
+        Text(
+          text = stringResource(R.string.arc3_unmake_done_badge),
+          style = MaterialTheme.typography.labelSmall,
+          color = ArterialCrimson,
+          modifier = Modifier.padding(horizontal = 6.dp),
+        )
+      } else {
+        val actionLabel =
+          stringResource(
+            if (act.category == Arc3UnmakeCategory.SHATTER_JAR) R.string.arc3_shatter_action
+            else R.string.arc3_unmake_action,
+            numberFormat.format(ceil(act.hemorrhageCost).toLong()),
+          )
+        Surface(
+          modifier =
+            Modifier.minimumInteractiveComponentSize()
+              .testTag("arc3_unmake_${act.id}")
+              .clickable(enabled = canPerform, role = Role.Button) {
+                onPerformUnmake(act)
+              },
+          shape = MaterialTheme.shapes.extraSmall,
+          color = if (canPerform) ArterialCrimson else ArterialShadow,
+          border =
+            BorderStroke(
+              width = 1.dp,
+              color = if (canPerform) BrightMeniscus else colorScheme.outlineVariant,
+            ),
+        ) {
+          Text(
+            text = actionLabel,
+            style = MaterialTheme.typography.labelSmall.copy(letterSpacing = 0.6.sp),
+            color = if (canPerform) BloodSoakedPaper else colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 10.dp),
+          )
         }
       }
     }

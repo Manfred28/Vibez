@@ -269,7 +269,7 @@
           <section class="chamber-card chamber-card--breach" aria-label="Breach chamber">
             <canvas id="arc3-breach-canvas" class="chamber-backdrop-canvas" aria-hidden="true"></canvas>
             <canvas id="arc3-flood-canvas" class="arc3-flood-canvas" aria-hidden="true"></canvas>
-            <div id="arc3-jar-shelves" class="arc3-jar-shelves" aria-hidden="true"></div>
+            <div id="arc3-jar-shelves" class="arc3-jar-shelves"></div>
 
             <div class="chamber-foreground arc3-foreground">
               <div class="counter-block">
@@ -289,6 +289,16 @@
                   <span id="arc3-surge-badge" class="status-tag status-tag--breach-hot" hidden></span>
                 </div>
               </div>
+
+              <button
+                id="arc3-canvas-drive-wedge"
+                type="button"
+                class="arc3-canvas-wedge-btn"
+                aria-label="Drive memory wedge into the open seam"
+                hidden
+              >
+                DRIVE WEDGE
+              </button>
 
               <div id="arc3-wrench-arena" class="arc3-wrench-arena">
                 <div class="valve-well">
@@ -351,12 +361,6 @@
             <div class="arc3-submerged-nav">
               <button id="arc3-submerged-archive-btn" type="button" class="arc3-ghost-btn">
                 ARCHIVE
-              </button>
-              <button id="arc3-back-chamber-btn" type="button" class="arc3-ghost-btn">
-                CHAMBER
-              </button>
-              <button id="arc3-back-desk-btn" type="button" class="arc3-ghost-btn">
-                DESK
               </button>
             </div>
           </div>

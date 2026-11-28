@@ -128,6 +128,7 @@ export function createUiController(handlers) {
     arc3WrenchYield: document.getElementById('arc3-wrench-yield'),
     arc3WrenchSub: document.getElementById('arc3-wrench-sub'),
     arc3ResidueLayer: document.getElementById('arc3-residue-layer'),
+    arc3CanvasDriveWedge: document.getElementById('arc3-canvas-drive-wedge'),
     arc3DriveBanner: document.getElementById('arc3-drive-banner'),
     arc3DriveBannerBtn: document.getElementById('arc3-drive-banner-btn'),
     arc3FinalePanel: document.getElementById('arc3-finale-panel'),

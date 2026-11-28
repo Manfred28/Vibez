@@ -301,8 +301,6 @@
     <!-- Arc 3: The Unmaking (Breach & Crimson Flood) -->
     <string name="arc3_title">THE OPEN SEAM</string>
     <string name="arc3_subtitle">The room remembers every turn. Pull against the iron until nothing dry remains.</string>
-    <string name="arc3_return_chamber">CHAMBER</string>
-    <string name="arc3_return_desk">DESK</string>
     <string name="arc3_archive_pill">ARCHIVE</string>
     <string name="arc3_hemorrhage_label">HEMORRHAGE</string>
     <string name="arc3_hemorrhage_blur_label">BLOOD LOSS</string>
@@ -317,6 +315,12 @@
     <string name="arc3_tear_open_action">PRY OPEN</string>
     <string name="arc3_wrench_cd">Wrench the breach counter-clockwise to tear the chamber open</string>
     <string name="arc3_tab_unmake">UNMAKE</string>
+    <string name="arc3_clotting_surge_label">SURGE -%1$s/s</string>
+    <string name="arc3_canvas_wedge_ready">DRIVE WEDGE · %1$s</string>
+    <string name="arc3_canvas_wedge_cd">Drive memory wedge into the open seam</string>
+    <string name="arc3_shelf_jar_shatter_cd">Shatter %1$s on the chamber shelf</string>
+    <string name="arc3_shelf_jar_tag">BREAK</string>
+    <string name="arc3_unmake_completed_section">ALREADY UNMADE</string>
     <string name="arc3_tab_wedges">WEDGES</string>
     <string name="arc3_wedge_ready_banner">BREACH WIDE ENOUGH — DRIVE MEMORY WEDGE</string>
     <string name="arc3_wedge_drive_action">DRIVE WEDGE: %1$s</string>
@@ -332,6 +336,7 @@
     <string name="arc3_finale_pull_label">PULL OPEN</string>
     <string name="arc3_finale_pull_last_label">LET IT IN</string>
     <string name="arc3_finale_pull_wait">GIVING WAY…</string>
+    <string name="arc3_finale_pull_wait_secs">GIVING WAY · %1$ds</string>
     <string name="arc3_finale_pull_cd">Pull the last open seam apart into the crimson flood</string>
     <string name="arc3_submerged_title">SUBMERGED</string>
     <string name="arc3_rupture_clotting_seam_cd">Rip clotting seam open before plaster seals</string>

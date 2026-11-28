@@ -180,7 +180,11 @@ test('Arc 2 Slow-Boil Lamp On/Off, Corkboard Wiring, Bulk Warrants, Reel Scrub, 
   assert.equal(arc3.activeArc, GAME_ARCS.ARC_3_CONVERGENCE);
   assert.equal(arc3.activeDialogue?.id, 'dlg_arc3_convergence');
 
-  // Dev helpers sanity
+  // Dev helpers sanity (jumping back to Case II clears File #00 reveal flag)
+  const devCase2 = devAssignArc2Resources(state, { caseAngle: 2 }, realCatalog);
+  assert.equal(devCase2.arc2.caseAngle, 2);
+  assert.equal(devCase2.arc2.fileZeroRevealed, false);
+
   let devState = devToggleArc2Lamp(devResetArc2(devSetActiveArc(arc3, GAME_ARCS.ARC_2_INVESTIGATION, realCatalog), realCatalog), realCatalog);
   assert.equal(devState.arc2.lampOn, false);
   devState = devSetAllScarNodes(devSetActiveArc(devState, GAME_ARCS.ARC_1_CHAMBER, realCatalog), true, realCatalog);

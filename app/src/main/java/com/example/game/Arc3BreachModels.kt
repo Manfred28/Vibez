@@ -396,8 +396,9 @@ object Arc3Balance {
   const val MOMENTUM_MAX_BONUS: Double = 0.80
   const val MOMENTUM_DECAY_DELAY_SEC: Double = 0.85
   const val MOMENTUM_DECAY_PER_SEC: Double = 0.36
-  const val CLOT_GRACE_SEC: Double = 1.40
-  const val CLOT_RAMP_SEC: Double = 1.50
+  const val CLOT_GRACE_SEC: Double = 4.50
+  const val CLOT_BURST_SEC: Double = 2.20
+  const val CLOT_BURST_MULTIPLIER: Double = 1.85
   const val MAX_ANTI_CLOT_FRACTION: Double = 0.45
   const val RIB_FORCE_MULTIPLIER: Double = 1.50
   const val FRENZY_MULTIPLIER: Double = 2.00
@@ -406,7 +407,7 @@ object Arc3Balance {
   const val RUPTURE_LIFETIME_SEC: Double = 16.0
   const val MAX_ACTIVE_RUPTURES: Int = 3
   const val FINAL_PULLS_TOTAL: Int = 5
-  const val FINAL_PULL_COOLDOWN_SEC: Double = 1.8
+  const val FINAL_PULL_COOLDOWN_SEC: Double = 14.5
 }
 
 /**
@@ -505,21 +506,32 @@ data class Arc3BreachState(
   val isClotFrozen: Boolean
     get() = clotFreezeRemainingSeconds > 0.0 || frenzyRemainingSeconds > 0.0
 
-  /** Current active clotting pull (Fracture/sec) after grace window, anti-clot jars, and bleed pressure. */
+  /**
+   * Current active clotting pull (Fracture/sec) after the scroll-safe grace window.
+   * Once grace expires, an early contraction burst snaps Fracture back sharply before settling
+   * into the sustained rate so scrolling down never punishes while prolonged idling still bites.
+   */
   val activeClotPerSec: Double
     get() {
       if (isInFinale || submersionComplete || isClotFrozen || fracture <= 0.0) return 0.0
       if (secondsSinceLastAction < Arc3Balance.CLOT_GRACE_SEC) return 0.0
-      val ramp =
-        ((secondsSinceLastAction - Arc3Balance.CLOT_GRACE_SEC) / Arc3Balance.CLOT_RAMP_SEC)
-          .coerceIn(0.0, 1.0)
+      val burstElapsed = secondsSinceLastAction - Arc3Balance.CLOT_GRACE_SEC
+      val burstProgress = (burstElapsed / Arc3Balance.CLOT_BURST_SEC).coerceIn(0.0, 1.0)
+      val burstFactor =
+        Arc3Balance.CLOT_BURST_MULTIPLIER -
+          (Arc3Balance.CLOT_BURST_MULTIPLIER - 1.0) * burstProgress
       val reducedBase = activeStratum.baseClotPerSec * (1.0 - antiClotReduction)
       val netClot = max(reducedBase * 0.25, reducedBase - bleedPressurePerSec * 0.45)
-      return netClot * (0.35 + 0.65 * ramp)
+      return netClot * burstFactor
     }
 
   val isActivelyClotting: Boolean
     get() = activeClotPerSec > 0.05 && fracture > 0.0
+
+  val isClotBursting: Boolean
+    get() =
+      isActivelyClotting &&
+        (secondsSinceLastAction - Arc3Balance.CLOT_GRACE_SEC) < Arc3Balance.CLOT_BURST_SEC
 
   val momentumMultiplier: Double
     get() = 1.0 + momentumCharge.coerceIn(0.0, 1.0) * Arc3Balance.MOMENTUM_MAX_BONUS
@@ -573,6 +585,11 @@ data class Arc3BreachState(
       act !in completedUnmakes &&
       act.minStratum <= currentStratum &&
       hemorrhage >= act.hemorrhageCost
+
+  fun shatterActForJar(jar: SpecimenJar): Arc3UnmakeAct? =
+    Arc3UnmakeAct.entries.firstOrNull {
+      it.category == Arc3UnmakeCategory.SHATTER_JAR && it.linkedJar == jar
+    }
 }
 
 /** Derived legacy reflection bonuses from real Arc 1 & Arc 2 progress (safe fallback = 1.0x). */

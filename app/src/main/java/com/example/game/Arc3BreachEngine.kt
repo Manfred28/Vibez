@@ -127,7 +127,9 @@ object Arc3BreachEngine {
         secondsSinceLastAction = 0.0,
         clotFreezeRemainingSeconds = if (enteringFinale) 0.0 else 4.0,
         activeRuptures = if (enteringFinale) emptyList() else breach.activeRuptures,
-        finalPullCooldownSeconds = if (enteringFinale) 0.0 else breach.finalPullCooldownSeconds,
+        finalPullCooldownSeconds =
+          if (enteringFinale) Arc3Balance.FINAL_PULL_COOLDOWN_SEC
+          else breach.finalPullCooldownSeconds,
       )
     return OrganGameEngine.finalizeExternalTransition(state.copy(arc3 = updated), catalog)
   }

@@ -16,6 +16,7 @@ import com.example.game.ActiveBreachRupture
 import com.example.game.ActiveDeskAnomaly
 import com.example.game.ActiveWallAnomaly
 import com.example.game.Arc2InvestigatorEngine
+import com.example.game.Arc3Balance
 import com.example.game.Arc3BreachEngine
 import com.example.game.Arc3BreachState
 import com.example.game.Arc3Stratum
@@ -547,7 +548,7 @@ class OrganAudioTest {
       SoundCueResolver.computeAmbientProfile(
         OrganGameState(
           activeArc = GameArc.ARC_3_CONVERGENCE,
-          arc3 = Arc3BreachState(fracture = 50.0, secondsSinceLastAction = 3.5),
+          arc3 = Arc3BreachState(fracture = 50.0, secondsSinceLastAction = Arc3Balance.CLOT_GRACE_SEC + 0.5),
         )
       )
     assertTrue("Actively clotting Arc 3 breach must raise clampTension", arc3Clotting.clampTension > 0.5f)
@@ -814,7 +815,10 @@ class OrganAudioTest {
         .contains(SoundCue.ARC3_WEDGE_DRIVE)
     )
 
-    val clottingStart = base.copy(arc3 = Arc3BreachState(fracture = 40.0, secondsSinceLastAction = 1.35))
+    val clottingStart =
+      base.copy(
+        arc3 = Arc3BreachState(fracture = 40.0, secondsSinceLastAction = Arc3Balance.CLOT_GRACE_SEC - 0.1)
+      )
     val clottingTicked = Arc3BreachEngine.tick(clottingStart, 0.3, catalog)
     assertTrue(
       SoundCueResolver.resolveTransitionCues(clottingStart, clottingTicked, SoundActionHint.TICK)
